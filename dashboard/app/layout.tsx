@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Nav } from "@/components/nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,7 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%238b5cf6'/%3E%3Cpath d='M7 21l5-6 4 3 9-10' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
         />
       </head>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        <Nav />
+        <div className="lg:pl-56">{children}</div>
+      </body>
     </html>
   );
 }

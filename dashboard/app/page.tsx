@@ -9,6 +9,7 @@ import {
 import { CandidatesCard, TopPickCard } from "@/components/panels/candidates";
 import { Badge } from "@/components/ui/badge";
 import { relativeTime } from "@/lib/format";
+import { isDemo, lastSuccessfulRun, useSnapshot } from "@/lib/useSnapshot";
 import type { Snapshot } from "@/lib/types";
 
 /** Read-only view of a published snapshot.
@@ -17,35 +18,12 @@ import type { Snapshot } from "@/lib/types";
  *  engine runs on your machine with your Alpaca keys and writes JSON; this
  *  renders it. A display that can act is no longer a display. */
 export default function Page() {
-  const [snap, setSnap] = React.useState<Snapshot | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        // Cache-busted: the file is republished in place, and a cached read
-        // would show a stale account for as long as the browser felt like it.
-        const res = await fetch(`data/state.json?t=${Date.now()}`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-        const json = (await res.json()) as Snapshot;
-        if (!cancelled) { setSnap(json); setError(null); }
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "could not load snapshot");
-      }
-    };
-
-    load();
-    // Matches the terminal dashboard's 5-second cadence from the Phase 8 spec.
-    const timer = setInterval(load, 5000);
-    return () => { cancelled = true; clearInterval(timer); };
-  }, []);
+  const { snap, error } = useSnapshot();
 
   if (error && !snap) return <ErrorState message={error} />;
   if (!snap) return <LoadingState />;
 
-  const demo = snap.source === "demo";
+  const demo = isDemo(snap);
   // The one name the system would act on. Absent when nothing is approved,
   // which is a real answer rather than a gap.
   const topPick =
@@ -141,9 +119,28 @@ function Masthead({ snap, demo }: { snap: Snapshot; demo: boolean }) {
           {snap.system.paper ? "Paper" : "Live money"}
         </Badge>
         {snap.risk.halted && <Badge variant="negative" dot pulse>Halted</Badge>}
-        <Badge variant="outline">Updated {relativeTime(snap.published_at)}</Badge>
+        <LastRun snap={snap} />
       </div>
     </header>
+  );
+}
+
+/** When the system last completed a run, not when this file was written.
+ *
+ *  Those differ in the case that matters: a run that crashed still publishes,
+ *  so "updated 2m ago" off the file timestamp would report a failure as
+ *  freshness. Reading the last row with status 'ok' cannot do that. */
+function LastRun({ snap }: { snap: Snapshot }) {
+  const run = lastSuccessfulRun(snap);
+  if (!run) {
+    return <Badge variant="outline">Published {relativeTime(snap.published_at)}</Badge>;
+  }
+  const failedSince = (snap.activity?.runs ?? []).findIndex((r) => r.status === "ok") > 0;
+  return (
+    <Badge variant={failedSince ? "warning" : "outline"}
+           title={failedSince ? "A more recent run did not complete" : undefined}>
+      Last run {relativeTime(run.finished_at ?? run.started_at)}
+    </Badge>
   );
 }
 

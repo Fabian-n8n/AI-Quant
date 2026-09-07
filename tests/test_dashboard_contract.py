@@ -17,7 +17,11 @@ from pathlib import Path
 
 import pytest
 
-from monitoring.publish import build_payload, demo_snapshot, publish_demo, regime_mix
+from monitoring.publish import (
+    demo_payload,
+    publish_demo,
+    regime_mix,
+)
 
 TYPES_TS = Path(__file__).resolve().parent.parent / "dashboard" / "lib" / "types.ts"
 STATE_JSON = Path(__file__).resolve().parent.parent / "dashboard" / "public" / "data" / "state.json"
@@ -32,6 +36,17 @@ PANELS = {
     "timing": "Timing",
 }
 ROW_PANELS = {"positions": "PositionRow", "signals": "SignalRow", "candidates": "Candidate"}
+
+#: Activity key -> the interface for one of its rows. Nested under `activity`
+#: rather than at the top level, so they need their own walk: a type that is
+#: declared and never checked is worse than one that is not declared, because
+#: it looks covered.
+ACTIVITY_ROWS = {
+    "orders": "OrderRow",
+    "open_positions": "OpenPositionRow",
+    "closed_positions": "ClosedPositionRow",
+    "runs": "RunRow",
+}
 
 
 #: Strips the body of an inline object type, so `limits: { a: number }` yields
@@ -71,12 +86,14 @@ def parse_interface(name: str) -> set[str]:
 
 @pytest.fixture(scope="module")
 def payload():
-    snapshot = demo_snapshot()
-    return build_payload(
-        snapshot, source="demo",
-        equity_history=snapshot["equity_history"],
-        regime_history=snapshot["regime_history"],
-    )
+    """The exact payload publish_demo writes.
+
+    Built by the publisher rather than reassembled here. The two had already
+    drifted once: this fixture was producing a payload with no activity block
+    while the published file had one, so every activity assertion would have
+    been checking something that never ships.
+    """
+    return demo_payload()
 
 
 # ===========================================================================
@@ -134,6 +151,114 @@ def test_top_level_shape_matches_the_snapshot_interface(payload):
     declared = parse_interface("Snapshot")
     missing = declared - set(payload)
     assert not missing, f"Snapshot declares {sorted(missing)} which is never published"
+
+
+def test_activity_declares_every_key_the_publisher_writes(payload):
+    declared = parse_interface("Activity")
+    published = set(payload["activity"])
+    assert declared == published, (
+        f"Activity declares {sorted(declared - published)} and the publisher "
+        f"writes {sorted(published - declared)}"
+    )
+
+
+@pytest.mark.parametrize("key,interface", sorted(ACTIVITY_ROWS.items()))
+def test_activity_rows_round_trip_from_sqlite(tmp_path, key, interface):
+    """Build a database with one of everything and check the published shape.
+
+    Against a real Repository rather than a hand-written dict, because the
+    thing that breaks is a column rename in the schema, and a fixture that
+    hardcodes the old name would keep passing through it.
+    """
+    from datetime import UTC, datetime
+
+    from data.repository import open_repository
+    from monitoring.publish import activity_from_repo
+
+    repo = open_repository(tmp_path / "state.db")
+    run_id = repo.start_run("paper", "schedule")
+
+    class Trade:
+        trade_id, order_id, symbol, side = "t1", "o1", "COIN", "buy"
+        approved_qty, filled_qty, fill_price = 16, 16, 184.6
+        status, stop_loss, take_profit, regime = "filled", 163.0, None, "strong_bull"
+        submitted_at = filled_at = datetime.now(UTC)
+        notes, skipped_reason = [], None
+
+    repo.record_order(Trade(), run_id=run_id, client_order_id="rt-COIN-buy-20260904")
+    repo.open_position("COIN", 16, 184.6, stop_price=163.0, regime="strong_bull")
+    repo.update_open_position("COIN", current_price=190.0, unrealised_pnl=86.4)
+    repo.open_position("SPY", 3, 770.0)
+    repo.close_position("SPY", 800.0, "target")
+    repo.finish_run(run_id, "ok")
+
+    activity = activity_from_repo(repo)
+    repo.close()
+
+    declared = parse_interface(interface)
+    rows = activity[key]
+    assert rows, f"{key} came back empty, so the contract was not checked"
+    for row in rows:
+        missing = declared - set(row)
+        assert not missing, f"{interface} declares {sorted(missing)}, not in the row"
+
+
+@pytest.mark.parametrize("key,interface", sorted(ACTIVITY_ROWS.items()))
+def test_demo_activity_matches_the_same_interfaces(payload, key, interface):
+    """The demo data is what the deployed URL actually renders, so it has to
+    satisfy the contract as strictly as real data does."""
+    declared = parse_interface(interface)
+    rows = payload["activity"][key]
+    assert rows, f"demo {key} is empty, so the Activity page would look broken"
+    for row in rows:
+        missing = declared - set(row)
+        assert not missing, f"demo {interface} row is missing {sorted(missing)}"
+
+
+def test_the_demo_shows_orders_that_did_not_fill(payload):
+    """A demo where everything filled hides the distinction the page exists to
+    make. Cancelled and skipped orders are not trades."""
+    orders = payload["activity"]["orders"]
+    assert any(o["status"] == "filled" and o["fill_price"] for o in orders)
+    assert any(o["filled_qty"] == 0 for o in orders), "no unfilled order in the demo"
+    assert any(o["skipped_reason"] for o in orders), "no skipped order in the demo"
+
+
+def test_the_demo_shows_a_failed_run(payload):
+    """Otherwise the run-status treatment is never exercised by what ships."""
+    assert any(r["status"] == "failed" for r in payload["activity"]["runs"])
+
+
+def test_closed_position_pnl_matches_its_prices(payload):
+    """Hand-written demo numbers drift from their own arithmetic."""
+    for p in payload["activity"]["closed_positions"]:
+        expected = (p["exit_price"] - p["entry_price"]) * p["quantity"]
+        assert abs(p["realised_pnl"] - expected) < 0.02, f"{p['symbol']} P&L is inconsistent"
+
+
+def test_the_publisher_redacts_broker_ids_from_activity(tmp_path):
+    """Order ids and trade ids are broker-internal and the dashboard is public."""
+    from datetime import UTC, datetime
+
+    from data.repository import open_repository
+    from monitoring.publish import _clean, activity_from_repo
+
+    repo = open_repository(tmp_path / "state.db")
+
+    class Trade:
+        trade_id, order_id, symbol, side = "secret-trade", "secret-order", "COIN", "buy"
+        approved_qty, filled_qty, fill_price = 16, 16, 184.6
+        status, stop_loss, take_profit, regime = "filled", 163.0, None, "strong_bull"
+        submitted_at = filled_at = datetime.now(UTC)
+        notes, skipped_reason = [], None
+
+    repo.record_order(Trade(), client_order_id="rt-COIN-buy-20260904")
+    cleaned = _clean(activity_from_repo(repo))
+    repo.close()
+
+    blob = json.dumps(cleaned)
+    assert "secret-trade" not in blob
+    assert "secret-order" not in blob
 
 
 # ===========================================================================

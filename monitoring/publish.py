@@ -227,6 +227,11 @@ def publish(snapshot: dict[str, Any], path: Path = DEFAULT_OUTPUT, *,
         snapshot, source=source, equity_history=equity_history,
         regime_history=regime_history, notes=notes, activity=activity, engine=engine,
     )
+    return _write(payload, path)
+
+
+def _write(payload: dict[str, Any], path: Path) -> Path:
+    """Atomic write, so the UI never reads half a file."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
@@ -437,17 +442,110 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
     }
 
 
-def publish_demo(path: Path = DEFAULT_OUTPUT) -> Path:
+def demo_activity(seed: int = 7) -> dict[str, Any]:
+    """Sample orders, positions and runs for the Activity page.
+
+    Deliberately includes a cancelled order and a skipped one alongside fills.
+    A demo where everything filled would hide the distinction the page exists
+    to make, and that distinction is exactly what was misread when thirty
+    resting test orders looked like a broken system.
+    """
+    rng = random.Random(seed)
+    now = datetime.now(UTC)
+
+    def when(days: float) -> str:
+        return (now - timedelta(days=days)).isoformat(timespec="seconds")
+
+    orders = [
+        ("COIN", "buy", "limit", 16, 184.64, 184.58, 16, "filled", 0.4, None),
+        ("PLTR", "buy", "limit", 17, 174.40, 174.31, 17, "filled", 0.4, None),
+        ("SPY", "buy", "limit", 3, 770.19, 770.05, 3, "filled", 1.4, None),
+        ("NVDA", "buy", "limit", 12, 241.80, None, 0, "canceled", 2.3, None),
+        ("AMD", "buy", "limit", 14, 208.15, None, 0, "canceled", 3.3,
+         "an equivalent buy order is already open"),
+        ("MSFT", "sell", "limit", 5, 512.40, 512.66, 5, "filled", 5.2, None),
+    ]
+
+    return {
+        "orders": [
+            {
+                "symbol": symbol, "side": side, "order_type": kind, "quantity": qty,
+                "submitted_price": submitted, "fill_price": fill, "filled_qty": filled,
+                "status": status, "submitted_at": when(age),
+                "filled_at": when(age) if fill else None,
+                "stop_loss": round(submitted * 0.92, 2), "regime": "strong_bull",
+                "skipped_reason": skipped,
+            }
+            for symbol, side, kind, qty, submitted, fill, filled, status, age, skipped in orders
+        ],
+        "open_positions": [
+            {"symbol": "COIN", "quantity": 16, "entry_price": 184.58,
+             "entry_at": when(0.4), "current_price": 191.20, "stop_price": 163.04,
+             "unrealised_pnl": round((191.20 - 184.58) * 16, 2), "holding_days": 0,
+             "regime_at_entry": "strong_bull"},
+            {"symbol": "PLTR", "quantity": 17, "entry_price": 174.31,
+             "entry_at": when(0.4), "current_price": 171.05, "stop_price": 157.20,
+             "unrealised_pnl": round((171.05 - 174.31) * 17, 2), "holding_days": 0,
+             "regime_at_entry": "strong_bull"},
+            {"symbol": "SPY", "quantity": 3, "entry_price": 770.05,
+             "entry_at": when(1.4), "current_price": 774.90, "stop_price": 754.41,
+             "unrealised_pnl": round((774.90 - 770.05) * 3, 2), "holding_days": 1,
+             "regime_at_entry": "strong_bull"},
+        ],
+        "closed_positions": [
+            {"symbol": "MSFT", "quantity": 5, "entry_price": 486.10, "entry_at": when(19),
+             "exit_price": 512.66, "exit_at": when(5.2), "exit_reason": "target",
+             "realised_pnl": round((512.66 - 486.10) * 5, 2), "holding_days": 14,
+             "regime_at_entry": "weak_bull"},
+            {"symbol": "TSLA", "quantity": 7, "entry_price": 402.30, "entry_at": when(28),
+             "exit_price": 371.15, "exit_at": when(12), "exit_reason": "trailing_stop",
+             "realised_pnl": round((371.15 - 402.30) * 7, 2), "holding_days": 16,
+             "regime_at_entry": "neutral"},
+            {"symbol": "AVGO", "quantity": 9, "entry_price": 318.75, "entry_at": when(41),
+             "exit_price": 296.40, "exit_at": when(24), "exit_reason": "stop",
+             "realised_pnl": round((296.40 - 318.75) * 9, 2), "holding_days": 17,
+             "regime_at_entry": "weak_bear"},
+        ],
+        "runs": [
+            {"id": 40 - i, "started_at": when(i + 0.02), "finished_at": when(i),
+             "status": "ok" if i != 3 else "failed",
+             "mode": "paper", "trigger": "schedule",
+             "bars_processed": 1, "orders_submitted": rng.randint(0, 3),
+             "regime": "strong_bull", "equity": round(100_000 + rng.uniform(-2000, 4000), 2),
+             "error": None if i != 3 else "broker unreachable after 3 attempts"}
+            for i in range(8)
+        ],
+        "expectancy": {
+            "trades": 3,
+            "expectancy": round((132.80 - 218.05 - 201.15) / 3, 2),
+            "win_rate": 1 / 3, "avg_win": 132.80, "avg_loss": -209.60,
+        },
+    }
+
+
+def demo_payload() -> dict[str, Any]:
+    """The exact payload `publish_demo` writes.
+
+    Separate from `publish_demo` so the contract tests can assert against the
+    same object that ships, rather than reassembling it and slowly drifting
+    from it. They had already drifted once: the test fixture was building a
+    payload with no activity block while the published file had one.
+    """
     snapshot = demo_snapshot()
-    return publish(
-        snapshot, path, source="demo",
+    return build_payload(
+        snapshot, source="demo",
         equity_history=snapshot.pop("equity_history"),
         regime_history=snapshot.pop("regime_history"),
+        activity=demo_activity(),
         notes={
             "banner": "Demo data. Not a real account.",
             "verdict": "no demonstrated edge out-of-sample",
         },
     )
+
+
+def publish_demo(path: Path = DEFAULT_OUTPUT) -> Path:
+    return _write(demo_payload(), path)
 
 
 if __name__ == "__main__":  # pragma: no cover

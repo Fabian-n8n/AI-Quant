@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "source": "demo",
-  "published_at": "2026-09-07T09:18:06.900311+00:00",
-  "timestamp": "2026-09-07T09:18:06.899892+00:00",
+  "published_at": "2026-09-07T15:23:18.770532+00:00",
+  "timestamp": "2026-09-07T15:23:18.770111+00:00",
   "candidates": [
     {
       "symbol": "COIN",
@@ -259,8 +259,8 @@
     "raw_regime": "strong_bull",
     "n_regimes": 7,
     "model_age_days": 2.1,
-    "timestamp": "2026-09-07T09:18:06.899892+00:00",
-    "model_trained": "2026-09-05T06:54:06.899892+00:00"
+    "timestamp": "2026-09-07T15:23:18.770111+00:00",
+    "model_trained": "2026-09-05T12:59:18.770111+00:00"
   },
   "portfolio": {
     "equity": 125652.03,
@@ -320,7 +320,7 @@
   ],
   "signals": [
     {
-      "timestamp": "2026-09-07T09:06:06.899892+00:00",
+      "timestamp": "2026-09-07T15:11:18.770111+00:00",
       "event": "signal_generated",
       "symbol": "COIN",
       "shares": 16,
@@ -330,7 +330,7 @@
       "rejection_reason": null
     },
     {
-      "timestamp": "2026-09-07T09:06:06.899892+00:00",
+      "timestamp": "2026-09-07T15:11:18.770111+00:00",
       "event": "signal_rejected",
       "symbol": "AAPL",
       "shares": 0,
@@ -340,7 +340,7 @@
       "rejection_reason": "correlation_too_high"
     },
     {
-      "timestamp": "2026-09-07T08:05:06.899892+00:00",
+      "timestamp": "2026-09-07T14:10:18.770111+00:00",
       "event": "signal_generated",
       "symbol": "AAPL",
       "shares": 9,
@@ -350,7 +350,7 @@
       "rejection_reason": null
     },
     {
-      "timestamp": "2026-09-06T08:16:06.899892+00:00",
+      "timestamp": "2026-09-06T14:21:18.770111+00:00",
       "event": "signal_rejected",
       "symbol": "TSLA",
       "shares": 0,
@@ -403,7 +403,7 @@
     "market_open": true,
     "bars_processed": 180,
     "consecutive_errors": 0,
-    "started_at": "2026-09-07T03:18:06.899892+00:00",
+    "started_at": "2026-09-07T09:23:18.770111+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -2055,7 +2055,7 @@
     }
   ],
   "freshness": {
-    "bar_timestamp": "2026-09-07T09:18:06.899892+00:00",
+    "bar_timestamp": "2026-09-07T15:23:18.770111+00:00",
     "bar_age_hours": 0.0,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
@@ -2066,5 +2066,286 @@
   "notes": {
     "banner": "Demo data. Not a real account.",
     "verdict": "no demonstrated edge out-of-sample"
+  },
+  "is_demo": true,
+  "activity": {
+    "orders": [
+      {
+        "symbol": "COIN",
+        "side": "buy",
+        "order_type": "limit",
+        "quantity": 16,
+        "submitted_price": 184.64,
+        "fill_price": 184.58,
+        "filled_qty": 16,
+        "status": "filled",
+        "submitted_at": "2026-09-07T05:47:18+00:00",
+        "filled_at": "2026-09-07T05:47:18+00:00",
+        "stop_loss": 169.87,
+        "regime": "strong_bull",
+        "skipped_reason": null
+      },
+      {
+        "symbol": "PLTR",
+        "side": "buy",
+        "order_type": "limit",
+        "quantity": 17,
+        "submitted_price": 174.4,
+        "fill_price": 174.31,
+        "filled_qty": 17,
+        "status": "filled",
+        "submitted_at": "2026-09-07T05:47:18+00:00",
+        "filled_at": "2026-09-07T05:47:18+00:00",
+        "stop_loss": 160.45,
+        "regime": "strong_bull",
+        "skipped_reason": null
+      },
+      {
+        "symbol": "SPY",
+        "side": "buy",
+        "order_type": "limit",
+        "quantity": 3,
+        "submitted_price": 770.19,
+        "fill_price": 770.05,
+        "filled_qty": 3,
+        "status": "filled",
+        "submitted_at": "2026-09-06T05:47:18+00:00",
+        "filled_at": "2026-09-06T05:47:18+00:00",
+        "stop_loss": 708.57,
+        "regime": "strong_bull",
+        "skipped_reason": null
+      },
+      {
+        "symbol": "NVDA",
+        "side": "buy",
+        "order_type": "limit",
+        "quantity": 12,
+        "submitted_price": 241.8,
+        "fill_price": null,
+        "filled_qty": 0,
+        "status": "canceled",
+        "submitted_at": "2026-09-05T08:11:18+00:00",
+        "filled_at": null,
+        "stop_loss": 222.46,
+        "regime": "strong_bull",
+        "skipped_reason": null
+      },
+      {
+        "symbol": "AMD",
+        "side": "buy",
+        "order_type": "limit",
+        "quantity": 14,
+        "submitted_price": 208.15,
+        "fill_price": null,
+        "filled_qty": 0,
+        "status": "canceled",
+        "submitted_at": "2026-09-04T08:11:18+00:00",
+        "filled_at": null,
+        "stop_loss": 191.5,
+        "regime": "strong_bull",
+        "skipped_reason": "an equivalent buy order is already open"
+      },
+      {
+        "symbol": "MSFT",
+        "side": "sell",
+        "order_type": "limit",
+        "quantity": 5,
+        "submitted_price": 512.4,
+        "fill_price": 512.66,
+        "filled_qty": 5,
+        "status": "filled",
+        "submitted_at": "2026-09-02T10:35:18+00:00",
+        "filled_at": "2026-09-02T10:35:18+00:00",
+        "stop_loss": 471.41,
+        "regime": "strong_bull",
+        "skipped_reason": null
+      }
+    ],
+    "open_positions": [
+      {
+        "symbol": "COIN",
+        "quantity": 16,
+        "entry_price": 184.58,
+        "entry_at": "2026-09-07T05:47:18+00:00",
+        "current_price": 191.2,
+        "stop_price": 163.04,
+        "unrealised_pnl": 105.92,
+        "holding_days": 0,
+        "regime_at_entry": "strong_bull"
+      },
+      {
+        "symbol": "PLTR",
+        "quantity": 17,
+        "entry_price": 174.31,
+        "entry_at": "2026-09-07T05:47:18+00:00",
+        "current_price": 171.05,
+        "stop_price": 157.2,
+        "unrealised_pnl": -55.42,
+        "holding_days": 0,
+        "regime_at_entry": "strong_bull"
+      },
+      {
+        "symbol": "SPY",
+        "quantity": 3,
+        "entry_price": 770.05,
+        "entry_at": "2026-09-06T05:47:18+00:00",
+        "current_price": 774.9,
+        "stop_price": 754.41,
+        "unrealised_pnl": 14.55,
+        "holding_days": 1,
+        "regime_at_entry": "strong_bull"
+      }
+    ],
+    "closed_positions": [
+      {
+        "symbol": "MSFT",
+        "quantity": 5,
+        "entry_price": 486.1,
+        "entry_at": "2026-08-19T15:23:18+00:00",
+        "exit_price": 512.66,
+        "exit_at": "2026-09-02T10:35:18+00:00",
+        "exit_reason": "target",
+        "realised_pnl": 132.8,
+        "holding_days": 14,
+        "regime_at_entry": "weak_bull"
+      },
+      {
+        "symbol": "TSLA",
+        "quantity": 7,
+        "entry_price": 402.3,
+        "entry_at": "2026-08-10T15:23:18+00:00",
+        "exit_price": 371.15,
+        "exit_at": "2026-08-26T15:23:18+00:00",
+        "exit_reason": "trailing_stop",
+        "realised_pnl": -218.05,
+        "holding_days": 16,
+        "regime_at_entry": "neutral"
+      },
+      {
+        "symbol": "AVGO",
+        "quantity": 9,
+        "entry_price": 318.75,
+        "entry_at": "2026-07-28T15:23:18+00:00",
+        "exit_price": 296.4,
+        "exit_at": "2026-08-14T15:23:18+00:00",
+        "exit_reason": "stop",
+        "realised_pnl": -201.15,
+        "holding_days": 17,
+        "regime_at_entry": "weak_bear"
+      }
+    ],
+    "runs": [
+      {
+        "id": 40,
+        "started_at": "2026-09-07T14:54:30+00:00",
+        "finished_at": "2026-09-07T15:23:18+00:00",
+        "status": "ok",
+        "mode": "paper",
+        "trigger": "schedule",
+        "bars_processed": 1,
+        "orders_submitted": 2,
+        "regime": "strong_bull",
+        "equity": 103687.19,
+        "error": null
+      },
+      {
+        "id": 39,
+        "started_at": "2026-09-06T14:54:30+00:00",
+        "finished_at": "2026-09-06T15:23:18+00:00",
+        "status": "ok",
+        "mode": "paper",
+        "trigger": "schedule",
+        "bars_processed": 1,
+        "orders_submitted": 3,
+        "regime": "strong_bull",
+        "equity": 101905.61,
+        "error": null
+      },
+      {
+        "id": 38,
+        "started_at": "2026-09-05T14:54:30+00:00",
+        "finished_at": "2026-09-05T15:23:18+00:00",
+        "status": "ok",
+        "mode": "paper",
+        "trigger": "schedule",
+        "bars_processed": 1,
+        "orders_submitted": 0,
+        "regime": "strong_bull",
+        "equity": 102927.65,
+        "error": null
+      },
+      {
+        "id": 37,
+        "started_at": "2026-09-04T14:54:30+00:00",
+        "finished_at": "2026-09-04T15:23:18+00:00",
+        "status": "failed",
+        "mode": "paper",
+        "trigger": "schedule",
+        "bars_processed": 1,
+        "orders_submitted": 0,
+        "regime": "strong_bull",
+        "equity": 100194.13,
+        "error": "broker unreachable after 3 attempts"
+      },
+      {
+        "id": 36,
+        "started_at": "2026-09-03T14:54:30+00:00",
+        "finished_at": "2026-09-03T15:23:18+00:00",
+        "status": "ok",
+        "mode": "paper",
+        "trigger": "schedule",
+        "bars_processed": 1,
+        "orders_submitted": 0,
+        "regime": "strong_bull",
+        "equity": 103458.22,
+        "error": null
+      },
+      {
+        "id": 35,
+        "started_at": "2026-09-02T14:54:30+00:00",
+        "finished_at": "2026-09-02T15:23:18+00:00",
+        "status": "ok",
+        "mode": "paper",
+        "trigger": "schedule",
+        "bars_processed": 1,
+        "orders_submitted": 1,
+        "regime": "strong_bull",
+        "equity": 98224.97,
+        "error": null
+      },
+      {
+        "id": 34,
+        "started_at": "2026-09-01T14:54:30+00:00",
+        "finished_at": "2026-09-01T15:23:18+00:00",
+        "status": "ok",
+        "mode": "paper",
+        "trigger": "schedule",
+        "bars_processed": 1,
+        "orders_submitted": 3,
+        "regime": "strong_bull",
+        "equity": 100509.03,
+        "error": null
+      },
+      {
+        "id": 33,
+        "started_at": "2026-08-31T14:54:30+00:00",
+        "finished_at": "2026-08-31T15:23:18+00:00",
+        "status": "ok",
+        "mode": "paper",
+        "trigger": "schedule",
+        "bars_processed": 1,
+        "orders_submitted": 1,
+        "regime": "strong_bull",
+        "equity": 98544.28,
+        "error": null
+      }
+    ],
+    "expectancy": {
+      "trades": 3,
+      "expectancy": -95.47,
+      "win_rate": 0.3333333333333333,
+      "avg_win": 132.8,
+      "avg_loss": -209.6
+    }
   }
 }

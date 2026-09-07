@@ -68,6 +68,52 @@ export interface Timing {
   acts_on: string; order_type: string; limit_offset_pct: number; session_close_et: string;
 }
 
+/* Activity: what the system actually did, read from state.db.
+ *
+ * Orders and positions are separate types on purpose. A cancelled order is not
+ * a trade, and collapsing the two is exactly how thirty resting test orders
+ * came to look like a broken system. */
+
+export interface OrderRow {
+  symbol: string; side: string; order_type: string; quantity: number;
+  submitted_price: number | null; fill_price: number | null; filled_qty: number;
+  status: string; submitted_at: string; filled_at: string | null;
+  stop_loss: number | null; regime: string | null; skipped_reason: string | null;
+}
+
+export interface OpenPositionRow {
+  symbol: string; quantity: number; entry_price: number; entry_at: string;
+  current_price: number | null; stop_price: number | null;
+  unrealised_pnl: number | null; holding_days: number | null;
+  regime_at_entry: string | null;
+}
+
+export interface ClosedPositionRow {
+  symbol: string; quantity: number; entry_price: number; entry_at: string;
+  exit_price: number; exit_at: string; exit_reason: string;
+  realised_pnl: number; holding_days: number | null; regime_at_entry: string | null;
+}
+
+export interface RunRow {
+  id: number; started_at: string; finished_at: string | null; status: string;
+  mode: string; trigger: string | null; bars_processed: number;
+  orders_submitted: number; regime: string | null; equity: number | null;
+  error: string | null;
+}
+
+export interface Expectancy {
+  trades: number; expectancy: number; win_rate: number;
+  avg_win: number; avg_loss: number;
+}
+
+export interface Activity {
+  orders: OrderRow[];
+  open_positions: OpenPositionRow[];
+  closed_positions: ClosedPositionRow[];
+  runs: RunRow[];
+  expectancy: Expectancy;
+}
+
 export interface Snapshot {
   schema_version: number;
   source: "live" | "demo";
@@ -86,4 +132,9 @@ export interface Snapshot {
   freshness: Freshness;
   timing: Timing;
   notes?: Record<string, unknown>;
+  /* A real boolean from the publisher rather than a string comparison on
+   * `source`, so the demo banner cannot be left showing over real data
+   * because somebody renamed a label. */
+  is_demo: boolean;
+  activity: Activity;
 }
