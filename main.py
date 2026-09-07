@@ -400,6 +400,33 @@ class TradingEngine:
                 trading_logger=self.log,
             )
 
+    def _require_preflight(self) -> None:
+        """Live money needs evidence, not just a flag.
+
+        `--i-understand-live` says the operator accepts the risk. It says
+        nothing about whether the strategy has ever worked, and those are
+        different questions. This one is answered by scripts/preflight.py, at
+        the moment it matters rather than in a checklist somebody intended to
+        read.
+
+        Paper mode never reaches here.
+        """
+        from scripts.preflight import render, run_preflight
+
+        result = run_preflight(self.db_path)
+        if result.passed:
+            logger.warning("Preflight passed. Trading with real money.")
+            return
+
+        failed = [c.name for c in result.checks if not c.passed]
+        print(render(result))
+        raise EngineError(
+            "Preflight failed, refusing to trade live. Unmet: "
+            + "; ".join(failed)
+            + ". Run `python scripts/preflight.py` for the detail. Paper "
+              "trading is unaffected."
+        )
+
     def _open_repository(self) -> None:
         """Open state.db, migrate, and open a run row.
 
@@ -456,6 +483,8 @@ class TradingEngine:
                 "Connected account is LIVE but --i-understand-live was not passed. "
                 "Refusing to continue."
             )
+        if not self.is_paper:
+            self._require_preflight()
 
         if self.market_data is None:
             from data.market_data import MarketDataClient

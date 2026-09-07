@@ -23,6 +23,15 @@ jobs:
       - name: Tests
         run: pytest -q
 
+      # Reported, not enforced. It is expected to fail: the strategy has no
+      # closed paper trades and loses to buy-and-hold out-of-sample. Failing CI
+      # on it would mean a red build on every commit, which trains people to
+      # ignore red builds. The gate that matters is in main.py, where live mode
+      # actually refuses to start.
+      - name: Live-readiness preflight (informational)
+        continue-on-error: true
+        run: python scripts/preflight.py
+
   dashboard:
     name: Dashboard build
     runs-on: ubuntu-latest
