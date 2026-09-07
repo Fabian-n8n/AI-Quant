@@ -14,10 +14,22 @@ logs/
 models/
 *.pkl
 
-# Cached market data and backtest output
-data/cache/
+# Cached market data and backtest output.
+#
+# data/cache/bars/ is deliberately NOT ignored. The scheduled GitHub Actions
+# run commits it back, so the runner starts from a warm cache instead of
+# refetching four years of daily bars for fourteen symbols on every run.
+data/cache/*
+!data/cache/bars/
 backtest/results/*
 !backtest/results/.gitkeep
+
+# state.db is committed by the scheduled run: it is the system's memory, and
+# a job that starts with an empty one has no history to reason about. The WAL
+# and shared-memory sidecars are not, since they are transient and would
+# conflict on every push.
+data/state.db-wal
+data/state.db-shm
 
 # Python
 __pycache__/

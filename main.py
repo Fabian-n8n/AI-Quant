@@ -232,10 +232,14 @@ class TradingEngine:
         model_path: Path | None = None,
         allow_live: bool = False,
         publish_path: Path | None = None,
+        once: bool = False,
+        db_path: Path | None = None,
     ) -> None:
         self.settings = settings
         self.dry_run = dry_run
         self.allow_live = allow_live
+        self.once = once
+        self.db_path = db_path
 
         self.orch = settings.get("orchestration", {})
         self.risk_config = settings["risk"]
@@ -285,6 +289,11 @@ class TradingEngine:
         self.run_after = parse_run_after(schedule.get("run_after", "16:15"))
         self.monitor_seconds = float(schedule.get("monitor_seconds", 300))
         self.calendar = None
+
+        # Durable state. Opened in startup so a failure to migrate is a startup
+        # failure rather than something discovered mid-bar.
+        self.repo = None
+        self.run_id: int | None = None
 
         self.started_at: datetime | None = None
         self.bars_processed = 0
@@ -363,6 +372,7 @@ class TradingEngine:
         """
         self.started_at = datetime.now(UTC)
         self._setup_logging()
+        self._open_repository()         # 0
 
         self._connect_broker()          # 1
         self._check_market_hours()      # 2
@@ -388,6 +398,37 @@ class TradingEngine:
                 rate_limit_minutes=int(self.monitoring_config.get("alert_rate_limit_minutes", 15)),
                 trading_logger=self.log,
             )
+
+    def _open_repository(self) -> None:
+        """Open state.db, migrate, and open a run row.
+
+        The run row is written now, before anything can fail, precisely so that
+        a crash leaves evidence. A process that dies mid-bar writes nothing on
+        the way out, and "the job never ran" and "the job ran and blew up" need
+        different responses from whoever reads the dashboard next.
+        """
+        from data.repository import DEFAULT_DB, open_repository
+
+        try:
+            self.repo = open_repository(self.db_path or DEFAULT_DB)
+            mode = "dry-run" if self.dry_run else ("paper" if self.is_paper else "live")
+            trigger = "manual" if self.once else "loop"
+            self.run_id = self.repo.start_run(mode, trigger)
+            logger.debug("run %d recorded in %s", self.run_id, self.repo.path)
+        except Exception as exc:
+            # Persistence is for the record, not for trading. Losing it should
+            # not stop the system from managing real positions.
+            logger.warning("state database unavailable (%s), continuing without it", exc)
+            self.repo = None
+
+    def _record(self, method: str, *args, **kwargs) -> None:
+        """Best-effort write to state.db. Never lets bookkeeping break a bar."""
+        if self.repo is None:
+            return
+        try:
+            getattr(self.repo, method)(*args, run_id=self.run_id, **kwargs)
+        except Exception as exc:
+            logger.debug("state write %s failed: %s", method, exc)
 
     def _connect_broker(self) -> None:
         """Load config, connect to Alpaca, verify account."""
@@ -1318,6 +1359,7 @@ class TradingEngine:
         self.position_tracker.increment_holding_periods()
         self._capture_stops()
         self._append_history(outcome)
+        self._record_bar_state(outcome)
         self.save_state()
         if self.publish_path is not None:
             self.publish_snapshot()
@@ -1519,6 +1561,7 @@ class TradingEngine:
                 candidate_signal, self.portfolio, quote=quote, overnight=True
             )
             self.log.log_signal(candidate_signal, decision)
+            self._record("record_signal", candidate_signal, decision)
 
             if not decision.approved:
                 outcome.rejected += 1
@@ -1552,6 +1595,8 @@ class TradingEngine:
                 self.session.daily_trades += 1
                 self.log.log_order(trade, EventType.ORDER_SUBMITTED,
                                    trade_id=trade.trade_id, regime=outcome.regime)
+                self._record("record_order", trade,
+                             client_order_id=trade.client_order_id)
                 self._attach_stop(candidate_signal, decision, trade)
             except Exception as exc:
                 outcome.errors.append(f"{candidate_signal.symbol}: {exc}")
@@ -1710,6 +1755,66 @@ class TradingEngine:
                                symbol, exc)
         return updated
 
+    def _record_bar_state(self, outcome: BarOutcome) -> None:
+        """Mirror this bar's portfolio and positions into state.db.
+
+        Positions are reconciled against the broker rather than tracked
+        incrementally. The broker is the authority on what is held, and a
+        locally maintained count drifts the moment a fill happens between
+        cycles or a stop triggers overnight.
+        """
+        if self.repo is None:
+            return
+        try:
+            day_start = self.portfolio.day_start_equity or self.portfolio.equity
+            self.repo.record_equity(
+                self.portfolio.equity,
+                bar_date=str(outcome.timestamp)[:10],
+                cash=getattr(self.portfolio, "cash", None),
+                positions_value=getattr(self.portfolio, "positions_value", None),
+                peak_equity=self.session.peak_equity,
+                daily_pnl=self.portfolio.equity - day_start,
+                open_positions=len(self.position_tracker.positions),
+                regime=outcome.regime,
+                run_id=self.run_id,
+            )
+            self._reconcile_positions_table(outcome)
+        except Exception as exc:
+            logger.debug("bar state write failed: %s", exc)
+
+    def _reconcile_positions_table(self, outcome: BarOutcome) -> None:
+        """Make the positions table match what the broker actually holds."""
+        held = {p.symbol: p for p in self.position_tracker.positions.values()}
+        recorded = {row["symbol"]: row for row in self.repo.open_positions()}
+
+        for symbol, position in held.items():
+            if symbol not in recorded:
+                self.repo.open_position(
+                    symbol, position.qty, position.avg_entry_price,
+                    stop_price=self.session.stops.get(symbol),
+                    regime=outcome.regime,
+                )
+            else:
+                self.repo.update_open_position(
+                    symbol,
+                    current_price=position.current_price,
+                    stop_price=self.session.stops.get(symbol),
+                    unrealised_pnl=position.market_value - position.cost_basis,
+                    holding_days=getattr(position, "holding_periods", None),
+                )
+
+        # Gone from the broker means closed. The exit reason is inferred: a
+        # position whose stop was at or above the last price most likely
+        # stopped out. Inferred rather than known because the fill happens
+        # between cycles and nothing tells us which leg took it.
+        for symbol, row in recorded.items():
+            if symbol in held:
+                continue
+            last = row["current_price"] or row["entry_price"]
+            stop = row["stop_price"]
+            reason = "stop" if stop and last and last <= stop * 1.01 else "closed"
+            self.repo.close_position(symbol, float(last), reason)
+
     def _append_history(self, outcome: BarOutcome) -> None:
         """One equity and regime point per bar, capped at `history_points`."""
         stamp = str(outcome.timestamp)[:10]
@@ -1758,6 +1863,9 @@ class TradingEngine:
 
         if state is BreakerState.HALTED:
             breaker = self.risk_manager.breaker.check(self.portfolio).value
+            self._record("record_breaker", breaker, "tripped",
+                         observed=self.portfolio.drawdown_from_peak,
+                         equity=self.portfolio.equity, detail=outcome.regime)
             self.log.log_breaker(
                 breaker, self.portfolio.drawdown_from_peak, self.portfolio.equity,
                 outcome.regime,
@@ -1915,6 +2023,8 @@ class TradingEngine:
             logger.error("could not save state snapshot: %s", exc)
             path = self.snapshot_path
 
+        self._close_run(reason, unprotected)
+
         self._emit(_EventTypes().SYSTEM_SHUTDOWN,
                    f"Shutdown ({reason}). State saved to {path.name}. "
                    f"Positions left open with stops in place.",
@@ -1923,6 +2033,34 @@ class TradingEngine:
 
         if self.orch.get("print_session_summary", True):
             self.print_session_summary(unprotected)
+
+    def _close_run(self, reason: str, unprotected: list[str]) -> None:
+        """Stamp the run row with how it ended.
+
+        A run left as 'running' means the process died without getting here,
+        which the dashboard shows as a stale run rather than a successful one.
+        That distinction is the reason the row is opened at startup instead of
+        being written in one piece at the end.
+        """
+        if self.repo is None or self.run_id is None:
+            return
+        status = "ok"
+        if self.risk_manager is not None and self.risk_manager.is_halted():
+            status = "halted"
+        elif self.consecutive_errors > 0 or unprotected:
+            status = "failed"
+        try:
+            self.repo.finish_run(
+                self.run_id, status,
+                error=reason if status == "failed" else None,
+                bars_processed=self.bars_processed,
+                orders_submitted=self.orders_submitted,
+                regime=self.session.last_regime,
+                equity=self.account.equity if self.account else None,
+            )
+            self.repo.close()
+        except Exception as exc:
+            logger.debug("could not close the run row: %s", exc)
 
     def print_session_summary(self, unprotected: list[str] | None = None) -> None:
         from rich.console import Console
@@ -2044,6 +2182,7 @@ def run_trading(args) -> int:
         timeframe=args.timeframe,
         allow_live=args.i_understand_live,
         publish_path=DEFAULT_OUTPUT if args.publish else None,
+        once=args.once,
     )
 
     try:

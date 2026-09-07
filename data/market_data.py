@@ -22,7 +22,6 @@ Two things this has to get right, both silent when wrong:
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import threading
 from datetime import UTC, datetime, timedelta
@@ -158,6 +157,43 @@ def _as_utc(value: datetime | None) -> datetime | None:
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
+def _match_tz(moment: pd.Timestamp, reference: pd.Timestamp) -> pd.Timestamp:
+    """Align one timestamp's awareness to another's before comparing them.
+
+    Cached parquet keeps whatever tz Alpaca returned; callers pass anything.
+    Comparing an aware Timestamp to a naive one raises, and the raise would
+    surface as a cache miss and a silent refetch of four years of bars.
+    """
+    aware = reference.tzinfo is not None
+    if aware and moment.tzinfo is None:
+        return moment.tz_localize("UTC")
+    if not aware and moment.tzinfo is not None:
+        return moment.tz_localize(None)
+    return moment
+
+
+def _bar_period(timeframe: str) -> timedelta:
+    """How long one bar covers. The smallest gap worth a network call."""
+    return {
+        "1Min": timedelta(minutes=1), "5Min": timedelta(minutes=5),
+        "15Min": timedelta(minutes=15), "1Hour": timedelta(hours=1),
+    }.get(timeframe, timedelta(days=1))
+
+
+def _extract_symbol(frame: pd.DataFrame, symbol: str) -> pd.DataFrame | None:
+    """One symbol's rows out of a (timestamp, symbol) frame, flat by timestamp."""
+    if frame is None or frame.empty:
+        return None
+    if not isinstance(frame.index, pd.MultiIndex):
+        return frame
+    if "symbol" not in (frame.index.names or []):
+        return None
+    try:
+        return frame.xs(symbol, level="symbol")
+    except KeyError:
+        return None
+
+
 class MarketDataClient:
     """Historical bars, live quotes and streaming, with a disk cache.
 
@@ -223,15 +259,47 @@ class MarketDataClient:
         start, end = _as_utc(start), _as_utc(end)
         end = min(end, latest_allowed) if end else latest_allowed
 
-        if use_cache:
-            cached = self._read_cache(symbol_list, timeframe, start, end, adjusted)
-            if cached is not None:
-                return cached
+        if not use_cache:
+            return self._fetch_bars(symbol_list, timeframe, start, end, adjusted)
 
+        # Work out per symbol what is missing, then fetch the union in one
+        # request. Asking for only the gap is the point: without it, a window
+        # that has advanced by one day refetches four years of history.
+        needed: dict[str, list[tuple[pd.Timestamp, pd.Timestamp]]] = {}
+        for symbol in symbol_list:
+            gaps = self.missing_ranges(symbol, timeframe, start, end, adjusted)
+            if gaps:
+                needed[symbol] = gaps
+
+        if needed:
+            fetch_start = min(g[0] for gaps in needed.values() for g in gaps)
+            fetch_end = max(g[1] for gaps in needed.values() for g in gaps)
+            logger.debug("cache miss for %s, fetching %s to %s",
+                         ", ".join(needed), fetch_start.date(), fetch_end.date())
+            fresh = self._fetch_bars(list(needed), timeframe, fetch_start, fetch_end, adjusted)
+            for symbol in needed:
+                part = _extract_symbol(fresh, symbol)
+                if part is not None and not part.empty:
+                    self._write_store(symbol, timeframe, adjusted, part)
+
+        frames = {}
+        for symbol in symbol_list:
+            part = self._cached_slice(symbol, timeframe, start, end, adjusted)
+            if part is not None and not part.empty:
+                frames[symbol] = part
+        if not frames:
+            logger.warning("No bars available for %s", symbol_list)
+            return pd.DataFrame()
+
+        combined = pd.concat(frames, names=["symbol", "timestamp"])
+        return combined.swaplevel().sort_index()
+
+    def _fetch_bars(self, symbols: list[str], timeframe: str, start, end,
+                    adjusted: bool) -> pd.DataFrame:
         from alpaca.data.requests import StockBarsRequest
 
         request = StockBarsRequest(
-            symbol_or_symbols=symbol_list,
+            symbol_or_symbols=symbols,
             timeframe=self._to_timeframe(timeframe),
             start=start,
             end=end,
@@ -239,13 +307,9 @@ class MarketDataClient:
         )
         frame = self.alpaca_client.data_client.get_stock_bars(request).df
         if frame.empty:
-            logger.warning("No bars returned for %s", symbol_list)
+            logger.warning("No bars returned for %s", symbols)
             return frame
-
-        frame = self._normalise(frame)
-        if use_cache:
-            self._write_cache(frame, symbol_list, timeframe, start, end, adjusted)
-        return frame
+        return self._normalise(frame)
 
     def get_historical(
         self, symbol: str, lookback_days: int = 400, adjusted: bool = True
@@ -432,33 +496,89 @@ class MarketDataClient:
         return problems
 
     # -- cache --------------------------------------------------------------
+    #
+    # Partitioned by symbol, append-only. The previous scheme hashed the whole
+    # request (symbols + range + adjustment) into one filename, which meant a
+    # request one day longer than a cached one shared nothing with it and
+    # refetched four years of bars. Nineteen files had accumulated, none reused.
+    #
+    # Keyed on (symbol, timeframe, adjusted) because those are the three things
+    # that change the *content* of a bar. Ranges are not part of the key: they
+    # are what `missing_ranges` works out against what is already stored.
 
-    def _cache_path(self, symbols, timeframe, start, end, adjusted) -> Path:
-        key = (
-            f"{'-'.join(sorted(symbols))}_{timeframe}_"
-            f"{pd.Timestamp(start).date()}_{pd.Timestamp(end).date()}_"
-            f"{'adj' if adjusted else 'raw'}"
-        )
-        digest = hashlib.sha1(key.encode()).hexdigest()[:12]
-        return self.cache_dir / f"{digest}.parquet"
+    def _store_path(self, symbol: str, timeframe: str, adjusted: bool) -> Path:
+        return (self.cache_dir / "bars" /
+                f"{symbol}_{timeframe}_{'adj' if adjusted else 'raw'}.parquet")
 
-    def _read_cache(self, symbols, timeframe, start, end, adjusted) -> pd.DataFrame | None:
-        path = self._cache_path(symbols, timeframe, start, end, adjusted)
+    def _read_store(self, symbol: str, timeframe: str, adjusted: bool) -> pd.DataFrame | None:
+        path = self._store_path(symbol, timeframe, adjusted)
         if not path.exists():
             return None
         try:
-            logger.debug("Cache hit %s", path.name)
             return pd.read_parquet(path)
         except Exception as exc:
-            logger.warning("Cache read failed (%s), refetching", exc)
+            logger.warning("cache read failed for %s (%s), refetching", symbol, exc)
             return None
 
-    def _write_cache(self, frame, symbols, timeframe, start, end, adjusted) -> None:
-        path = self._cache_path(symbols, timeframe, start, end, adjusted)
+    def _write_store(self, symbol: str, timeframe: str, adjusted: bool,
+                     frame: pd.DataFrame) -> None:
+        """Merge new bars into the symbol's store and write it back.
+
+        New rows win on collision. An adjusted series is rewritten backwards by
+        every split and dividend, so the freshly fetched copy of an overlapping
+        bar is the correct one and the stored copy is stale by definition.
+        """
+        path = self._store_path(symbol, timeframe, adjusted)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = self._read_store(symbol, timeframe, adjusted)
+        if existing is not None and not existing.empty:
+            frame = pd.concat([existing, frame])
+            frame = frame[~frame.index.duplicated(keep="last")]
         try:
-            frame.to_parquet(path)
+            frame.sort_index().to_parquet(path)
         except Exception as exc:
-            logger.debug("Cache write skipped (%s)", exc)
+            logger.debug("cache write skipped for %s (%s)", symbol, exc)
+
+    def missing_ranges(self, symbol: str, timeframe: str, start, end,
+                       adjusted: bool = True) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+        """Which parts of [start, end] are not already on disk.
+
+        Returns the head and tail gaps only. Interior holes are not detected,
+        because the source is contiguous trading days: a range fetched from
+        Alpaca comes back complete or does not come back. Detecting interior
+        gaps would mean reconstructing the trading calendar here to tell a
+        missing bar from a holiday, which is `validate`'s job, not the cache's.
+        """
+        start, end = pd.Timestamp(start), pd.Timestamp(end)
+        stored = self._read_store(symbol, timeframe, adjusted)
+        if stored is None or stored.empty:
+            return [(start, end)]
+
+        index = pd.DatetimeIndex(stored.index)
+        first, last = index.min(), index.max()
+        first, last = _match_tz(first, start), _match_tz(last, start)
+
+        # Ignore gaps shorter than one bar. `start` carries a time of day and
+        # the first stored bar sits at the session open, so a naive comparison
+        # reports a thirteen-hour "gap" at the head of every request and
+        # refetches it forever. There is no bar in there to find.
+        tolerance = _bar_period(timeframe)
+
+        gaps = []
+        if first - start >= tolerance:
+            gaps.append((start, min(first, end)))
+        if end - last >= tolerance:
+            gaps.append((max(last, start), end))
+        return gaps
+
+    def _cached_slice(self, symbol: str, timeframe: str, start, end,
+                      adjusted: bool) -> pd.DataFrame | None:
+        stored = self._read_store(symbol, timeframe, adjusted)
+        if stored is None or stored.empty:
+            return None
+        index = pd.DatetimeIndex(stored.index)
+        lo, hi = _match_tz(pd.Timestamp(start), index[0]), _match_tz(pd.Timestamp(end), index[0])
+        return stored.loc[(index >= lo) & (index <= hi)]
 
     # -- shaping ------------------------------------------------------------
 

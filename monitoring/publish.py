@@ -29,11 +29,14 @@ presented as real account data would be worse than an empty page.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import random
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT = ROOT / "dashboard" / "public" / "data" / "state.json"
@@ -153,6 +156,7 @@ def build_payload(snapshot: dict[str, Any], *, source: str = "live",
                   equity_history: list | None = None,
                   regime_history: list | None = None,
                   notes: dict[str, Any] | None = None,
+                  activity: dict[str, Any] | None = None,
                   engine=None) -> dict[str, Any]:
     """Wrap a `DashboardState.snapshot()` in the envelope the UI expects."""
     payload = {
@@ -166,18 +170,62 @@ def build_payload(snapshot: dict[str, Any], *, source: str = "live",
         "freshness": _clean(freshness(snapshot)),
         "timing": _clean(timing(snapshot, engine)),
         "notes": _clean(notes or {}),
+        # Drives the dashboard's demo banner. A real boolean rather than a
+        # string comparison on `source`, so the banner cannot be left showing
+        # over real data because someone renamed a source label.
+        "is_demo": source == "demo",
+        "activity": _clean(activity or empty_activity()),
     }
     return payload
+
+
+# ---------------------------------------------------------------------------
+# Activity, read from state.db
+# ---------------------------------------------------------------------------
+
+def empty_activity() -> dict[str, Any]:
+    """The shape the Activity page expects when there is nothing to show.
+
+    Returned rather than omitting the key, because a UI that has to handle both
+    "missing" and "empty" will eventually handle only one of them.
+    """
+    return {"orders": [], "open_positions": [], "closed_positions": [],
+            "runs": [], "expectancy": {"trades": 0, "expectancy": 0.0,
+                                       "win_rate": 0.0, "avg_win": 0.0, "avg_loss": 0.0}}
+
+
+def activity_from_repo(repo, limit: int = 100) -> dict[str, Any]:
+    """Orders, positions and runs out of SQLite, newest first.
+
+    Orders and fills stay distinguishable all the way to the UI. A cancelled
+    order is not a trade, and collapsing the two is exactly how thirty resting
+    test orders came to look like a broken system.
+    """
+    def rows(records):
+        return [dict(r) for r in records]
+
+    try:
+        return {
+            "orders": rows(repo.recent_orders(limit=limit)),
+            "open_positions": rows(repo.open_positions()),
+            "closed_positions": rows(repo.closed_positions(limit=limit)),
+            "runs": rows(repo.recent_runs(limit=20)),
+            "expectancy": repo.expectancy(),
+        }
+    except Exception as exc:
+        logger.warning("could not read activity from state.db: %s", exc)
+        return empty_activity()
 
 
 def publish(snapshot: dict[str, Any], path: Path = DEFAULT_OUTPUT, *,
             source: str = "live", equity_history: list | None = None,
             regime_history: list | None = None,
-            notes: dict[str, Any] | None = None, engine=None) -> Path:
+            notes: dict[str, Any] | None = None,
+            activity: dict[str, Any] | None = None, engine=None) -> Path:
     """Write the snapshot to `path`. Atomic, so the UI never reads half a file."""
     payload = build_payload(
         snapshot, source=source, equity_history=equity_history,
-        regime_history=regime_history, notes=notes, engine=engine,
+        regime_history=regime_history, notes=notes, activity=activity, engine=engine,
     )
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -195,6 +243,7 @@ def publish_from_engine(engine, path: Path = DEFAULT_OUTPUT) -> Path:
         "paper": bool(getattr(engine, "is_paper", True)),
         "mode": getattr(engine, "mode", "unknown"),
     }
+    repo = getattr(engine, "repo", None)
     return publish(
         engine.dashboard_state.snapshot(),
         path,
@@ -203,6 +252,7 @@ def publish_from_engine(engine, path: Path = DEFAULT_OUTPUT) -> Path:
         equity_history=list(getattr(engine.session, "equity_history", []) or []),
         regime_history=list(getattr(engine.session, "regime_history", []) or []),
         notes=notes,
+        activity=activity_from_repo(repo) if repo is not None else None,
     )
 
 

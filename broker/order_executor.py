@@ -109,6 +109,7 @@ class TradeRecord:
     stop_loss: float | None
     take_profit: float | None
     order_id: str | None = None
+    client_order_id: str | None = None   # the idempotency key, as sent
     stop_order_id: str | None = None
     submitted_at: datetime | None = None
     filled_at: datetime | None = None
@@ -229,6 +230,7 @@ class OrderExecutor:
             )
 
         client_order_id = self._client_order_id(trade, signal)
+        trade.client_order_id = client_order_id
         request = self._build_request(
             signal.symbol, quantity, side, order_type, price,
             client_order_id=client_order_id,
@@ -305,6 +307,7 @@ class OrderExecutor:
         quantity = float(decision.modified_signal.get("shares", 0))
         side = OrderSide.BUY if signal.direction is Direction.LONG else OrderSide.SELL
         trade = self._new_trade_record(signal, decision, side, quantity)
+        trade.client_order_id = self._client_order_id(trade, signal)
         price = reference_price if reference_price is not None else self._reference_price(signal)
         limit = round(self._limit_price(price, side), 2)
         self._assert_price_sane(signal.symbol, limit, side)
@@ -325,7 +328,7 @@ class OrderExecutor:
             time_in_force=TimeInForce.GTC,      # bracket legs must outlive the session
             order_class=OrderClass.BRACKET,
             limit_price=limit,
-            client_order_id=self._client_order_id(trade, signal),
+            client_order_id=trade.client_order_id,
             take_profit=TakeProfitRequest(limit_price=round(signal.take_profit, 2)),
             stop_loss=StopLossRequest(stop_price=round(signal.stop_loss, 2)),
         )
