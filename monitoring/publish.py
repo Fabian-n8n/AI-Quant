@@ -230,7 +230,7 @@ def _demo_candidate(symbol, rank, approved, action, conviction, shares, notional
         "stop_distance_pct": round(stop_distance, 6),
         "stop_atr_mult": round(stop_distance / atr_pct, 3) if atr_pct else 0.0,
         "risk_dollars": round(risk_dollars, 2),
-        "risk_pct_of_equity": round(risk_dollars / 12_565, 6),
+        "risk_pct_of_equity": round(risk_dollars / 125_652, 6),
         "trend": trend, "price_vs_ema50": price_vs_ema50, "atr_pct": atr_pct,
         "return_20d": ret20, "strategy": strategy,
         "regime": "strong_bull", "regime_confidence": 0.72, "volatility_rank": "low",
@@ -251,7 +251,7 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
     rng = random.Random(seed)
     now = datetime.now(UTC)
 
-    equity, peak = 10_000.0, 10_000.0
+    equity, peak = 100_000.0, 100_000.0
     history, regimes = [], []
     labels = ["neutral", "weak_bull", "strong_bull", "weak_bear", "strong_bear"]
     label = "neutral"
@@ -274,15 +274,15 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
     daily_pnl = equity - day_start
 
     positions = [
-        {"symbol": "SPY", "direction": "LONG", "quantity": 2, "entry_price": 514.20,
-         "current_price": 520.30, "market_value": 1040.60, "stop_loss": 508.00,
-         "has_stop": True, "unrealised_pnl": 12.20, "unrealised_pnl_pct": 0.0119,
+        {"symbol": "SPY", "direction": "LONG", "quantity": 3, "entry_price": 762.40,
+         "current_price": 770.19, "market_value": 2310.57, "stop_loss": 746.62,
+         "has_stop": True, "unrealised_pnl": 23.37, "unrealised_pnl_pct": 0.0102,
          "distance_to_stop_pct": 0.0236, "regime_at_entry": "strong_bull",
          "regime_current": "strong_bull", "regime_changed": False,
          "holding_periods": 3, "held_for": "3h", "adopted": False},
-        {"symbol": "QQQ", "direction": "LONG", "quantity": 2, "entry_price": 719.10,
-         "current_price": 713.15, "market_value": 1426.30, "stop_loss": 705.78,
-         "has_stop": True, "unrealised_pnl": -11.90, "unrealised_pnl_pct": -0.0083,
+        {"symbol": "QQQ", "direction": "LONG", "quantity": 4, "entry_price": 718.96,
+         "current_price": 712.99, "market_value": 2851.96, "stop_loss": 705.63,
+         "has_stop": True, "unrealised_pnl": -23.88, "unrealised_pnl_pct": -0.0083,
          "distance_to_stop_pct": 0.0195, "regime_at_entry": "weak_bull",
          "regime_current": "strong_bull", "regime_changed": True,
          "holding_periods": 9, "held_for": "2d", "adopted": False},
@@ -294,42 +294,45 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
          "signal_regime": regime, "message": message,
          "rejection_reason": rejection}
         for m, event, symbol, shares, notional, regime, message, rejection in [
-            (12, "signal_generated", "COIN", 3, 554.19, "strong_bull",
-             "COIN: approved 3 shares ($554.19)", None),
+            (12, "signal_generated", "COIN", 16, 2954.24, "strong_bull",
+             "COIN: approved 16 shares ($2,954.24)", None),
             (12, "signal_rejected", "AAPL", 0, 0.0, "strong_bull",
              "AAPL: rejected, correlation 0.89 with SPY", "correlation_too_high"),
-            (73, "signal_generated", "AAPL", 4, 1280.44, "weak_bull",
-             "AAPL: approved 4 shares ($1,280.44)", None),
+            (73, "signal_generated", "AAPL", 9, 2879.73, "weak_bull",
+             "AAPL: approved 9 shares ($2,879.73)", None),
             (1502, "signal_rejected", "TSLA", 0, 0.0, "weak_bull",
              "TSLA: rejected, $92 is below the $100 minimum", "below_minimum_size"),
         ]
     ]
 
     candidates = [
-        _demo_candidate("COIN", 1, True, "buy", 0.81, 3, 554.19, 184.73, 166.30,
+        _demo_candidate("COIN", 1, True, "buy", 0.81, 16, 2954.24, 184.64, 163.03,
                         "above", 0.038, 0.0412, 0.094, "LowVolBullStrategy",
-                        modifications=[]),
-        _demo_candidate("AAPL", 2, True, "buy", 0.74, 4, 1280.44, 320.11, 308.71,
+                        modifications=["capped at 3% single position"]),
+        _demo_candidate("AMZN", 2, True, "buy", 0.74, 11, 2843.61, 258.51, 252.91,
+                        "above", 0.019, 0.0092, 0.036, "LowVolBullStrategy",
+                        modifications=["capped at 3% single position"]),
+        _demo_candidate("AAPL", 3, True, "buy", 0.74, 9, 2879.73, 319.97, 308.57,
                         "above", 0.021, 0.0118, 0.043, "LowVolBullStrategy",
-                        modifications=[]),
-        _demo_candidate("SMCI", 3, True, "buy", 0.73, 9, 356.13, 39.57, 32.82,
+                        modifications=["capped at 3% single position"]),
+        _demo_candidate("SMCI", 4, True, "buy", 0.73, 75, 2969.25, 39.59, 32.78,
                         "above", 0.029, 0.0451, 0.077, "LowVolBullStrategy",
-                        modifications=["gap cap: 3x stop gap-through kept under 2% of portfolio"]),
-        _demo_candidate("QQQ", 4, True, "hold", 0.69, 2, 1438.20, 719.10, 705.78,
+                        modifications=["capped at 3% single position"]),
+        _demo_candidate("QQQ", 5, True, "hold", 0.69, 4, 2875.84, 718.96, 705.63,
                         "above", 0.009, 0.0104, 0.018, "LowVolBullStrategy",
-                        modifications=[], held=True, held_quantity=2),
-        _demo_candidate("NVDA", 5, False, "blocked", 0.61, 0, 0.0, 230.36, 206.43,
+                        modifications=[], held=True, held_quantity=4),
+        _demo_candidate("NVDA", 6, False, "blocked", 0.61, 0, 0.0, 230.36, 206.43,
                         "above", 0.034, 0.0295, 0.112, "LowVolBullStrategy",
                         rejection_reason="correlation_too_high",
                         reason="correlation 0.89 with SMCI, above the 0.85 reject threshold"),
-        _demo_candidate("AVGO", 6, False, "blocked", 0.44, 0, 0.0, 358.02, 344.19,
+        _demo_candidate("AVGO", 7, False, "blocked", 0.44, 0, 0.0, 358.02, 344.19,
                         "below", -0.008, 0.0131, -0.014, "LowVolBullStrategy",
                         rejection_reason="sector_limit",
-                        reason="semiconductors already at 31% of equity, cap is 30%"),
-        _demo_candidate("TSLA", 7, False, "blocked", 0.29, 0, 0.0, 354.10, 333.38,
+                        reason="semiconductors already at 30% of equity, cap is 30%"),
+        _demo_candidate("TSLA", 8, False, "blocked", 0.29, 0, 0.0, 354.10, 333.38,
                         "below", -0.041, 0.0384, -0.087, "LowVolBullStrategy",
-                        rejection_reason="below_minimum_size",
-                        reason="$71 is below the $100 minimum after all reductions")
+                        rejection_reason="duplicate_order",
+                        reason="TSLA long already sent within the 60s duplicate window")
     ]
 
     return {
@@ -348,7 +351,7 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
             "buying_power": round(equity * 2.4, 2), "daily_pnl": round(daily_pnl, 2),
             "daily_pnl_pct": daily_pnl / day_start, "allocation": 0.50,
             "target_allocation": 0.95, "leverage": 0.50, "gross_exposure": 0.50,
-            "n_positions": len(positions), "unrealised_pnl": 0.30,
+            "n_positions": len(positions), "unrealised_pnl": -0.51,
             "peak_equity": round(peak, 2), "day_start_equity": round(day_start, 2),
             "daily_trades": 2,
         },

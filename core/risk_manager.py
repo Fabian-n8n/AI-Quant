@@ -44,7 +44,7 @@ trade. That is below `max_risk_per_trade` (1%), so the minimum always picks the
 gap-capped figure. Since this is a swing system, every position is held
 overnight, so the 1% figure never applies to anything.
 
-Both are recorded in docs/PHASE5-NOTES.md with the arithmetic.
+Both are recorded in docs/phases/05-risk-layer.md with the arithmetic.
 
 THE BREAKER THRESHOLDS DO NOT SURVIVE CONTACT WITH THIS STRATEGY
 ----------------------------------------------------------------
@@ -771,7 +771,7 @@ class RiskManager:
         With the shipped 3x and 2%, this allows 0.667% of equity at risk, which
         is **below** `max_risk_per_trade` (1%). The gap cap therefore always
         binds, and since every position in a swing system is held overnight, the
-        1% figure never applies to anything. See docs/PHASE5-NOTES.md.
+        1% figure never applies to anything. See docs/phases/05-risk-layer.md.
         """
         if stop_distance <= 0 or equity <= 0:
             return 0

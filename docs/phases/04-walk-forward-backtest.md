@@ -209,7 +209,7 @@ describing the system that runs.
 
 This is the unresolved decision from Phase 3, and it now has a cost attached:
 until it is settled, every backtest result is measuring a configuration that
-cannot be traded. See `docs/PHASE3-NOTES.md` section 7.
+cannot be traded. See `docs/phases/03-allocation-strategies.md` section 7.
 
 ---
 

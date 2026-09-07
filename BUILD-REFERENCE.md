@@ -87,7 +87,7 @@ It does not predict prices. It classifies what kind of market this is, from
 price action and volume, into calm / moderate / turbulent. Everything downstream
 keys off that.
 
-Implemented. Read `docs/PHASE2-NOTES.md` before changing anything here; three
+Implemented. Read `docs/phases/02-hmm-engine.md` before changing anything here; three
 issues with the spec were found and worked around, and the workarounds are not
 obvious from the code alone.
 
@@ -139,7 +139,7 @@ are opposite on the first ordering and adjacent on the second. Phase 3 must call
 Files: `core/regime_strategies.py`, `core/signal_generator.py`.
 
 The brain says what kind of market it is; this decides how much capital that
-market deserves. Read `docs/PHASE3-NOTES.md` before changing anything here.
+market deserves. Read `docs/phases/03-allocation-strategies.md` before changing anything here.
 
 | Tier | Vol rank | Allocation | Leverage | Stop |
 |---|---|---|---|---|
@@ -183,7 +183,7 @@ Files: `backtest/backtester.py`, `performance.py`, `stress_test.py`.
 bar and rebalances when the target drifts more than 10%. A "trade" is a
 rebalance-to-rebalance holding period, not a round trip.
 
-Read `docs/PHASE4-NOTES.md` before changing anything here.
+Read `docs/phases/04-walk-forward-backtest.md` before changing anything here.
 
 ```bash
 python main.py backtest --symbols SPY --start 2019-01-01 --end 2024-12-31

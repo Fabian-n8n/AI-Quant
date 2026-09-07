@@ -306,7 +306,7 @@ FEATURE_COLUMNS: list[str] = [
 ]
 
 #: Subset carrying the volatility signal, for when the full set is too wide to
-#: fit. See `check_fittability` and docs/PHASE2-NOTES.md.
+#: fit. See `check_fittability` and docs/phases/02-hmm-engine.md.
 VOLATILITY_FEATURES: list[str] = [
     "realvol_20",
     "vol_ratio_5_20",

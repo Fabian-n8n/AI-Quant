@@ -61,7 +61,7 @@ Three ways out, in order of preference:
    n*d*(d+1)/2 to n*d.
 3. Train on more data. The expanding window makes this free over time.
 
-Set `hmm.feature_columns` in settings.yaml. See docs/PHASE2-NOTES.md.
+Set `hmm.feature_columns` in settings.yaml. See docs/phases/02-hmm-engine.md.
 """
 
 from __future__ import annotations
@@ -322,7 +322,7 @@ def check_fittability(
             f"  1. Set hmm.feature_columns to the 6-column VOLATILITY_FEATURES set.\n"
             f"  2. Set hmm.covariance_type to 'diag'.\n"
             f"  3. Train on more bars (min_train_bars, or a longer history).\n"
-            f"See docs/PHASE2-NOTES.md."
+            f"See docs/phases/02-hmm-engine.md."
         )
     if over:
         logger.warning(
@@ -772,7 +772,7 @@ class HMMEngine:
         if not all_bic:
             raise RuntimeError(
                 "Every candidate failed to fit. Usually means the model is too "
-                "large for the data: see check_fittability and docs/PHASE2-NOTES.md."
+                "large for the data: see check_fittability and docs/phases/02-hmm-engine.md."
             )
 
         logger.info(

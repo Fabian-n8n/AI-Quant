@@ -54,7 +54,7 @@ Per the spec there are no per-trade stops in the backtester; stops are a live
 trading concern. The consequence is that this measures the **unclamped** Phase 3
 allocations. Phase 5's risk manager will cap gross exposure at
 `risk.max_exposure`, and low-vol targets 118.75%, so live behaviour will differ
-from these results until that conflict is settled. See docs/PHASE3-NOTES.md.
+from these results until that conflict is settled. See docs/phases/03-allocation-strategies.md.
 """
 
 from __future__ import annotations

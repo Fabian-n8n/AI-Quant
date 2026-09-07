@@ -115,7 +115,7 @@ strategy that differs from the one documented. Options: raise `max_exposure`
 (contradicts the no-leverage constraint), lower the strategy allocations, or
 raise `max_concurrent` toward the universe size.
 
-Full detail in `docs/PHASE3-NOTES.md` section 7.
+Full detail in `docs/phases/03-allocation-strategies.md` section 7.
 
 ---
 

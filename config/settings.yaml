@@ -115,7 +115,7 @@ hmm:
   # Set to `volatility` for the 6-column subset that fits at 504 rows and suits
   # the design philosophy: this is a volatility classifier, and it does not need
   # momentum and mean-reversion features to do that job.
-  # See docs/PHASE2-NOTES.md.
+  # See docs/phases/02-hmm-engine.md.
   feature_columns: volatility    # `volatility` | `all` | explicit list
   strict_fittability: true       # fail loudly rather than fit garbage
 
@@ -144,7 +144,7 @@ strategy:
   # selloff. On a long that is an instant stop-out, and Phase 5 sizes as
   # risk / abs(entry - stop), so it is also a division by zero. Measured on the
   # synthetic fixture, the clamp fires on 38-47% of bars and a majority of those
-  # were the fatal case. See docs/PHASE3-NOTES.md.
+  # were the fatal case. See docs/phases/03-allocation-strategies.md.
   ema_span: 50
   atr_window: 14
   min_stop_atr_mult: 0.5           # stop must be >= this many ATR below entry
@@ -158,8 +158,20 @@ risk:
   max_risk_per_trade: 0.01     # 1% of portfolio per trade
   max_exposure: 0.80           # 20% cash minimum
   max_leverage: 1.25           # CONFLICT: CLAUDE.md hard constraint is 1.0
-  max_single_position: 0.15
-  max_concurrent: 5
+  # Position size is capped here, and on a $100,000 account this is the number
+  # that decides what an order looks like. At the tutorial's 0.15 a single
+  # position is $15,000; at 0.03 it is $3,000, and volatile names with wide
+  # stops land in the hundreds because risk sizing bites first.
+  #
+  # DEVIATION from the tutorial's 0.15, deliberately. Note the tension it
+  # creates: the low-volatility strategy targets 95% invested, and 12 positions
+  # at 3% reaches 36%. The cap wins, so the allocation target is aspirational
+  # until one of the two numbers moves. See docs/TUTORIAL-CONFLICTS.md.
+  max_single_position: 0.03
+  # Raised from the tutorial's 5. With small positions a five-name limit would
+  # strand the portfolio at 15% invested against a 95% target, and would also
+  # mean the watchlist ranks 14 names to act on three.
+  max_concurrent: 12
   max_daily_trades: 20
 
   # Circuit breakers. CONFLICT: CLAUDE.md argues these are day-trading numbers
@@ -175,16 +187,14 @@ risk:
 
   # -- account size ---------------------------------------------------------
   # Size positions as if the account held this much, regardless of what the
-  # broker reports. Set to `null` to use the real balance.
+  # broker reports. `null` uses the real balance, which is the setting here: the
+  # dashboard should show the same $100,000 the Alpaca paper account holds.
   #
-  # This exists because an Alpaca paper account is funded with $100,000 of
-  # imaginary money, and sizing against it produces orders nobody can actually
-  # place: 62 shares of SPY is $31,880. Rehearsing at a size you will never
-  # trade teaches you nothing about the size you will.
-  #
-  # CLAUDE.md is explicit that this should be your real intended starting
-  # capital. Change this one number to yours.
-  account_size_override: 10000
+  # Set it to a number if you ever want to rehearse against your real intended
+  # capital instead. Changing it is safe: the session snapshot records the basis
+  # it was written against and rebases the drawdown baselines rather than
+  # reading the change as a 90% loss.
+  account_size_override: null
 
   # -- position level -------------------------------------------------------
   min_position_usd: 100        # below this, costs outweigh the position
@@ -197,7 +207,7 @@ risk:
   # NOTE: with 3x and 2%, the gap cap is 0.02/3 = 0.667% of equity, which is
   # BELOW max_risk_per_trade (1%). The gap constraint therefore always binds,
   # and since this is a swing system every position is held overnight. Effective
-  # risk per trade is 0.667%, not 1%. See docs/PHASE5-NOTES.md.
+  # risk per trade is 0.667%, not 1%. See docs/phases/05-risk-layer.md.
   gap_multiplier: 3.0
   gap_max_loss_pct: 0.02
 
@@ -268,7 +278,7 @@ orchestration:
                                  # memory. Shutdown deliberately leaves positions
                                  # open, so an in-memory-only stop would mean an
                                  # unprotected position the moment the process
-                                 # exits. See docs/PHASE7-NOTES.md section 4.
+                                 # exits. See docs/phases/07-main-loop.md section 4.
   update_stops_each_bar: true    # recompute the regime's stop and tighten only
 
   # Session summary written on shutdown.

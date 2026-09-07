@@ -142,7 +142,7 @@ Phase 6 stub, so the first real fit waits on Alpaca credentials. Expect the
 state count and regime statistics to shift, and expect to revisit
 `feature_columns` when they do.
 
-Full detail in `docs/PHASE2-NOTES.md`.
+Full detail in `docs/phases/02-hmm-engine.md`.
 
 ### 2026-09-07 - Phase 3 complete
 
@@ -187,7 +187,7 @@ so it will clamp both, meaning the strategy never runs at its stated allocation.
 Compounding it, the universe is 10 symbols but `max_concurrent` is 5, so 95%
 spread across 10 realises 47.5%. Settle this before Phase 4 measures anything,
 or the backtest describes a different strategy than the documentation.
-See `docs/PHASE3-NOTES.md` section 7 and `docs/TUTORIAL-CONFLICTS.md`.
+See `docs/phases/03-allocation-strategies.md` section 7 and `docs/TUTORIAL-CONFLICTS.md`.
 
 Nothing in this phase is backtested. The backtester is Phase 4, so every
 allocation number, the trend filter, the stop multiples and the rebalance
@@ -263,7 +263,7 @@ what risk-layer independence requires), and overnight gaps are the dominant
 risk: a 5x ATR gap sequence leaves only **33% of runs surviving** while every
 crash scenario including -15% x10 survives 100%.
 
-Full detail in `docs/PHASE4-NOTES.md`.
+Full detail in `docs/phases/04-walk-forward-backtest.md`.
 
 ### 2026-09-07 - Phase 5 complete
 
@@ -304,7 +304,7 @@ The backtester still runs unclamped Phase 3 allocations. Wiring is Phase 7's job
 and the useful order is: settle the leverage and exposure decisions, re-run the
 backtest, then wire.
 
-Full detail in `docs/PHASE5-NOTES.md`.
+Full detail in `docs/phases/05-risk-layer.md`.
 
 ### 2026-09-07 - Phase 6 complete
 
@@ -343,7 +343,7 @@ flags it. Signals use adjusted, orders and stops use raw.
 ask. `reference_price()` falls back to bid then last close; without it every
 weekend limit order would be priced off zero.
 
-Full detail in `docs/PHASE6-NOTES.md`.
+Full detail in `docs/phases/06-alpaca-broker.md`.
 
 ### 2026-09-07 - Phase 7 complete
 
@@ -416,7 +416,7 @@ Nothing here changes the Phase 4 and 5 verdict. The strategy still loses to
 buy-and-hold and to random allocation out-of-sample. Phase 7 makes it run
 unattended; it does not make it work.
 
-Full detail in `docs/PHASE7-NOTES.md`.
+Full detail in `docs/phases/07-main-loop.md`.
 
 ### 2026-09-07 - Phases 8 and 9 complete
 
@@ -476,4 +476,4 @@ validation checklist has ten items and none of them pass. The next useful work
 is not another phase, it is the allocation layer — starting with whether 1.25x
 leverage belongs in a system whose own risk config caps gross exposure at 80%.
 
-Full detail in `docs/PHASE8-NOTES.md` and `docs/PHASE9-NOTES.md`.
+Full detail in `docs/phases/08-monitoring-dashboard.md` and `docs/phases/09-integration-and-docs.md`.

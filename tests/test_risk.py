@@ -318,7 +318,16 @@ def test_gap_cap_always_binds_so_real_risk_is_two_thirds_of_one_percent(manager)
     assert capped * 3 * 5.0 / 100_000 == pytest.approx(0.02, abs=1e-3)
 
 
-def test_gap_cap_is_applied_to_approved_signals(manager, signal, portfolio):
+def test_gap_cap_is_applied_to_approved_signals(risk_config, isolated_lock, signal, portfolio):
+    """The gap rule binds before max_risk_per_trade on any overnight position.
+
+    Needs a single-position cap loose enough that the gap rule is what bites;
+    with a tight cap the position is already smaller and the gap rule never
+    applies, which would make this test silently prove nothing.
+    """
+    manager = RiskManager(
+        {**risk_config, "max_single_position": 0.15}, lock_file=isolated_lock
+    )
     decision = manager.validate_signal(signal, portfolio, overnight=True)
     assert decision.approved
     assert decision.modified_signal["risk_pct_of_equity"] < manager.max_risk_per_trade
@@ -357,7 +366,9 @@ def test_stop_on_the_wrong_side_is_rejected(manager, signal, portfolio):
     assert decision.rejection_reason is RejectionReason.INVALID_STOP
 
 
-def test_max_concurrent_positions_blocks_new_symbols(manager, signal):
+def test_max_concurrent_positions_blocks_new_symbols(risk_config, isolated_lock, signal):
+    """Pins its own limit: this is about the rule, not about today's value."""
+    manager = RiskManager({**risk_config, "max_concurrent": 5}, lock_file=isolated_lock)
     state = PortfolioState(
         equity=100_000.0,
         positions={f"SYM{i}": {"market_value": 1_000.0} for i in range(5)},
@@ -401,7 +412,12 @@ def test_exposure_limit_rejects_when_no_room_remains(manager, signal):
     assert decision.rejection_reason is RejectionReason.EXPOSURE_LIMIT
 
 
-def test_exposure_limit_shrinks_when_some_room_remains(manager, signal):
+def test_exposure_limit_shrinks_when_some_room_remains(risk_config, isolated_lock, signal):
+    """80% exposure cap with 75% held leaves 5% of room, so a position that
+    wants more comes back shrunk rather than rejected."""
+    manager = RiskManager(
+        {**risk_config, "max_single_position": 0.15}, lock_file=isolated_lock
+    )
     state = PortfolioState(equity=100_000.0, positions={"X": {"market_value": 75_000.0}})
     decision = manager.validate_signal(signal, state)
     if decision.approved:
@@ -421,8 +437,15 @@ def test_minimum_position_floor(manager, signal):
     assert decision.rejection_reason is RejectionReason.BELOW_MINIMUM_SIZE
 
 
-def test_position_exactly_at_the_floor_is_allowed(manager, signal):
-    """The floor is inclusive: $100 is the minimum, not the first rejected value."""
+def test_position_exactly_at_the_floor_is_allowed(risk_config, isolated_lock, signal):
+    """The floor is inclusive: $100 is the minimum, not the first rejected value.
+
+    Sized so the single-position cap lands exactly on the floor, independent of
+    what that cap is configured to today.
+    """
+    manager = RiskManager(
+        {**risk_config, "max_single_position": 0.10}, lock_file=isolated_lock
+    )
     decision = manager.validate_signal(signal, PortfolioState(equity=1_000.0))
     assert decision.approved
     assert decision.modified_signal["notional"] == pytest.approx(100.0)
@@ -490,7 +513,7 @@ def test_configured_leverage_ceiling_is_unreachable(risk_config):
     """
     assert risk_config["max_leverage"] > risk_config["max_exposure"], (
         "if this ever fails the contradiction has been resolved: update "
-        "docs/PHASE5-NOTES.md section 2"
+        "docs/phases/05-risk-layer.md section 2"
     )
 
 

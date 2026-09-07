@@ -373,7 +373,7 @@ Two rules that hold everywhere:
 | [`docs/TUTORIAL-CONFLICTS.md`](docs/TUTORIAL-CONFLICTS.md) | Where the tutorial's defaults contradict the constraints |
 | [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) | What needs a decision from you |
 | [`docs/EXPERIMENT-LOG.md`](docs/EXPERIMENT-LOG.md) | One line per strategy variant tested |
-| `docs/PHASE2-NOTES.md` … `PHASE9-NOTES.md` | Per-phase design notes and the bugs found |
+| `docs/phases/02-hmm-engine.md` … `docs/phases/09-integration-and-docs.md` | Per-phase design notes and the bugs found |
 
 ---
 
