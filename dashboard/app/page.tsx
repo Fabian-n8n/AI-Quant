@@ -83,7 +83,7 @@ export default function Page() {
           Order is deliberate: the actionable answer first, the state that
           justifies it second, the machinery last. */}
       <div className="grid grid-cols-12 gap-4">
-        <TopPickCard pick={topPick} equity={snap.portfolio.equity} />
+        <TopPickCard pick={topPick} equity={snap.portfolio.equity} timing={snap.timing} />
         <EquityCard portfolio={snap.portfolio} history={snap.equity_history} />
         <AllocationCard portfolio={snap.portfolio} risk={snap.risk} />
 

@@ -129,10 +129,31 @@ def freshness(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def timing(snapshot: dict[str, Any], engine=None) -> dict[str, Any]:
+    """When a signal would actually be acted on.
+
+    "Buy this" is incomplete without "at what price, in which session, and by
+    what order type". On a daily-bar system the answer is never "right now":
+    the bar the decision is based on closes at 4pm New York, and the order rests
+    until the next session opens.
+    """
+    system = snapshot.get("system", {}) or {}
+    return {
+        "market_open": system.get("market_open"),
+        "next_open": getattr(engine, "next_open", None) if engine else None,
+        "timeframe": system.get("timeframe"),
+        "acts_on": "the next session open",
+        "order_type": "limit",
+        "limit_offset_pct": 0.001,
+        "session_close_et": "16:00",
+    }
+
+
 def build_payload(snapshot: dict[str, Any], *, source: str = "live",
                   equity_history: list | None = None,
                   regime_history: list | None = None,
-                  notes: dict[str, Any] | None = None) -> dict[str, Any]:
+                  notes: dict[str, Any] | None = None,
+                  engine=None) -> dict[str, Any]:
     """Wrap a `DashboardState.snapshot()` in the envelope the UI expects."""
     payload = {
         "schema_version": SCHEMA_VERSION,
@@ -143,6 +164,7 @@ def build_payload(snapshot: dict[str, Any], *, source: str = "live",
         "regime_history": _clean(regime_history or []),
         "regime_mix": regime_mix(regime_history or []),
         "freshness": _clean(freshness(snapshot)),
+        "timing": _clean(timing(snapshot, engine)),
         "notes": _clean(notes or {}),
     }
     return payload
@@ -151,11 +173,11 @@ def build_payload(snapshot: dict[str, Any], *, source: str = "live",
 def publish(snapshot: dict[str, Any], path: Path = DEFAULT_OUTPUT, *,
             source: str = "live", equity_history: list | None = None,
             regime_history: list | None = None,
-            notes: dict[str, Any] | None = None) -> Path:
+            notes: dict[str, Any] | None = None, engine=None) -> Path:
     """Write the snapshot to `path`. Atomic, so the UI never reads half a file."""
     payload = build_payload(
         snapshot, source=source, equity_history=equity_history,
-        regime_history=regime_history, notes=notes,
+        regime_history=regime_history, notes=notes, engine=engine,
     )
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -177,6 +199,7 @@ def publish_from_engine(engine, path: Path = DEFAULT_OUTPUT) -> Path:
         engine.dashboard_state.snapshot(),
         path,
         source="live",
+        engine=engine,
         equity_history=list(getattr(engine.session, "equity_history", []) or []),
         regime_history=list(getattr(engine.session, "regime_history", []) or []),
         notes=notes,
@@ -207,7 +230,7 @@ def _demo_candidate(symbol, rank, approved, action, conviction, shares, notional
         "stop_distance_pct": round(stop_distance, 6),
         "stop_atr_mult": round(stop_distance / atr_pct, 3) if atr_pct else 0.0,
         "risk_dollars": round(risk_dollars, 2),
-        "risk_pct_of_equity": round(risk_dollars / 125_652, 6),
+        "risk_pct_of_equity": round(risk_dollars / 12_565, 6),
         "trend": trend, "price_vs_ema50": price_vs_ema50, "atr_pct": atr_pct,
         "return_20d": ret20, "strategy": strategy,
         "regime": "strong_bull", "regime_confidence": 0.72, "volatility_rank": "low",
@@ -228,7 +251,7 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
     rng = random.Random(seed)
     now = datetime.now(UTC)
 
-    equity, peak = 100_000.0, 100_000.0
+    equity, peak = 10_000.0, 10_000.0
     history, regimes = [], []
     labels = ["neutral", "weak_bull", "strong_bull", "weak_bear", "strong_bear"]
     label = "neutral"
@@ -251,15 +274,15 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
     daily_pnl = equity - day_start
 
     positions = [
-        {"symbol": "SPY", "direction": "LONG", "quantity": 62, "entry_price": 514.20,
-         "current_price": 520.30, "market_value": 32258.60, "stop_loss": 508.00,
-         "has_stop": True, "unrealised_pnl": 378.20, "unrealised_pnl_pct": 0.0119,
+        {"symbol": "SPY", "direction": "LONG", "quantity": 2, "entry_price": 514.20,
+         "current_price": 520.30, "market_value": 1040.60, "stop_loss": 508.00,
+         "has_stop": True, "unrealised_pnl": 12.20, "unrealised_pnl_pct": 0.0119,
          "distance_to_stop_pct": 0.0236, "regime_at_entry": "strong_bull",
          "regime_current": "strong_bull", "regime_changed": False,
          "holding_periods": 3, "held_for": "3h", "adopted": False},
-        {"symbol": "QQQ", "direction": "LONG", "quantity": 41, "entry_price": 441.80,
-         "current_price": 438.15, "market_value": 17964.15, "stop_loss": 429.60,
-         "has_stop": True, "unrealised_pnl": -149.65, "unrealised_pnl_pct": -0.0083,
+        {"symbol": "QQQ", "direction": "LONG", "quantity": 2, "entry_price": 719.10,
+         "current_price": 713.15, "market_value": 1426.30, "stop_loss": 705.78,
+         "has_stop": True, "unrealised_pnl": -11.90, "unrealised_pnl_pct": -0.0083,
          "distance_to_stop_pct": 0.0195, "regime_at_entry": "weak_bull",
          "regime_current": "strong_bull", "regime_changed": True,
          "holding_periods": 9, "held_for": "2d", "adopted": False},
@@ -271,39 +294,42 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
          "signal_regime": regime, "message": message,
          "rejection_reason": rejection}
         for m, event, symbol, shares, notional, regime, message, rejection in [
-            (12, "signal_generated", "SPY", 62, 31880.40, "strong_bull",
-             "SPY: approved 62 shares ($31,880.40)", None),
+            (12, "signal_generated", "COIN", 3, 554.19, "strong_bull",
+             "COIN: approved 3 shares ($554.19)", None),
             (12, "signal_rejected", "AAPL", 0, 0.0, "strong_bull",
              "AAPL: rejected, correlation 0.89 with SPY", "correlation_too_high"),
-            (73, "signal_generated", "QQQ", 41, 18113.80, "weak_bull",
-             "QQQ: approved 41 shares ($18,113.80)", None),
+            (73, "signal_generated", "AAPL", 4, 1280.44, "weak_bull",
+             "AAPL: approved 4 shares ($1,280.44)", None),
             (1502, "signal_rejected", "TSLA", 0, 0.0, "weak_bull",
              "TSLA: rejected, $92 is below the $100 minimum", "below_minimum_size"),
         ]
     ]
 
     candidates = [
-        _demo_candidate("SPY", 1, True, "buy", 0.86, 62, 31880.40, 514.20, 508.00,
-                        "above", 0.021, 0.0112, 0.043, "LowVolBullStrategy",
+        _demo_candidate("COIN", 1, True, "buy", 0.81, 3, 554.19, 184.73, 166.30,
+                        "above", 0.038, 0.0412, 0.094, "LowVolBullStrategy",
                         modifications=[]),
-        _demo_candidate("MSFT", 2, True, "buy", 0.79, 74, 30_618.00, 413.75, 405.10,
-                        "above", 0.016, 0.0098, 0.031, "LowVolBullStrategy",
+        _demo_candidate("AAPL", 2, True, "buy", 0.74, 4, 1280.44, 320.11, 308.71,
+                        "above", 0.021, 0.0118, 0.043, "LowVolBullStrategy",
+                        modifications=[]),
+        _demo_candidate("SMCI", 3, True, "buy", 0.73, 9, 356.13, 39.57, 32.82,
+                        "above", 0.029, 0.0451, 0.077, "LowVolBullStrategy",
                         modifications=["gap cap: 3x stop gap-through kept under 2% of portfolio"]),
-        _demo_candidate("QQQ", 3, True, "hold", 0.68, 41, 18_113.80, 441.80, 429.60,
-                        "above", 0.009, 0.0141, 0.018, "LowVolBullStrategy",
-                        modifications=[], held=True, held_quantity=41),
-        _demo_candidate("NVDA", 4, False, "blocked", 0.61, 0, 0.0, 178.40, 168.90,
+        _demo_candidate("QQQ", 4, True, "hold", 0.69, 2, 1438.20, 719.10, 705.78,
+                        "above", 0.009, 0.0104, 0.018, "LowVolBullStrategy",
+                        modifications=[], held=True, held_quantity=2),
+        _demo_candidate("NVDA", 5, False, "blocked", 0.61, 0, 0.0, 230.36, 206.43,
                         "above", 0.034, 0.0295, 0.112, "LowVolBullStrategy",
                         rejection_reason="correlation_too_high",
-                        reason="correlation 0.89 with SPY, above the 0.85 reject threshold"),
-        _demo_candidate("AAPL", 5, False, "blocked", 0.47, 0, 0.0, 228.15, 221.30,
-                        "below", -0.008, 0.0121, -0.014, "LowVolBullStrategy",
+                        reason="correlation 0.89 with SMCI, above the 0.85 reject threshold"),
+        _demo_candidate("AVGO", 6, False, "blocked", 0.44, 0, 0.0, 358.02, 344.19,
+                        "below", -0.008, 0.0131, -0.014, "LowVolBullStrategy",
                         rejection_reason="sector_limit",
-                        reason="technology already at 31% of equity, cap is 30%"),
-        _demo_candidate("TSLA", 6, False, "blocked", 0.29, 0, 0.0, 242.60, 228.40,
+                        reason="semiconductors already at 31% of equity, cap is 30%"),
+        _demo_candidate("TSLA", 7, False, "blocked", 0.29, 0, 0.0, 354.10, 333.38,
                         "below", -0.041, 0.0384, -0.087, "LowVolBullStrategy",
                         rejection_reason="below_minimum_size",
-                        reason="$92 is below the $100 minimum after all reductions"),
+                        reason="$71 is below the $100 minimum after all reductions")
     ]
 
     return {
@@ -322,7 +348,7 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
             "buying_power": round(equity * 2.4, 2), "daily_pnl": round(daily_pnl, 2),
             "daily_pnl_pct": daily_pnl / day_start, "allocation": 0.50,
             "target_allocation": 0.95, "leverage": 0.50, "gross_exposure": 0.50,
-            "n_positions": len(positions), "unrealised_pnl": 228.55,
+            "n_positions": len(positions), "unrealised_pnl": 0.30,
             "peak_equity": round(peak, 2), "day_start_equity": round(day_start, 2),
             "daily_trades": 2,
         },
@@ -338,6 +364,13 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
             "limits": {"daily_reduce": 0.02, "daily_halt": 0.03, "weekly_reduce": 0.05,
                        "weekly_halt": 0.07, "max_from_peak": 0.10, "max_exposure": 0.80,
                        "max_leverage": 1.25, "max_risk_per_trade": 0.01},
+        },
+        "timing": {
+            "market_open": True,
+            "next_open": (now + timedelta(hours=17)).isoformat(),
+            "timeframe": "1Day", "acts_on": "the next session open",
+            "order_type": "limit", "limit_offset_pct": 0.001,
+            "session_close_et": "16:00",
         },
         "system": {
             "data_feed_healthy": True, "broker_connected": True, "api_latency_ms": 23.0,

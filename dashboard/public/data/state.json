@@ -1,26 +1,55 @@
 {
   "schema_version": 1,
   "source": "demo",
-  "published_at": "2026-09-07T08:40:49.717581+00:00",
-  "timestamp": "2026-09-07T08:40:49.717171+00:00",
+  "published_at": "2026-09-07T08:56:36.079958+00:00",
+  "timestamp": "2026-09-07T08:56:36.079508+00:00",
   "candidates": [
     {
-      "symbol": "SPY",
+      "symbol": "COIN",
       "rank": 1,
       "approved": true,
       "action": "buy",
-      "conviction": 0.86,
-      "shares": 62,
-      "notional": 31880.4,
-      "entry_price": 514.2,
-      "stop_loss": 508.0,
-      "stop_distance_pct": 0.012058,
-      "stop_atr_mult": 1.077,
-      "risk_dollars": 384.4,
-      "risk_pct_of_equity": 0.003059,
+      "conviction": 0.81,
+      "shares": 3,
+      "notional": 554.19,
+      "entry_price": 184.73,
+      "stop_loss": 166.3,
+      "stop_distance_pct": 0.099767,
+      "stop_atr_mult": 2.422,
+      "risk_dollars": 55.29,
+      "risk_pct_of_equity": 0.0044,
+      "trend": "above",
+      "price_vs_ema50": 0.038,
+      "atr_pct": 0.0412,
+      "return_20d": 0.094,
+      "strategy": "LowVolBullStrategy",
+      "regime": "strong_bull",
+      "regime_confidence": 0.72,
+      "volatility_rank": "low",
+      "held": false,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "approved unmodified",
+      "modifications": [],
+      "reasoning": "LowVolBullStrategy: regime strong_bull at 72% confidence, above the 50 EMA"
+    },
+    {
+      "symbol": "AAPL",
+      "rank": 2,
+      "approved": true,
+      "action": "buy",
+      "conviction": 0.74,
+      "shares": 4,
+      "notional": 1280.44,
+      "entry_price": 320.11,
+      "stop_loss": 308.71,
+      "stop_distance_pct": 0.035613,
+      "stop_atr_mult": 3.018,
+      "risk_dollars": 45.6,
+      "risk_pct_of_equity": 0.003629,
       "trend": "above",
       "price_vs_ema50": 0.021,
-      "atr_pct": 0.0112,
+      "atr_pct": 0.0118,
       "return_20d": 0.043,
       "strategy": "LowVolBullStrategy",
       "regime": "strong_bull",
@@ -34,23 +63,23 @@
       "reasoning": "LowVolBullStrategy: regime strong_bull at 72% confidence, above the 50 EMA"
     },
     {
-      "symbol": "MSFT",
-      "rank": 2,
+      "symbol": "SMCI",
+      "rank": 3,
       "approved": true,
       "action": "buy",
-      "conviction": 0.79,
-      "shares": 74,
-      "notional": 30618.0,
-      "entry_price": 413.75,
-      "stop_loss": 405.1,
-      "stop_distance_pct": 0.020906,
-      "stop_atr_mult": 2.133,
-      "risk_dollars": 640.1,
-      "risk_pct_of_equity": 0.005094,
+      "conviction": 0.73,
+      "shares": 9,
+      "notional": 356.13,
+      "entry_price": 39.57,
+      "stop_loss": 32.82,
+      "stop_distance_pct": 0.170584,
+      "stop_atr_mult": 3.782,
+      "risk_dollars": 60.75,
+      "risk_pct_of_equity": 0.004835,
       "trend": "above",
-      "price_vs_ema50": 0.016,
-      "atr_pct": 0.0098,
-      "return_20d": 0.031,
+      "price_vs_ema50": 0.029,
+      "atr_pct": 0.0451,
+      "return_20d": 0.077,
       "strategy": "LowVolBullStrategy",
       "regime": "strong_bull",
       "regime_confidence": 0.72,
@@ -66,28 +95,28 @@
     },
     {
       "symbol": "QQQ",
-      "rank": 3,
+      "rank": 4,
       "approved": true,
       "action": "hold",
-      "conviction": 0.68,
-      "shares": 41,
-      "notional": 18113.8,
-      "entry_price": 441.8,
-      "stop_loss": 429.6,
-      "stop_distance_pct": 0.027614,
-      "stop_atr_mult": 1.958,
-      "risk_dollars": 500.2,
-      "risk_pct_of_equity": 0.003981,
+      "conviction": 0.69,
+      "shares": 2,
+      "notional": 1438.2,
+      "entry_price": 719.1,
+      "stop_loss": 705.78,
+      "stop_distance_pct": 0.018523,
+      "stop_atr_mult": 1.781,
+      "risk_dollars": 26.64,
+      "risk_pct_of_equity": 0.00212,
       "trend": "above",
       "price_vs_ema50": 0.009,
-      "atr_pct": 0.0141,
+      "atr_pct": 0.0104,
       "return_20d": 0.018,
       "strategy": "LowVolBullStrategy",
       "regime": "strong_bull",
       "regime_confidence": 0.72,
       "volatility_rank": "low",
       "held": true,
-      "held_quantity": 41,
+      "held_quantity": 2,
       "rejection_reason": null,
       "reason": "approved unmodified",
       "modifications": [],
@@ -95,16 +124,16 @@
     },
     {
       "symbol": "NVDA",
-      "rank": 4,
+      "rank": 5,
       "approved": false,
       "action": "blocked",
       "conviction": 0.61,
       "shares": 0,
       "notional": 0.0,
-      "entry_price": 178.4,
-      "stop_loss": 168.9,
-      "stop_distance_pct": 0.053251,
-      "stop_atr_mult": 1.805,
+      "entry_price": 230.36,
+      "stop_loss": 206.43,
+      "stop_distance_pct": 0.103881,
+      "stop_atr_mult": 3.521,
       "risk_dollars": 0.0,
       "risk_pct_of_equity": 0.0,
       "trend": "above",
@@ -118,27 +147,27 @@
       "held": false,
       "held_quantity": 0.0,
       "rejection_reason": "correlation_too_high",
-      "reason": "correlation 0.89 with SPY, above the 0.85 reject threshold",
+      "reason": "correlation 0.89 with SMCI, above the 0.85 reject threshold",
       "modifications": [],
       "reasoning": "LowVolBullStrategy: regime strong_bull at 72% confidence, above the 50 EMA"
     },
     {
-      "symbol": "AAPL",
-      "rank": 5,
+      "symbol": "AVGO",
+      "rank": 6,
       "approved": false,
       "action": "blocked",
-      "conviction": 0.47,
+      "conviction": 0.44,
       "shares": 0,
       "notional": 0.0,
-      "entry_price": 228.15,
-      "stop_loss": 221.3,
-      "stop_distance_pct": 0.030024,
-      "stop_atr_mult": 2.481,
+      "entry_price": 358.02,
+      "stop_loss": 344.19,
+      "stop_distance_pct": 0.038629,
+      "stop_atr_mult": 2.949,
       "risk_dollars": 0.0,
       "risk_pct_of_equity": 0.0,
       "trend": "below",
       "price_vs_ema50": -0.008,
-      "atr_pct": 0.0121,
+      "atr_pct": 0.0131,
       "return_20d": -0.014,
       "strategy": "LowVolBullStrategy",
       "regime": "strong_bull",
@@ -147,21 +176,21 @@
       "held": false,
       "held_quantity": 0.0,
       "rejection_reason": "sector_limit",
-      "reason": "technology already at 31% of equity, cap is 30%",
+      "reason": "semiconductors already at 31% of equity, cap is 30%",
       "modifications": [],
       "reasoning": "LowVolBullStrategy: regime strong_bull at 72% confidence, below the 50 EMA"
     },
     {
       "symbol": "TSLA",
-      "rank": 6,
+      "rank": 7,
       "approved": false,
       "action": "blocked",
       "conviction": 0.29,
       "shares": 0,
       "notional": 0.0,
-      "entry_price": 242.6,
-      "stop_loss": 228.4,
-      "stop_distance_pct": 0.058533,
+      "entry_price": 354.1,
+      "stop_loss": 333.38,
+      "stop_distance_pct": 0.058515,
       "stop_atr_mult": 1.524,
       "risk_dollars": 0.0,
       "risk_pct_of_equity": 0.0,
@@ -176,7 +205,7 @@
       "held": false,
       "held_quantity": 0.0,
       "rejection_reason": "below_minimum_size",
-      "reason": "$92 is below the $100 minimum after all reductions",
+      "reason": "$71 is below the $100 minimum after all reductions",
       "modifications": [],
       "reasoning": "LowVolBullStrategy: regime strong_bull at 72% confidence, below the 50 EMA"
     }
@@ -195,36 +224,36 @@
     "raw_regime": "strong_bull",
     "n_regimes": 7,
     "model_age_days": 2.1,
-    "timestamp": "2026-09-07T08:40:49.717171+00:00",
-    "model_trained": "2026-09-05T06:16:49.717171+00:00"
+    "timestamp": "2026-09-07T08:56:36.079508+00:00",
+    "model_trained": "2026-09-05T06:32:36.079508+00:00"
   },
   "portfolio": {
-    "equity": 125652.03,
-    "cash": 45234.73,
-    "buying_power": 301564.87,
-    "daily_pnl": -1005.46,
-    "daily_pnl_pct": -0.007938419491303368,
+    "equity": 12565.2,
+    "cash": 4523.47,
+    "buying_power": 30156.49,
+    "daily_pnl": -100.55,
+    "daily_pnl_pct": -0.00793849781762306,
     "allocation": 0.5,
     "target_allocation": 0.95,
     "leverage": 0.5,
     "gross_exposure": 0.5,
     "n_positions": 2,
-    "unrealised_pnl": 228.55,
-    "peak_equity": 129934.35,
-    "day_start_equity": 126657.49,
+    "unrealised_pnl": 0.3,
+    "peak_equity": 12993.44,
+    "day_start_equity": 12665.75,
     "daily_trades": 2
   },
   "positions": [
     {
       "symbol": "SPY",
       "direction": "LONG",
-      "quantity": 62,
+      "quantity": 2,
       "entry_price": 514.2,
       "current_price": 520.3,
-      "market_value": 32258.6,
+      "market_value": 1040.6,
       "stop_loss": 508.0,
       "has_stop": true,
-      "unrealised_pnl": 378.2,
+      "unrealised_pnl": 12.2,
       "unrealised_pnl_pct": 0.0119,
       "distance_to_stop_pct": 0.0236,
       "regime_at_entry": "strong_bull",
@@ -237,13 +266,13 @@
     {
       "symbol": "QQQ",
       "direction": "LONG",
-      "quantity": 41,
-      "entry_price": 441.8,
-      "current_price": 438.15,
-      "market_value": 17964.15,
-      "stop_loss": 429.6,
+      "quantity": 2,
+      "entry_price": 719.1,
+      "current_price": 713.15,
+      "market_value": 1426.3,
+      "stop_loss": 705.78,
       "has_stop": true,
-      "unrealised_pnl": -149.65,
+      "unrealised_pnl": -11.9,
       "unrealised_pnl_pct": -0.0083,
       "distance_to_stop_pct": 0.0195,
       "regime_at_entry": "weak_bull",
@@ -256,17 +285,17 @@
   ],
   "signals": [
     {
-      "timestamp": "2026-09-07T08:28:49.717171+00:00",
+      "timestamp": "2026-09-07T08:44:36.079508+00:00",
       "event": "signal_generated",
-      "symbol": "SPY",
-      "shares": 62,
-      "notional": 31880.4,
+      "symbol": "COIN",
+      "shares": 3,
+      "notional": 554.19,
       "signal_regime": "strong_bull",
-      "message": "SPY: approved 62 shares ($31,880.40)",
+      "message": "COIN: approved 3 shares ($554.19)",
       "rejection_reason": null
     },
     {
-      "timestamp": "2026-09-07T08:28:49.717171+00:00",
+      "timestamp": "2026-09-07T08:44:36.079508+00:00",
       "event": "signal_rejected",
       "symbol": "AAPL",
       "shares": 0,
@@ -276,17 +305,17 @@
       "rejection_reason": "correlation_too_high"
     },
     {
-      "timestamp": "2026-09-07T07:27:49.717171+00:00",
+      "timestamp": "2026-09-07T07:43:36.079508+00:00",
       "event": "signal_generated",
-      "symbol": "QQQ",
-      "shares": 41,
-      "notional": 18113.8,
+      "symbol": "AAPL",
+      "shares": 4,
+      "notional": 1280.44,
       "signal_regime": "weak_bull",
-      "message": "QQQ: approved 41 shares ($18,113.80)",
+      "message": "AAPL: approved 4 shares ($1,280.44)",
       "rejection_reason": null
     },
     {
-      "timestamp": "2026-09-06T07:38:49.717171+00:00",
+      "timestamp": "2026-09-06T07:54:36.079508+00:00",
       "event": "signal_rejected",
       "symbol": "TSLA",
       "shares": 0,
@@ -305,7 +334,7 @@
     "n_triggers": 0,
     "breaker_now": "none",
     "drawdowns": {
-      "daily": -0.007938419491303368,
+      "daily": -0.00793849781762306,
       "weekly": -0.008,
       "from_peak": -0.033
     },
@@ -320,6 +349,15 @@
       "max_risk_per_trade": 0.01
     }
   },
+  "timing": {
+    "market_open": true,
+    "next_open": null,
+    "timeframe": "1Day",
+    "acts_on": "the next session open",
+    "order_type": "limit",
+    "limit_offset_pct": 0.001,
+    "session_close_et": "16:00"
+  },
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
@@ -330,7 +368,7 @@
     "market_open": true,
     "bars_processed": 180,
     "consecutive_errors": 0,
-    "started_at": "2026-09-07T02:40:49.717171+00:00",
+    "started_at": "2026-09-07T02:56:36.079508+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -343,903 +381,903 @@
   "equity_history": [
     {
       "t": "2026-03-11",
-      "equity": 100732.03,
-      "peak": 100732.03
+      "equity": 10073.2,
+      "peak": 10073.2
     },
     {
       "t": "2026-03-12",
-      "equity": 100698.31,
-      "peak": 100732.03
+      "equity": 10069.83,
+      "peak": 10073.2
     },
     {
       "t": "2026-03-13",
-      "equity": 101937.0,
-      "peak": 101937.0
+      "equity": 10193.7,
+      "peak": 10193.7
     },
     {
       "t": "2026-03-14",
-      "equity": 102440.44,
-      "peak": 102440.44
+      "equity": 10244.04,
+      "peak": 10244.04
     },
     {
       "t": "2026-03-15",
-      "equity": 103282.45,
-      "peak": 103282.45
+      "equity": 10328.24,
+      "peak": 10328.24
     },
     {
       "t": "2026-03-16",
-      "equity": 103906.43,
-      "peak": 103906.43
+      "equity": 10390.64,
+      "peak": 10390.64
     },
     {
       "t": "2026-03-17",
-      "equity": 104439.58,
-      "peak": 104439.58
+      "equity": 10443.96,
+      "peak": 10443.96
     },
     {
       "t": "2026-03-18",
-      "equity": 104372.58,
-      "peak": 104439.58
+      "equity": 10437.26,
+      "peak": 10443.96
     },
     {
       "t": "2026-03-19",
-      "equity": 105101.11,
-      "peak": 105101.11
+      "equity": 10510.11,
+      "peak": 10510.11
     },
     {
       "t": "2026-03-20",
-      "equity": 105607.93,
-      "peak": 105607.93
+      "equity": 10560.79,
+      "peak": 10560.79
     },
     {
       "t": "2026-03-21",
-      "equity": 105824.15,
-      "peak": 105824.15
+      "equity": 10582.41,
+      "peak": 10582.41
     },
     {
       "t": "2026-03-22",
-      "equity": 106800.12,
-      "peak": 106800.12
+      "equity": 10680.01,
+      "peak": 10680.01
     },
     {
       "t": "2026-03-23",
-      "equity": 107746.09,
-      "peak": 107746.09
+      "equity": 10774.61,
+      "peak": 10774.61
     },
     {
       "t": "2026-03-24",
-      "equity": 108222.45,
-      "peak": 108222.45
+      "equity": 10822.25,
+      "peak": 10822.25
     },
     {
       "t": "2026-03-25",
-      "equity": 109267.55,
-      "peak": 109267.55
+      "equity": 10926.76,
+      "peak": 10926.76
     },
     {
       "t": "2026-03-26",
-      "equity": 109142.46,
-      "peak": 109267.55
+      "equity": 10914.25,
+      "peak": 10926.76
     },
     {
       "t": "2026-03-27",
-      "equity": 109114.17,
-      "peak": 109267.55
+      "equity": 10911.42,
+      "peak": 10926.76
     },
     {
       "t": "2026-03-28",
-      "equity": 109172.21,
-      "peak": 109267.55
+      "equity": 10917.22,
+      "peak": 10926.76
     },
     {
       "t": "2026-03-29",
-      "equity": 109167.43,
-      "peak": 109267.55
+      "equity": 10916.74,
+      "peak": 10926.76
     },
     {
       "t": "2026-03-30",
-      "equity": 109235.16,
-      "peak": 109267.55
+      "equity": 10923.52,
+      "peak": 10926.76
     },
     {
       "t": "2026-03-31",
-      "equity": 109561.49,
-      "peak": 109561.49
+      "equity": 10956.15,
+      "peak": 10956.15
     },
     {
       "t": "2026-04-01",
-      "equity": 110566.02,
-      "peak": 110566.02
+      "equity": 11056.6,
+      "peak": 11056.6
     },
     {
       "t": "2026-04-02",
-      "equity": 111207.99,
-      "peak": 111207.99
+      "equity": 11120.8,
+      "peak": 11120.8
     },
     {
       "t": "2026-04-03",
-      "equity": 112826.88,
-      "peak": 112826.88
+      "equity": 11282.69,
+      "peak": 11282.69
     },
     {
       "t": "2026-04-04",
-      "equity": 114133.99,
-      "peak": 114133.99
+      "equity": 11413.4,
+      "peak": 11413.4
     },
     {
       "t": "2026-04-05",
-      "equity": 115322.99,
-      "peak": 115322.99
+      "equity": 11532.3,
+      "peak": 11532.3
     },
     {
       "t": "2026-04-06",
-      "equity": 115733.35,
-      "peak": 115733.35
+      "equity": 11573.33,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-07",
-      "equity": 114132.2,
-      "peak": 115733.35
+      "equity": 11413.22,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-08",
-      "equity": 110989.71,
-      "peak": 115733.35
+      "equity": 11098.97,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-09",
-      "equity": 109173.03,
-      "peak": 115733.35
+      "equity": 10917.3,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-10",
-      "equity": 106990.05,
-      "peak": 115733.35
+      "equity": 10699.01,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-11",
-      "equity": 108847.28,
-      "peak": 115733.35
+      "equity": 10884.73,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-12",
-      "equity": 109392.5,
-      "peak": 115733.35
+      "equity": 10939.25,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-13",
-      "equity": 109505.2,
-      "peak": 115733.35
+      "equity": 10950.52,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-14",
-      "equity": 110259.61,
-      "peak": 115733.35
+      "equity": 11025.96,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-15",
-      "equity": 113471.29,
-      "peak": 115733.35
+      "equity": 11347.13,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-16",
-      "equity": 111426.78,
-      "peak": 115733.35
+      "equity": 11142.68,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-17",
-      "equity": 112121.31,
-      "peak": 115733.35
+      "equity": 11212.13,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-18",
-      "equity": 109723.35,
-      "peak": 115733.35
+      "equity": 10972.33,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-19",
-      "equity": 108239.51,
-      "peak": 115733.35
+      "equity": 10823.95,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-20",
-      "equity": 106810.53,
-      "peak": 115733.35
+      "equity": 10681.05,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-21",
-      "equity": 110475.75,
-      "peak": 115733.35
+      "equity": 11047.57,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-22",
-      "equity": 109732.64,
-      "peak": 115733.35
+      "equity": 10973.26,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-23",
-      "equity": 107914.18,
-      "peak": 115733.35
+      "equity": 10791.42,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-24",
-      "equity": 105283.5,
-      "peak": 115733.35
+      "equity": 10528.35,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-25",
-      "equity": 103886.93,
-      "peak": 115733.35
+      "equity": 10388.69,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-26",
-      "equity": 103987.04,
-      "peak": 115733.35
+      "equity": 10398.7,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-27",
-      "equity": 103644.08,
-      "peak": 115733.35
+      "equity": 10364.41,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-28",
-      "equity": 104120.31,
-      "peak": 115733.35
+      "equity": 10412.03,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-29",
-      "equity": 104248.07,
-      "peak": 115733.35
+      "equity": 10424.81,
+      "peak": 11573.33
     },
     {
       "t": "2026-04-30",
-      "equity": 103501.43,
-      "peak": 115733.35
+      "equity": 10350.14,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-01",
-      "equity": 104183.37,
-      "peak": 115733.35
+      "equity": 10418.34,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-02",
-      "equity": 104770.11,
-      "peak": 115733.35
+      "equity": 10477.01,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-03",
-      "equity": 105535.1,
-      "peak": 115733.35
+      "equity": 10553.51,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-04",
-      "equity": 106621.71,
-      "peak": 115733.35
+      "equity": 10662.17,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-05",
-      "equity": 107024.8,
-      "peak": 115733.35
+      "equity": 10702.48,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-06",
-      "equity": 107272.92,
-      "peak": 115733.35
+      "equity": 10727.29,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-07",
-      "equity": 106610.42,
-      "peak": 115733.35
+      "equity": 10661.04,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-08",
-      "equity": 107176.17,
-      "peak": 115733.35
+      "equity": 10717.62,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-09",
-      "equity": 106954.48,
-      "peak": 115733.35
+      "equity": 10695.45,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-10",
-      "equity": 106835.17,
-      "peak": 115733.35
+      "equity": 10683.52,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-11",
-      "equity": 106197.27,
-      "peak": 115733.35
+      "equity": 10619.73,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-12",
-      "equity": 105751.58,
-      "peak": 115733.35
+      "equity": 10575.16,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-13",
-      "equity": 105583.91,
-      "peak": 115733.35
+      "equity": 10558.39,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-14",
-      "equity": 106573.94,
-      "peak": 115733.35
+      "equity": 10657.39,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-15",
-      "equity": 105451.2,
-      "peak": 115733.35
+      "equity": 10545.12,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-16",
-      "equity": 104700.31,
-      "peak": 115733.35
+      "equity": 10470.03,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-17",
-      "equity": 105018.67,
-      "peak": 115733.35
+      "equity": 10501.87,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-18",
-      "equity": 106101.72,
-      "peak": 115733.35
+      "equity": 10610.17,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-19",
-      "equity": 107205.41,
-      "peak": 115733.35
+      "equity": 10720.54,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-20",
-      "equity": 111265.8,
-      "peak": 115733.35
+      "equity": 11126.58,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-21",
-      "equity": 110877.96,
-      "peak": 115733.35
+      "equity": 11087.8,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-22",
-      "equity": 110184.76,
-      "peak": 115733.35
+      "equity": 11018.48,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-23",
-      "equity": 112236.12,
-      "peak": 115733.35
+      "equity": 11223.61,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-24",
-      "equity": 111788.67,
-      "peak": 115733.35
+      "equity": 11178.87,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-25",
-      "equity": 111151.84,
-      "peak": 115733.35
+      "equity": 11115.18,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-26",
-      "equity": 109587.77,
-      "peak": 115733.35
+      "equity": 10958.78,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-27",
-      "equity": 109723.34,
-      "peak": 115733.35
+      "equity": 10972.33,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-28",
-      "equity": 110122.05,
-      "peak": 115733.35
+      "equity": 11012.2,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-29",
-      "equity": 110465.41,
-      "peak": 115733.35
+      "equity": 11046.54,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-30",
-      "equity": 110406.16,
-      "peak": 115733.35
+      "equity": 11040.62,
+      "peak": 11573.33
     },
     {
       "t": "2026-05-31",
-      "equity": 109004.12,
-      "peak": 115733.35
+      "equity": 10900.41,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-01",
-      "equity": 108842.2,
-      "peak": 115733.35
+      "equity": 10884.22,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-02",
-      "equity": 110942.22,
-      "peak": 115733.35
+      "equity": 11094.22,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-03",
-      "equity": 111403.42,
-      "peak": 115733.35
+      "equity": 11140.34,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-04",
-      "equity": 110513.3,
-      "peak": 115733.35
+      "equity": 11051.33,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-05",
-      "equity": 107571.77,
-      "peak": 115733.35
+      "equity": 10757.18,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-06",
-      "equity": 108275.76,
-      "peak": 115733.35
+      "equity": 10827.58,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-07",
-      "equity": 111247.45,
-      "peak": 115733.35
+      "equity": 11124.74,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-08",
-      "equity": 108199.18,
-      "peak": 115733.35
+      "equity": 10819.92,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-09",
-      "equity": 109214.24,
-      "peak": 115733.35
+      "equity": 10921.42,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-10",
-      "equity": 107631.63,
-      "peak": 115733.35
+      "equity": 10763.16,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-11",
-      "equity": 109699.14,
-      "peak": 115733.35
+      "equity": 10969.91,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-12",
-      "equity": 109450.09,
-      "peak": 115733.35
+      "equity": 10945.01,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-13",
-      "equity": 108634.22,
-      "peak": 115733.35
+      "equity": 10863.42,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-14",
-      "equity": 109269.08,
-      "peak": 115733.35
+      "equity": 10926.91,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-15",
-      "equity": 109910.93,
-      "peak": 115733.35
+      "equity": 10991.09,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-16",
-      "equity": 110253.18,
-      "peak": 115733.35
+      "equity": 11025.32,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-17",
-      "equity": 110065.78,
-      "peak": 115733.35
+      "equity": 11006.58,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-18",
-      "equity": 109812.93,
-      "peak": 115733.35
+      "equity": 10981.29,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-19",
-      "equity": 110189.52,
-      "peak": 115733.35
+      "equity": 11018.95,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-20",
-      "equity": 109333.27,
-      "peak": 115733.35
+      "equity": 10933.33,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-21",
-      "equity": 109108.96,
-      "peak": 115733.35
+      "equity": 10910.9,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-22",
-      "equity": 109825.82,
-      "peak": 115733.35
+      "equity": 10982.58,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-23",
-      "equity": 107864.93,
-      "peak": 115733.35
+      "equity": 10786.49,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-24",
-      "equity": 107386.44,
-      "peak": 115733.35
+      "equity": 10738.64,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-25",
-      "equity": 107020.53,
-      "peak": 115733.35
+      "equity": 10702.05,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-26",
-      "equity": 107612.52,
-      "peak": 115733.35
+      "equity": 10761.25,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-27",
-      "equity": 109739.81,
-      "peak": 115733.35
+      "equity": 10973.98,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-28",
-      "equity": 107004.84,
-      "peak": 115733.35
+      "equity": 10700.48,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-29",
-      "equity": 105665.7,
-      "peak": 115733.35
+      "equity": 10566.57,
+      "peak": 11573.33
     },
     {
       "t": "2026-06-30",
-      "equity": 103755.79,
-      "peak": 115733.35
+      "equity": 10375.58,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-01",
-      "equity": 101099.12,
-      "peak": 115733.35
+      "equity": 10109.91,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-02",
-      "equity": 101756.23,
-      "peak": 115733.35
+      "equity": 10175.62,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-03",
-      "equity": 103619.92,
-      "peak": 115733.35
+      "equity": 10361.99,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-04",
-      "equity": 102461.16,
-      "peak": 115733.35
+      "equity": 10246.12,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-05",
-      "equity": 100600.38,
-      "peak": 115733.35
+      "equity": 10060.04,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-06",
-      "equity": 101760.08,
-      "peak": 115733.35
+      "equity": 10176.01,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-07",
-      "equity": 104013.47,
-      "peak": 115733.35
+      "equity": 10401.35,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-08",
-      "equity": 105716.34,
-      "peak": 115733.35
+      "equity": 10571.63,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-09",
-      "equity": 106294.04,
-      "peak": 115733.35
+      "equity": 10629.4,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-10",
-      "equity": 106420.55,
-      "peak": 115733.35
+      "equity": 10642.05,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-11",
-      "equity": 106569.87,
-      "peak": 115733.35
+      "equity": 10656.99,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-12",
-      "equity": 107671.15,
-      "peak": 115733.35
+      "equity": 10767.12,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-13",
-      "equity": 107080.57,
-      "peak": 115733.35
+      "equity": 10708.06,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-14",
-      "equity": 107512.56,
-      "peak": 115733.35
+      "equity": 10751.26,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-15",
-      "equity": 108617.76,
-      "peak": 115733.35
+      "equity": 10861.78,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-16",
-      "equity": 108424.34,
-      "peak": 115733.35
+      "equity": 10842.43,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-17",
-      "equity": 109979.74,
-      "peak": 115733.35
+      "equity": 10997.97,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-18",
-      "equity": 111094.33,
-      "peak": 115733.35
+      "equity": 11109.43,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-19",
-      "equity": 115677.13,
-      "peak": 115733.35
+      "equity": 11567.71,
+      "peak": 11573.33
     },
     {
       "t": "2026-07-20",
-      "equity": 116259.73,
-      "peak": 116259.73
+      "equity": 11625.97,
+      "peak": 11625.97
     },
     {
       "t": "2026-07-21",
-      "equity": 115013.24,
-      "peak": 116259.73
+      "equity": 11501.32,
+      "peak": 11625.97
     },
     {
       "t": "2026-07-22",
-      "equity": 113911.71,
-      "peak": 116259.73
+      "equity": 11391.17,
+      "peak": 11625.97
     },
     {
       "t": "2026-07-23",
-      "equity": 113675.57,
-      "peak": 116259.73
+      "equity": 11367.56,
+      "peak": 11625.97
     },
     {
       "t": "2026-07-24",
-      "equity": 115693.91,
-      "peak": 116259.73
+      "equity": 11569.39,
+      "peak": 11625.97
     },
     {
       "t": "2026-07-25",
-      "equity": 114672.49,
-      "peak": 116259.73
+      "equity": 11467.25,
+      "peak": 11625.97
     },
     {
       "t": "2026-07-26",
-      "equity": 115397.47,
-      "peak": 116259.73
+      "equity": 11539.75,
+      "peak": 11625.97
     },
     {
       "t": "2026-07-27",
-      "equity": 117018.31,
-      "peak": 117018.31
+      "equity": 11701.83,
+      "peak": 11701.83
     },
     {
       "t": "2026-07-28",
-      "equity": 116874.37,
-      "peak": 117018.31
+      "equity": 11687.44,
+      "peak": 11701.83
     },
     {
       "t": "2026-07-29",
-      "equity": 116165.82,
-      "peak": 117018.31
+      "equity": 11616.58,
+      "peak": 11701.83
     },
     {
       "t": "2026-07-30",
-      "equity": 116161.02,
-      "peak": 117018.31
+      "equity": 11616.1,
+      "peak": 11701.83
     },
     {
       "t": "2026-07-31",
-      "equity": 117203.75,
-      "peak": 117203.75
+      "equity": 11720.37,
+      "peak": 11720.37
     },
     {
       "t": "2026-08-01",
-      "equity": 117971.71,
-      "peak": 117971.71
+      "equity": 11797.17,
+      "peak": 11797.17
     },
     {
       "t": "2026-08-02",
-      "equity": 117634.61,
-      "peak": 117971.71
+      "equity": 11763.46,
+      "peak": 11797.17
     },
     {
       "t": "2026-08-03",
-      "equity": 120458.44,
-      "peak": 120458.44
+      "equity": 12045.84,
+      "peak": 12045.84
     },
     {
       "t": "2026-08-04",
-      "equity": 120565.02,
-      "peak": 120565.02
+      "equity": 12056.5,
+      "peak": 12056.5
     },
     {
       "t": "2026-08-05",
-      "equity": 120780.58,
-      "peak": 120780.58
+      "equity": 12078.06,
+      "peak": 12078.06
     },
     {
       "t": "2026-08-06",
-      "equity": 122555.19,
-      "peak": 122555.19
+      "equity": 12255.52,
+      "peak": 12255.52
     },
     {
       "t": "2026-08-07",
-      "equity": 121891.46,
-      "peak": 122555.19
+      "equity": 12189.15,
+      "peak": 12255.52
     },
     {
       "t": "2026-08-08",
-      "equity": 123023.43,
-      "peak": 123023.43
+      "equity": 12302.34,
+      "peak": 12302.34
     },
     {
       "t": "2026-08-09",
-      "equity": 124553.16,
-      "peak": 124553.16
+      "equity": 12455.32,
+      "peak": 12455.32
     },
     {
       "t": "2026-08-10",
-      "equity": 126448.56,
-      "peak": 126448.56
+      "equity": 12644.86,
+      "peak": 12644.86
     },
     {
       "t": "2026-08-11",
-      "equity": 126713.64,
-      "peak": 126713.64
+      "equity": 12671.36,
+      "peak": 12671.36
     },
     {
       "t": "2026-08-12",
-      "equity": 129934.35,
-      "peak": 129934.35
+      "equity": 12993.44,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-13",
-      "equity": 129403.64,
-      "peak": 129934.35
+      "equity": 12940.36,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-14",
-      "equity": 128892.97,
-      "peak": 129934.35
+      "equity": 12889.3,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-15",
-      "equity": 127592.46,
-      "peak": 129934.35
+      "equity": 12759.25,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-16",
-      "equity": 126846.89,
-      "peak": 129934.35
+      "equity": 12684.69,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-17",
-      "equity": 127513.3,
-      "peak": 129934.35
+      "equity": 12751.33,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-18",
-      "equity": 127717.87,
-      "peak": 129934.35
+      "equity": 12771.79,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-19",
-      "equity": 124259.16,
-      "peak": 129934.35
+      "equity": 12425.92,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-20",
-      "equity": 123150.78,
-      "peak": 129934.35
+      "equity": 12315.08,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-21",
-      "equity": 124548.92,
-      "peak": 129934.35
+      "equity": 12454.89,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-22",
-      "equity": 127208.32,
-      "peak": 129934.35
+      "equity": 12720.83,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-23",
-      "equity": 120023.39,
-      "peak": 129934.35
+      "equity": 12002.34,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-24",
-      "equity": 122578.17,
-      "peak": 129934.35
+      "equity": 12257.82,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-25",
-      "equity": 118694.21,
-      "peak": 129934.35
+      "equity": 11869.42,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-26",
-      "equity": 120192.74,
-      "peak": 129934.35
+      "equity": 12019.27,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-27",
-      "equity": 116275.43,
-      "peak": 129934.35
+      "equity": 11627.54,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-28",
-      "equity": 116495.73,
-      "peak": 129934.35
+      "equity": 11649.57,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-29",
-      "equity": 119240.49,
-      "peak": 129934.35
+      "equity": 11924.05,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-30",
-      "equity": 118653.41,
-      "peak": 129934.35
+      "equity": 11865.34,
+      "peak": 12993.44
     },
     {
       "t": "2026-08-31",
-      "equity": 118916.3,
-      "peak": 129934.35
+      "equity": 11891.63,
+      "peak": 12993.44
     },
     {
       "t": "2026-09-01",
-      "equity": 120706.2,
-      "peak": 129934.35
+      "equity": 12070.62,
+      "peak": 12993.44
     },
     {
       "t": "2026-09-02",
-      "equity": 120847.37,
-      "peak": 129934.35
+      "equity": 12084.74,
+      "peak": 12993.44
     },
     {
       "t": "2026-09-03",
-      "equity": 120406.11,
-      "peak": 129934.35
+      "equity": 12040.61,
+      "peak": 12993.44
     },
     {
       "t": "2026-09-04",
-      "equity": 124122.46,
-      "peak": 129934.35
+      "equity": 12412.25,
+      "peak": 12993.44
     },
     {
       "t": "2026-09-05",
-      "equity": 126657.49,
-      "peak": 129934.35
+      "equity": 12665.75,
+      "peak": 12993.44
     },
     {
       "t": "2026-09-06",
-      "equity": 125652.03,
-      "peak": 129934.35
+      "equity": 12565.2,
+      "peak": 12993.44
     }
   ],
   "regime_history": [
@@ -1982,7 +2020,7 @@
     }
   ],
   "freshness": {
-    "bar_timestamp": "2026-09-07T08:40:49.717171+00:00",
+    "bar_timestamp": "2026-09-07T08:56:36.079508+00:00",
     "bar_age_hours": 0.0,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,

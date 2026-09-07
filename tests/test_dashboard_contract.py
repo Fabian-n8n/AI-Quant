@@ -29,6 +29,7 @@ PANELS = {
     "risk": "RiskPanel",
     "system": "SystemPanel",
     "freshness": "Freshness",
+    "timing": "Timing",
 }
 ROW_PANELS = {"positions": "PositionRow", "signals": "SignalRow", "candidates": "Candidate"}
 
@@ -299,3 +300,23 @@ def test_freshness_survives_a_missing_bar_timestamp():
     result = freshness({"regime": {}, "system": {}})
     assert result["bar_age_hours"] is None
     assert result["realtime"] is False
+
+
+def test_timing_answers_when_to_buy(payload):
+    """"Buy this" is incomplete without when, at what price, and by what order
+    type. On a daily-bar system the answer is never "right now"."""
+    timing = payload["timing"]
+    assert timing["acts_on"]
+    assert timing["order_type"]
+    assert timing["session_close_et"]
+    assert 0 < timing["limit_offset_pct"] < 0.05
+
+
+def test_sizing_is_affordable_for_the_configured_account(payload):
+    """The complaint that started this: 62 shares of SPY is $31,880, which is
+    not a position a real starter account can take."""
+    equity = payload["portfolio"]["equity"]
+    for candidate in payload["candidates"]:
+        if candidate["approved"]:
+            assert candidate["notional"] <= equity, \
+                f"{candidate['symbol']} costs more than the whole account"

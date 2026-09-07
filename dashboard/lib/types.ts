@@ -63,6 +63,11 @@ export interface Freshness {
   sip_delay_minutes: number; publish_cadence: string; poll_seconds: number; realtime: boolean;
 }
 
+export interface Timing {
+  market_open: boolean | null; next_open: string | null; timeframe: string | null;
+  acts_on: string; order_type: string; limit_offset_pct: number; session_close_et: string;
+}
+
 export interface Snapshot {
   schema_version: number;
   source: "live" | "demo";
@@ -79,5 +84,6 @@ export interface Snapshot {
   regime_mix: { regime: string; bars: number; pct: number }[];
   candidates: Candidate[];
   freshness: Freshness;
+  timing: Timing;
   notes?: Record<string, unknown>;
 }

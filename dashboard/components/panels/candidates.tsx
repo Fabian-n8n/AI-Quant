@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import {
-  ArrowRight, Ban, ChevronDown, CircleDollarSign, Shield, TrendingDown, TrendingUp,
+  ArrowRight, Ban, ChevronDown, CircleDollarSign, Clock, Shield,
+  TrendingDown, TrendingUp,
 } from "lucide-react";
+import { DeterminismSplit, Glossary } from "@/components/panels/explain";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -13,10 +15,42 @@ import {
 } from "@/components/ui/table";
 import { humanise, money, pct, price, signedPct, toneText, type Tone } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Candidate } from "@/lib/types";
+import type { Candidate, Timing } from "@/lib/types";
 
 const convictionTone = (v: number): Tone =>
   v >= 0.7 ? "positive" : v >= 0.5 ? "warning" : "muted";
+
+/** The case for the trade, as sentences rather than a table.
+ *
+ *  Assembled from the same fields the detail view lists, because a reason built
+ *  from different numbers than the ones on screen is a reason you cannot check. */
+function reasons(c: Candidate): { good: string[]; against: string[] } {
+  const good: string[] = [];
+  const against: string[] = [];
+
+  (c.trend === "above" ? good : against).push(
+    c.trend === "above"
+      ? `Price is ${signedPct(c.price_vs_ema50, 1)} above its 50-day average, the trend filter the strategy uses.`
+      : `Price is ${signedPct(c.price_vs_ema50, 1)} below its 50-day average, so the trend filter is against this.`,
+  );
+
+  if (c.stop_atr_mult > 0 && c.stop_atr_mult <= 2) {
+    good.push(`The stop sits ${c.stop_atr_mult.toFixed(1)}x this stock's daily range away — tight enough to size a real position.`);
+  } else if (c.stop_atr_mult > 2) {
+    against.push(`The stop is ${c.stop_atr_mult.toFixed(1)}x the daily range away, so the position gets sized down to keep the loss capped.`);
+  }
+
+  (c.return_20d >= 0 ? good : against).push(
+    `20-day momentum is ${signedPct(c.return_20d, 1)}.`,
+  );
+
+  good.push(`The regime is ${humanise(c.regime).toLowerCase()} at ${pct(c.regime_confidence, 0)} confidence, which the ${humanise(c.volatility_rank).toLowerCase()}-volatility strategy trades.`);
+
+  if (c.modifications.length) {
+    against.push(...c.modifications.map((m) => `Risk layer reduced this: ${m}`));
+  }
+  return { good, against };
+}
 
 /* ----------------------------------------------------------- top pick -- */
 
@@ -26,7 +60,9 @@ const convictionTone = (v: number): Tone =>
  *  strategy sits out, or an exposure cap already reached all produce "nothing",
  *  and showing the least-bad blocked name instead would invent a recommendation
  *  the system never made. */
-export function TopPickCard({ pick, equity }: { pick: Candidate | null; equity: number }) {
+export function TopPickCard({
+  pick, equity, timing,
+}: { pick: Candidate | null; equity: number; timing: Timing }) {
   if (!pick) {
     return (
       <Card span="2">
@@ -109,16 +145,61 @@ export function TopPickCard({ pick, equity }: { pick: Candidate | null; equity: 
           <Progress value={pick.conviction} tone={convictionTone(pick.conviction)} label="Conviction" />
         </div>
 
-        {pick.modifications.length > 0 && (
-          <ul className="space-y-1 text-xs text-muted-foreground">
-            {pick.modifications.map((m) => (
-              <li key={m} className="flex gap-2">
-                <Shield className="mt-0.5 h-3 w-3 shrink-0 text-warning" aria-hidden />
-                <span>{m}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* WHY */}
+        <div className="grid gap-4 border-t border-border/60 pt-4 sm:grid-cols-2">
+          <div>
+            <h4 className="mb-2 text-2xs font-semibold uppercase tracking-[0.09em] text-positive">
+              Why buy this
+            </h4>
+            <ul className="space-y-1.5">
+              {reasons(pick).good.map((r) => (
+                <li key={r} className="flex gap-2 text-xs leading-relaxed text-muted-foreground">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-positive" aria-hidden />
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h4 className="mb-2 text-2xs font-semibold uppercase tracking-[0.09em] text-warning">
+              What argues against it
+            </h4>
+            <ul className="space-y-1.5">
+              {reasons(pick).against.length === 0 ? (
+                <li className="text-xs text-muted-foreground">
+                  Nothing in the rule set objects. That is not the same as a good trade.
+                </li>
+              ) : (
+                reasons(pick).against.map((r) => (
+                  <li key={r} className="flex gap-2 text-xs leading-relaxed text-muted-foreground">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-warning" aria-hidden />
+                    {r}
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
+
+        {/* WHEN */}
+        <div className="flex flex-wrap items-start gap-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+          <div className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground">
+            <strong className="font-semibold text-foreground">When: not right now.</strong>{" "}
+            This decision comes from the {timing.timeframe ?? "daily"} bar that closes at{" "}
+            {timing.session_close_et} New York. The order goes in as a{" "}
+            {timing.order_type} {(timing.limit_offset_pct * 100).toFixed(1)}% above the last close
+            and rests until {timing.acts_on}
+            {timing.market_open === false && timing.next_open
+              ? `, which is ${new Date(timing.next_open).toLocaleString("en-GB", {
+                  weekday: "short", hour: "2-digit", minute: "2-digit",
+                })}`
+              : ""}
+            . Your fill will not be the entry price shown above.
+          </div>
+        </div>
+
+        <Glossary />
       </CardContent>
 
       <CardFooter>
@@ -273,45 +354,57 @@ export function CandidatesCard({ candidates }: { candidates: Candidate[] }) {
 /* ------------------------------------------------------------ detail -- */
 
 function CandidateDetail({ candidate: c }: { candidate: Candidate }) {
-  const steps: { label: string; value: React.ReactNode; tone?: Tone }[] = [
-    { label: "Regime", value: `${humanise(c.regime)} at ${pct(c.regime_confidence, 0)} confidence` },
-    { label: "Volatility tier", value: `${humanise(c.volatility_rank)} → ${c.strategy}` },
-    {
-      label: "Trend filter",
-      value: `${c.trend === "above" ? "Above" : "Below"} the 50 EMA by ${signedPct(c.price_vs_ema50, 2)}`,
-      tone: c.trend === "above" ? "positive" : "negative",
-    },
-    { label: "Volatility (ATR)", value: `${pct(c.atr_pct, 2)} of price` },
-    {
-      label: "Stop placement",
-      value: c.stop_loss !== null
-        ? `${price(c.stop_loss)} — ${pct(c.stop_distance_pct, 2)} away, ${c.stop_atr_mult.toFixed(1)}× ATR`
-        : "none",
-    },
-    { label: "20-bar momentum", value: signedPct(c.return_20d, 1), tone: c.return_20d >= 0 ? "positive" : "negative" },
-  ];
-
   return (
     <div className="grid gap-6 p-5 lg:grid-cols-3">
-      <div className="lg:col-span-2">
-        <h4 className="mb-3 text-2xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
-          How the system reached this
-        </h4>
-        <dl className="space-y-2">
-          {steps.map((s) => (
-            <div key={s.label} className="flex items-baseline justify-between gap-4 text-sm">
-              <dt className="text-muted-foreground">{s.label}</dt>
-              <dd className={cn("tnum text-right", s.tone ? toneText[s.tone] : "text-foreground")}>
-                {s.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        {c.reasoning && (
-          <p className="mt-3 border-t border-border/60 pt-3 text-xs leading-relaxed text-muted-foreground">
-            {c.reasoning}
-          </p>
-        )}
+      <div className="lg:col-span-2 space-y-4">
+        <div>
+          <h4 className="mb-3 text-2xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+            How the system reached this
+          </h4>
+          <DeterminismSplit
+            deterministic={[
+              { label: "Entry (last close)", value: price(c.entry_price) },
+              { label: "Stop price", value: c.stop_loss !== null ? price(c.stop_loss) : "—" },
+              { label: "Stop distance", value: `${pct(c.stop_distance_pct, 2)} · ${c.stop_atr_mult.toFixed(1)}x ATR` },
+              { label: "Shares approved", value: c.shares || "—" },
+              { label: "Capital deployed", value: c.notional ? money(c.notional) : "—" },
+              { label: "Risk if stopped", value: c.risk_dollars ? `${money(c.risk_dollars)} (${pct(c.risk_pct_of_equity, 2)})` : "—" },
+            ]}
+            probabilistic={[
+              { label: "Regime", value: humanise(c.regime) },
+              { label: "Regime confidence", value: pct(c.regime_confidence, 0) },
+              { label: "Volatility tier", value: humanise(c.volatility_rank) },
+              { label: "Conviction", value: pct(c.conviction, 0) },
+              { label: "Trend vs 50 EMA", value: signedPct(c.price_vs_ema50, 2) },
+              { label: "20-bar momentum", value: signedPct(c.return_20d, 1) },
+            ]}
+          />
+        </div>
+
+        <div className="grid gap-4 border-t border-border/60 pt-4 sm:grid-cols-2">
+          <div>
+            <h5 className="mb-2 text-2xs font-semibold uppercase tracking-[0.09em] text-positive">
+              For
+            </h5>
+            <ul className="space-y-1.5">
+              {reasons(c).good.map((r) => (
+                <li key={r} className="text-xs leading-relaxed text-muted-foreground">{r}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h5 className="mb-2 text-2xs font-semibold uppercase tracking-[0.09em] text-warning">
+              Against
+            </h5>
+            <ul className="space-y-1.5">
+              {reasons(c).against.length === 0
+                ? <li className="text-xs text-muted-foreground">Nothing in the rule set objects.</li>
+                : reasons(c).against.map((r) => (
+                    <li key={r} className="text-xs leading-relaxed text-muted-foreground">{r}</li>
+                  ))}
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div>

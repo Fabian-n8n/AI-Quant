@@ -91,6 +91,10 @@ class SessionState:
     day_start_date: str = ""
     week_start_date: str = ""
     equity_at_save: float = 0.0
+    #: The account size the baselines above were recorded against. Changing
+    #: `risk.account_size_override` rescales every dollar figure, and a peak
+    #: recorded in the old scale reads as a catastrophic drawdown in the new one.
+    sizing_basis: float = 0.0
 
     daily_trades: int = 0
     bars_processed: int = 0
@@ -548,7 +552,14 @@ class TradingEngine:
         """
         from core.risk_manager import RiskManager
 
-        self.risk_manager = RiskManager(self.risk_config, lock_file=self.lock_file)
+        # The sector map is what makes the concentration cap mean anything.
+        # Without it, NVDA/AMD/AVGO/SMCI read as four independent positions
+        # rather than one semiconductor bet wearing four hats.
+        self.risk_manager = RiskManager(
+            self.risk_config,
+            lock_file=self.lock_file,
+            sector_map=self.settings["broker"].get("sectors") or {},
+        )
 
         if self.risk_manager.is_halted():
             lock = self.risk_manager.breaker.lock_file
@@ -606,20 +617,28 @@ class TradingEngine:
         max-drawdown-from-peak breaker. The max of the two is the only choice
         that cannot silently weaken a breaker.
         """
-        equity = self.account.equity
+        equity = self.sizing_equity
         today = date.today()
         restored = SessionState.load(self.snapshot_path)
+
+        if restored is not None:
+            restored = self._rebase_if_sizing_changed(restored, equity)
 
         if restored is None:
             self.session = SessionState(
                 session_id=self.started_at.strftime("%Y%m%d-%H%M%S"),
                 started_at=self.started_at.isoformat(),
                 peak_equity=equity,
-                day_start_equity=self.account.last_equity or equity,
+                # The SCALED previous close, not the raw one. Seeding this
+                # from the broker's real last_equity while sizing against an
+                # override produced a phantom -90% daily drawdown and halted
+                # the system on its first bar.
+                day_start_equity=(self._scaled_account().last_equity or equity),
                 week_start_equity=equity,
                 day_start_date=today.isoformat(),
                 week_start_date=_week_start(today).isoformat(),
                 equity_at_save=equity,
+                sizing_basis=equity,
             )
             logger.info("No previous session snapshot. Starting fresh at $%s.",
                         f"{equity:,.2f}")
@@ -671,6 +690,40 @@ class TradingEngine:
             self.session.breaker_daily_tripped, self.session.breaker_weekly_tripped,
             self.session.breaker_peak_tripped,
         )
+
+    def _rebase_if_sizing_changed(self, restored: SessionState, equity: float
+                                  ) -> SessionState:
+        """Rescale the baselines when `account_size_override` has changed.
+
+        Every dollar figure in the snapshot was recorded against the old account
+        size. Restoring a $100,000 peak into a $10,000 account reads as a 90%
+        drawdown and halts the system on startup, with a lock file that has to
+        be deleted by hand — for a config edit, not a loss.
+
+        Rescaling by the ratio preserves what the baselines actually mean. A
+        peak 5% above current equity stays 5% above it, so the breakers keep
+        measuring the same thing and a genuine drawdown is not erased.
+        """
+        previous = restored.sizing_basis
+        if not previous or previous <= 0 or abs(previous - equity) < 1e-9:
+            return restored
+
+        factor = equity / previous
+        for attribute in ("peak_equity", "day_start_equity", "week_start_equity",
+                          "equity_at_save"):
+            setattr(restored, attribute, getattr(restored, attribute) * factor)
+        for point in restored.equity_history:
+            point["equity"] = round(point.get("equity", 0.0) * factor, 2)
+            point["peak"] = round(point.get("peak", 0.0) * factor, 2)
+        restored.sizing_basis = equity
+
+        logger.warning(
+            "Account sizing basis changed from $%s to $%s. Rescaled the session "
+            "baselines by %.4fx so the drawdown ratios are preserved. Stops are "
+            "prices and were left alone.",
+            f"{previous:,.2f}", f"{equity:,.2f}", factor,
+        )
+        return restored
 
     def _roll_periods(self, today: date, equity: float, restoring: bool = False) -> None:
         """Reset the daily and weekly baselines when the calendar rolls over."""
@@ -779,18 +832,39 @@ class TradingEngine:
     # PORTFOLIO AND STOPS
     # =======================================================================
 
+    @property
+    def sizing_equity(self) -> float:
+        """The equity every position size is computed against.
+
+        Defaults to the broker's real balance. When `risk.account_size_override`
+        is set, that number is used instead, because an Alpaca paper account is
+        funded with $100,000 of imaginary money and sizing against it produces
+        orders nobody could place. Rehearsing at a size you will never trade
+        teaches you nothing about the size you will.
+
+        The override scales the whole risk path coherently: drawdowns are ratios
+        and the session baselines are tracked in the same space, so a breaker
+        fires at the same percentage either way.
+        """
+        real = self.account.equity if self.account else 0.0
+        override = self.risk_config.get("account_size_override")
+        return float(override) if override else real
+
     def refresh_portfolio(self):
         """Rebuild `PortfolioState` from the broker plus the session baselines."""
         started = time.perf_counter()
         self.account = self._broker_retry(self.client.get_account, what="account refresh")
         self.api_latency_ms = (time.perf_counter() - started) * 1000.0
-        self._roll_periods(date.today(), self.account.equity)
-        self.session.peak_equity = max(self.session.peak_equity, self.account.equity)
-        self.session.equity_at_save = self.account.equity
+        self._roll_periods(date.today(), self.sizing_equity)
+        equity = self.sizing_equity
+        self.session.peak_equity = max(self.session.peak_equity, equity)
+        self.session.equity_at_save = equity
+        self.session.sizing_basis = equity
 
         regime = self.regime_state
+        scaled = self._scaled_account()
         self.portfolio = self.position_tracker.to_portfolio_state(
-            account=self.account,
+            account=scaled,
             peak_equity=self.session.peak_equity,
             day_start_equity=self.session.day_start_equity,
             week_start_equity=self.session.week_start_equity,
@@ -801,6 +875,31 @@ class TradingEngine:
             flicker_rate=regime.flicker_rate if regime else 0,
         )
         return self.portfolio
+
+    def _scaled_account(self):
+        """The account as the risk layer should see it.
+
+        Without an override this is the broker's account unchanged. With one,
+        every monetary field is scaled by the same factor, so ratios (exposure,
+        drawdown, leverage) are identical and only the absolute dollar sizes
+        change. Scaling one field and not the others would silently corrupt
+        every percentage the breakers read.
+        """
+        override = self.risk_config.get("account_size_override")
+        if not override or not self.account or self.account.equity <= 0:
+            return self.account
+
+        from dataclasses import replace
+
+        factor = float(override) / self.account.equity
+        return replace(
+            self.account,
+            equity=float(override),
+            cash=self.account.cash * factor,
+            buying_power=self.account.buying_power * factor,
+            portfolio_value=self.account.portfolio_value * factor,
+            last_equity=self.account.last_equity * factor,
+        )
 
     def audit_stops(self, alert: bool = True) -> list[str]:
         """Every open position must have a resting stop order at the broker.

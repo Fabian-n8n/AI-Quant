@@ -14,17 +14,62 @@
 # ---------------------------------------------------------------------------
 broker:
   paper_trading: true          # see the README FAQ before ever changing this
-  symbols:                     # the tradable universe
+  # The tradable universe. Every name here is scanned each bar and ranked.
+  #
+  # THREE THINGS THIS SYSTEM DOES NOT DO, so the universe is chosen knowing them:
+  #
+  # 1. It does not detect breakouts. There is no consolidation, no volume
+  #    expansion test, no resistance level. Adding a "breakout ticker" changes
+  #    what is scanned, not what is looked for.
+  # 2. It does not trade options. Long shares only, never short. Options would
+  #    be a new strategy layer, not a config change.
+  # 3. The regime is MARKET-WIDE. The HMM is fitted on one reference symbol and
+  #    the classification applies to every name. Adding more names does not add
+  #    more opinions, it adds more candidates for one opinion.
+  #
+  # A higher-volatility name does NOT get a bigger position here. Sizing is
+  # risk / stop-distance, and a volatile name has a wider stop, so it gets FEWER
+  # shares for the same dollar risk. That is the design working, not fighting
+  # you: a riskier ticker is sized down automatically.
+  symbols:
+    # Index ETFs. Deep liquidity, tight spreads, the benchmark the strategy has
+    # to beat. Keep at least one: it is the honesty check.
     - SPY
     - QQQ
+    # Large-cap tech. Highly correlated with each other, so the risk layer will
+    # reject the second and third of these once one is held.
     - AAPL
     - MSFT
-    - AMZN
-    - GOOGL
     - NVDA
     - META
-    - TSLA
+    - AMZN
+    - GOOGL
+    # Higher beta. Wider stops mean smaller positions, which is the point.
     - AMD
+    - TSLA
+    - AVGO
+    - PLTR
+    - COIN
+    - SMCI
+
+  # Sector labels for the concentration cap. Without these, five large-cap tech
+  # names read as five independent positions rather than one bet in five hats.
+  sectors:
+    SPY: index
+    QQQ: index
+    AAPL: technology
+    MSFT: technology
+    NVDA: semiconductors
+    AMD: semiconductors
+    AVGO: semiconductors
+    SMCI: semiconductors
+    META: technology
+    AMZN: consumer
+    GOOGL: technology
+    TSLA: consumer
+    PLTR: technology
+    COIN: financials
+
   timeframe: 1Day              # swing horizon: evaluate on daily bar close
 
 # ---------------------------------------------------------------------------
@@ -127,6 +172,19 @@ risk:
   weekly_dd_reduce: 0.05
   weekly_dd_halt: 0.07
   max_dd_from_peak: 0.10       # halt and write trading_halted.lock
+
+  # -- account size ---------------------------------------------------------
+  # Size positions as if the account held this much, regardless of what the
+  # broker reports. Set to `null` to use the real balance.
+  #
+  # This exists because an Alpaca paper account is funded with $100,000 of
+  # imaginary money, and sizing against it produces orders nobody can actually
+  # place: 62 shares of SPY is $31,880. Rehearsing at a size you will never
+  # trade teaches you nothing about the size you will.
+  #
+  # CLAUDE.md is explicit that this should be your real intended starting
+  # capital. Change this one number to yours.
+  account_size_override: 10000
 
   # -- position level -------------------------------------------------------
   min_position_usd: 100        # below this, costs outweigh the position

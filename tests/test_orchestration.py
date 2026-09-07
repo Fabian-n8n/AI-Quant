@@ -192,6 +192,10 @@ def engine_settings(settings, tmp_path):
     config["orchestration"]["state_snapshot_path"] = str(tmp_path / "state_snapshot.json")
     config["orchestration"]["broker_retry_base_delay"] = 0.0
     config["orchestration"]["poll_seconds"] = 0.01
+    # Tests drive equity through the fake broker, so the sizing override has to
+    # be off by default or every drawdown assertion measures the override
+    # instead. TestAccountSizeOverride turns it on explicitly.
+    config["risk"]["account_size_override"] = None
     return config
 
 
@@ -1160,3 +1164,125 @@ def test_status_mode_touches_no_network(capsys):
 def test_live_requires_an_explicit_flag():
     args = build_parser().parse_args([])
     assert args.i_understand_live is False
+
+
+# ===========================================================================
+# Account size override
+# ===========================================================================
+
+class TestAccountSizeOverride:
+    """Sizing against a $100,000 paper balance produces orders nobody can place.
+
+    The override makes the risk path behave as if the account held the real
+    intended capital. Getting it half-right is worse than not having it: scale
+    one field and leave another, and the breakers start measuring a drawdown
+    that never happened.
+    """
+
+    def test_sizing_uses_the_override_not_the_broker_balance(self, built_engine):
+        engine = built_engine
+        engine.risk_config["account_size_override"] = 10_000
+        assert engine.client.get_account().equity == 100_000.0
+        assert engine.sizing_equity == 10_000.0
+
+    def test_no_override_uses_the_real_balance(self, built_engine):
+        built_engine.risk_config["account_size_override"] = None
+        assert built_engine.sizing_equity == 100_000.0
+
+    def test_every_monetary_field_scales_together(self, built_engine):
+        """Scaling equity but not last_equity seeded a phantom -90% daily
+        drawdown and halted the system on its first bar."""
+        engine = built_engine
+        engine.risk_config["account_size_override"] = 10_000
+        scaled = engine._scaled_account()
+
+        assert scaled.equity == 10_000.0
+        assert scaled.last_equity == pytest.approx(10_000.0)
+        assert scaled.cash == pytest.approx(10_000.0)
+        assert scaled.buying_power == pytest.approx(20_000.0)
+
+    def test_ratios_are_unchanged_by_the_override(self, built_engine):
+        """A breaker must fire at the same percentage either way."""
+        engine = built_engine
+        engine.risk_config["account_size_override"] = 10_000
+        engine.session.day_start_equity = 0.0
+        engine.session.peak_equity = 0.0
+        engine._restore_session_state()
+        portfolio = engine.refresh_portfolio()
+
+        assert portfolio.drawdown_daily == pytest.approx(0.0)
+        assert portfolio.drawdown_from_peak == pytest.approx(0.0)
+
+    def test_positions_are_affordable_at_the_override(self, built_engine):
+        """The whole point: orders a real account could actually place."""
+        engine = built_engine
+        engine.risk_config["account_size_override"] = 10_000
+        engine.risk_manager = None
+        engine._init_risk_manager()
+        engine._restore_session_state()
+        engine.refresh_portfolio()
+
+        signal = Signal(
+            symbol="SPY", direction=Direction.LONG, confidence=0.9,
+            entry_price=514.20, stop_loss=508.00, take_profit=None,
+            position_size_pct=0.95, leverage=1.0, regime_id=0,
+            regime_name="strong_bull", regime_probability=0.9,
+            timestamp=pd.Timestamp("2026-09-04"), reasoning="sizing test",
+            strategy_name="LowVolBullStrategy",
+        )
+        decision = engine.risk_manager.validate_signal(signal, engine.portfolio)
+
+        if decision.approved:
+            assert decision.approved_notional <= 10_000 * 0.15 + 1, \
+                "position exceeds the single-position cap on the scaled account"
+
+    def test_changing_the_override_rebases_rather_than_halting(self, built_engine, tmp_path):
+        """A config edit must not read as a 90% loss.
+
+        Restoring a $100,000 peak into a $10,000 account is a -90% drawdown,
+        which trips the peak breaker and writes a lock file that has to be
+        deleted by hand. For a settings change, not a loss.
+        """
+        snapshot = tmp_path / "state.json"
+        SessionState(
+            peak_equity=100_000.0, day_start_equity=100_000.0,
+            week_start_equity=100_000.0, equity_at_save=100_000.0,
+            sizing_basis=100_000.0,
+            day_start_date=date.today().isoformat(),
+            week_start_date=_week_start(date.today()).isoformat(),
+            equity_history=[{"t": "2026-09-01", "equity": 100_000.0, "peak": 100_000.0}],
+        ).save(snapshot)
+
+        engine = built_engine
+        engine.snapshot_path = snapshot
+        engine.risk_config["account_size_override"] = 10_000
+        engine._restore_session_state()
+
+        assert engine.session.peak_equity == pytest.approx(10_000.0)
+        assert engine.session.sizing_basis == pytest.approx(10_000.0)
+        assert engine.session.equity_history[0]["equity"] == pytest.approx(10_000.0)
+
+        portfolio = engine.refresh_portfolio()
+        assert portfolio.drawdown_from_peak == pytest.approx(0.0)
+        assert engine.risk_manager.breaker.check(portfolio) is BreakerType.NONE
+
+    def test_a_genuine_drawdown_survives_the_rebase(self, built_engine, tmp_path):
+        """Rescaling must preserve the ratio, not erase the loss."""
+        snapshot = tmp_path / "state.json"
+        SessionState(
+            peak_equity=200_000.0,          # account was down 50% from peak
+            day_start_equity=100_000.0, week_start_equity=100_000.0,
+            equity_at_save=100_000.0, sizing_basis=100_000.0,
+            day_start_date=date.today().isoformat(),
+            week_start_date=_week_start(date.today()).isoformat(),
+        ).save(snapshot)
+
+        engine = built_engine
+        engine.snapshot_path = snapshot
+        engine.risk_config["account_size_override"] = 10_000
+        engine._restore_session_state()
+
+        assert engine.session.peak_equity == pytest.approx(20_000.0)
+        portfolio = engine.refresh_portfolio()
+        assert portfolio.drawdown_from_peak == pytest.approx(-0.5), \
+            "the rebase erased a real 50% drawdown"
