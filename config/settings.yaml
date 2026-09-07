@@ -174,6 +174,30 @@ risk:
   # at 3% reaches 36%. The cap wins, so the allocation target is aspirational
   # until one of the two numbers moves. See docs/TUTORIAL-CONFLICTS.md.
   max_single_position: 0.03
+
+  # -- trailing stops -------------------------------------------------------
+  #
+  # Alpaca's native trailing_stop order type, placed as a standalone order
+  # after the entry fills (it cannot be a bracket or OCO leg).
+  #
+  # The trail is derived from ATR rather than fixed, because a fixed percentage
+  # means something different on SPY than on COIN: 5% is four ATR on one and
+  # half an ATR on the other, so a single number is either too tight to hold a
+  # position or too loose to protect it.
+  #
+  # THREE LIMITATIONS, in the code and repeated here because each one has cost
+  # someone money by being forgotten:
+  #   1. Trailing stops do not trigger outside regular hours. Overnight gaps
+  #      are unprotected until 09:30 the next session.
+  #   2. When triggered they become market orders, so the fill can be worse
+  #      than the trail price.
+  #   3. time_in_force must be day or gtc. This uses gtc.
+  trailing_stop:
+    enabled: true
+    atr_multiple: 2.5            # trail = 2.5 x ATR, expressed as a percentage
+    min_trail_pct: 1.5           # floor. A quiet tape can make ATR tiny, and a
+                                 # 0.3% trail is stopped out by normal noise.
+    max_trail_pct: 15.0          # ceiling. Past this the "stop" is not one.
   # Raised from the tutorial's 5. With small positions a five-name limit would
   # strand the portfolio at 15% invested against a 95% target, and would also
   # mean the watchlist ranks 14 names to act on three.

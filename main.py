@@ -381,6 +381,7 @@ class TradingEngine:
         self._init_position_tracker()   # 5
         self._restore_session_state()   # 6
         self._start_data_feeds()        # 7
+        self._reconcile_stops()         # 7b
         self._print_system_state()      # 8
         return self
 
@@ -857,6 +858,29 @@ class TradingEngine:
 
     # -- 8. system state ----------------------------------------------------
 
+    def _reconcile_stops(self) -> None:
+        """Startup: verify every adopted position has a live stop, create if not.
+
+        The positions this engine wakes up holding were opened by a process
+        that no longer exists. Its stops may have been cancelled, may have
+        filled, or may never have been placed if it died between the entry
+        fill and the stop submission. Checking is cheap; discovering it after a
+        gap down is not.
+        """
+        if self.position_tracker is None or self.dry_run:
+            return
+        try:
+            still_missing = self.audit_stops(alert=True, repair=True)
+        except Exception as exc:
+            logger.warning("startup stop reconciliation failed: %s", exc)
+            return
+
+        if still_missing:
+            self._emit(_EventTypes().ERROR,
+                       f"Startup could not protect: {', '.join(still_missing)}. "
+                       f"These positions are open with no stop at the broker.",
+                       symbols=still_missing)
+
     def _print_system_state(self) -> None:
         """Print system state, log "System online"."""
         from monitoring.dashboard import DashboardState, TerminalDashboard
@@ -968,13 +992,17 @@ class TradingEngine:
             last_equity=self.account.last_equity * factor,
         )
 
-    def audit_stops(self, alert: bool = True) -> list[str]:
+    def audit_stops(self, alert: bool = True, repair: bool = False) -> list[str]:
         """Every open position must have a resting stop order at the broker.
 
         Not merely a `stop_loss` float on the tracked position. Shutdown leaves
         positions open on the promise that stops are in place, and a number held
         in this process's memory stops protecting anything the moment the
         process exits. This is the check that makes that promise true.
+
+        `repair=True` places the missing stop rather than only reporting it,
+        and is used at startup. Detecting an unprotected position and leaving
+        it unprotected is a strange thing to do with the knowledge.
         """
         positions = self.position_tracker.get_open_positions()
         if not positions:
@@ -992,9 +1020,13 @@ class TradingEngine:
             if open_orders is not None:
                 from broker.alpaca_client import OrderType
 
+                # TRAILING_STOP counts. Leaving it out would report every
+                # trailing-stopped position as naked, and an alert that cries
+                # wolf on healthy positions is one that gets muted.
                 resting = {
                     o.symbol for o in open_orders
-                    if o.order_type in (OrderType.STOP, OrderType.STOP_LIMIT)
+                    if o.order_type in (OrderType.STOP, OrderType.STOP_LIMIT,
+                                        OrderType.TRAILING_STOP)
                 }
                 missing_at_broker = [
                     s for s in positions if s not in resting and s not in unprotected
@@ -1005,6 +1037,9 @@ class TradingEngine:
                         "at the broker.", ", ".join(missing_at_broker),
                     )
                     unprotected = sorted(set(unprotected) | set(missing_at_broker))
+
+        if unprotected and repair:
+            unprotected = self._repair_stops(unprotected, positions)
 
         if unprotected:
             self._emit(_EventTypes().ERROR,
@@ -1604,6 +1639,79 @@ class TradingEngine:
                            f"{candidate_signal.symbol}: order failed, {exc}",
                            symbol=candidate_signal.symbol, error=str(exc))
 
+    def _repair_stops(self, unprotected: list[str], positions: dict) -> list[str]:
+        """Place a stop for every position found without one. Returns what is
+        still unprotected afterwards.
+
+        Runs at startup, which is exactly when this matters: the process that
+        placed the original stops is gone, and a position adopted from a
+        previous session may have had its stop cancelled, filled, or never
+        placed at all.
+
+        The stop price comes from the saved session state where possible, and
+        from the regime's rule against the current price where not. The second
+        case is a genuinely new stop rather than a restored one, so it is
+        logged as such.
+        """
+        still_missing = []
+        for symbol in unprotected:
+            position = positions.get(symbol)
+            if position is None or not position.quantity:
+                continue
+
+            stop = self.session.stops.get(symbol) or getattr(position, "stop_loss", None)
+            source = "saved state"
+            if not stop:
+                price = getattr(position, "current_price", None) or \
+                    getattr(position, "avg_entry_price", 0)
+                if not price:
+                    still_missing.append(symbol)
+                    continue
+                # A flat percentage, not the regime's ATR rule. The bars needed
+                # for ATR are not loaded at startup, and a stop placed now on a
+                # crude rule beats a correct one placed after the open.
+                stop = price * 0.92
+                source = "8% below the current price, no saved stop was found"
+
+            try:
+                self.order_executor.place_stop(symbol, position.quantity, float(stop))
+                self.session.stops[symbol] = float(stop)
+                self.position_tracker.update_stop(symbol, float(stop))
+                logger.warning(
+                    "%s: had no resting stop at the broker. Placed one at %.2f (%s).",
+                    symbol, stop, source,
+                )
+            except Exception as exc:
+                logger.error("%s: could not place the missing stop: %s", symbol, exc)
+                still_missing.append(symbol)
+        return still_missing
+
+    def _trail_percent(self, signal) -> float | None:
+        """ATR expressed as a trail percentage, floored and capped.
+
+        A fixed percentage means something different on every symbol: 5% is
+        four ATR on SPY and half an ATR on COIN, so one number is either too
+        tight to hold a position or too loose to protect it. Deriving it from
+        ATR makes the trail mean the same thing everywhere, which is "give this
+        position room to breathe for 2.5 average days of range".
+
+        The floor exists because a quiet tape makes ATR tiny, and a 0.3% trail
+        gets taken out by normal intraday noise. The cap exists because past
+        about 15% the order is not a stop, it is a formality.
+        """
+        config = self.risk_config.get("trailing_stop", {}) or {}
+        if not config.get("enabled", False):
+            return None
+
+        atr = (signal.metadata or {}).get("atr")
+        price = signal.entry_price
+        if not atr or not price or price <= 0:
+            return None
+
+        raw = float(config.get("atr_multiple", 2.5)) * float(atr) / float(price) * 100
+        return max(float(config.get("min_trail_pct", 1.5)),
+                   min(raw, float(config.get("max_trail_pct", 15.0))))
+
     def _attach_stop(self, signal, decision, trade) -> None:
         """Record the stop, and place the resting order once shares actually exist.
 
@@ -1621,8 +1729,14 @@ class TradingEngine:
                         "once shares exist.", signal.symbol, signal.stop_loss)
             return
         try:
-            self.order_executor.place_stop(
-                signal.symbol, filled, signal.stop_loss, trade_id=trade.trade_id
+            # protect_position tries the trailing stop and falls back to a
+            # fixed one, so a trailing-stop rejection cannot leave a filled
+            # position naked while somebody works out why.
+            self.order_executor.protect_position(
+                signal.symbol, filled,
+                trail_percent=self._trail_percent(signal),
+                stop_price=signal.stop_loss,
+                trade_id=trade.trade_id,
             )
         except Exception as exc:
             self._emit(_EventTypes().ERROR,

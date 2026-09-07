@@ -376,6 +376,79 @@ class OrderExecutor:
         logger.info("Placed stop for %s x%g @ %.2f", symbol, quantity, stop_price)
         return order
 
+    def place_trailing_stop(self, symbol: str, quantity: float, trail_percent: float,
+                            trade_id: str | None = None,
+                            fallback_stop: float | None = None) -> Order:
+        """A trailing stop that follows price up and never moves down.
+
+        THREE DOCUMENTED ALPACA LIMITATIONS, each of which has cost somebody
+        money by being forgotten:
+
+        1. Trailing stops do NOT trigger outside regular market hours. An
+           overnight gap through the trail is unprotected: the order does not
+           fire until 09:30 the next session, by which time price has already
+           moved. On a swing system holding overnight, this is the main risk.
+        2. When triggered they become MARKET orders. The fill can be, and in a
+           fast tape will be, worse than the trail price. The trail is where
+           the order wakes up, not where it fills.
+        3. `time_in_force` must be `day` or `gtc`. Anything else is rejected.
+           GTC here, because a stop that expires at the close is not a stop.
+
+        Alpaca does not allow a trailing stop as a bracket or OCO leg, so it has
+        to be a standalone order placed after the entry fills. That leaves a
+        window where the position exists without protection, which is why
+        `fallback_stop` is not optional in practice: if this call fails, the
+        caller must place a plain stop immediately rather than retry.
+        """
+        from alpaca.trading.enums import OrderSide as AlpacaSide
+        from alpaca.trading.enums import TimeInForce
+        from alpaca.trading.requests import TrailingStopOrderRequest
+
+        request = TrailingStopOrderRequest(
+            symbol=symbol, qty=quantity, side=AlpacaSide.SELL,
+            time_in_force=TimeInForce.GTC,          # limitation 3
+            trail_percent=round(trail_percent, 2),
+        )
+        raw = self.client.trading_client.submit_order(request)
+        order = self.client.to_order(raw)
+        if trade_id and trade_id in self.trades:
+            self.trades[trade_id].stop_order_id = order.order_id
+        logger.info("Placed trailing stop for %s x%g, trail %.2f%% "
+                    "(does not trigger outside regular hours)",
+                    symbol, quantity, trail_percent)
+        return order
+
+    def protect_position(self, symbol: str, quantity: float, *,
+                         trail_percent: float | None = None,
+                         stop_price: float | None = None,
+                         trade_id: str | None = None) -> Order:
+        """Attach protection to a filled position, whatever it takes.
+
+        Tries the trailing stop, falls back to a plain stop, and raises only if
+        both fail. The fallback is the point: a filled position must never sit
+        without a stop, and "the trailing stop request errored" is not a reason
+        to leave one naked while somebody investigates.
+        """
+        if trail_percent is not None:
+            try:
+                return self.place_trailing_stop(symbol, quantity, trail_percent,
+                                                trade_id=trade_id)
+            except Exception as exc:
+                logger.error(
+                    "%s: trailing stop failed (%s). Falling back to a fixed stop "
+                    "at %s. The position is NOT left unprotected.",
+                    symbol, exc, f"{stop_price:.2f}" if stop_price else "unknown",
+                )
+                if stop_price is None:
+                    raise OrderExecutionError(
+                        f"{symbol}: trailing stop failed ({exc}) and no fallback "
+                        f"stop price was given. The position is unprotected."
+                    ) from exc
+
+        if stop_price is None:
+            raise OrderExecutionError(f"{symbol}: no stop price and no trail percent")
+        return self.place_stop(symbol, quantity, stop_price, trade_id=trade_id)
+
     # -- modification -------------------------------------------------------
 
     def modify_stop(self, symbol: str, new_stop: float) -> Order | None:

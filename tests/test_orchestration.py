@@ -138,12 +138,14 @@ class FakeMarketData:
 class RecordingExecutor:
     """Order executor that records rather than submitting."""
 
-    def __init__(self):
+    def __init__(self, fail_trailing=False):
         self.orders = []
         self.stops = []
+        self.trailing = []
         self.modified = []
         self.closed = []
         self.closed_all = []
+        self.fail_trailing = fail_trailing
 
     def submit_order(self, signal, decision, **kwargs):
         from broker.order_executor import TradeRecord
@@ -167,6 +169,30 @@ class RecordingExecutor:
             order_type=OrderType.STOP, limit_price=None, stop_price=stop_price,
             average_fill_price=None, submitted_at=None, filled_at=None,
         )
+
+    def place_trailing_stop(self, symbol, quantity, trail_percent, trade_id=None,
+                            fallback_stop=None):
+        if self.fail_trailing:
+            raise RuntimeError("trailing stop rejected by the broker")
+        self.trailing.append((symbol, quantity, trail_percent))
+        return Order(
+            order_id=f"trail-{symbol}", symbol=symbol, side=OrderSide.SELL,
+            quantity=quantity, filled_quantity=0.0, status=OrderStatus.OPEN,
+            order_type=OrderType.TRAILING_STOP, limit_price=None, stop_price=None,
+            average_fill_price=None, submitted_at=None, filled_at=None,
+        )
+
+    def protect_position(self, symbol, quantity, *, trail_percent=None,
+                         stop_price=None, trade_id=None):
+        """Mirrors the real fallback: trailing first, fixed stop if it fails."""
+        if trail_percent is not None:
+            try:
+                return self.place_trailing_stop(symbol, quantity, trail_percent,
+                                                trade_id=trade_id)
+            except Exception:
+                if stop_price is None:
+                    raise
+        return self.place_stop(symbol, quantity, stop_price, trade_id=trade_id)
 
     def modify_stop(self, symbol, new_stop):
         self.modified.append((symbol, new_stop))
@@ -646,10 +672,66 @@ def test_approved_signal_is_submitted_with_a_stop(built_engine, monkeypatch):
 
     if outcome.submitted:
         assert engine.order_executor.orders
-        # Every filled entry gets a resting stop in the same cycle.
-        assert engine.order_executor.stops
-        symbol, _qty, stop = engine.order_executor.stops[0]
-        assert stop < engine.bars[symbol]["close"].iloc[-1]
+        # Every filled entry gets protection in the same cycle. Which kind is
+        # config; that there is one is the rule.
+        executor = engine.order_executor
+        assert executor.stops or executor.trailing, "a filled entry got no stop"
+        if executor.stops:
+            symbol, _qty, stop = executor.stops[0]
+            assert stop < engine.bars[symbol]["close"].iloc[-1]
+
+
+def test_a_filled_entry_gets_a_trailing_stop_when_enabled(built_engine, monkeypatch):
+    engine = built_engine
+    monkeypatch.setattr(engine.orchestrator, "needs_rebalance", lambda t, c: True)
+    monkeypatch.setattr(engine.orchestrator, "target_allocation", lambda *a, **k: 0.95)
+
+    outcome = engine.process_bar()
+    if not outcome.submitted:
+        pytest.skip("no order was submitted on this bar")
+
+    assert engine.order_executor.trailing, "trailing stop is enabled but was not used"
+    _symbol, _qty, trail = engine.order_executor.trailing[0]
+    assert 1.5 <= trail <= 15.0, f"trail {trail}% is outside the configured band"
+
+
+def test_a_rejected_trailing_stop_falls_back_to_a_fixed_one(built_engine, monkeypatch):
+    """A filled position must never sit without a stop. "The trailing stop
+    request errored" is not a reason to leave one naked."""
+    engine = built_engine
+    engine.order_executor.fail_trailing = True
+    monkeypatch.setattr(engine.orchestrator, "needs_rebalance", lambda t, c: True)
+    monkeypatch.setattr(engine.orchestrator, "target_allocation", lambda *a, **k: 0.95)
+
+    outcome = engine.process_bar()
+    if not outcome.submitted:
+        pytest.skip("no order was submitted on this bar")
+
+    assert engine.order_executor.trailing == [], "the trailing stop should have failed"
+    assert engine.order_executor.stops, "the fallback fixed stop was not placed"
+
+
+def test_the_trail_percent_tracks_atr_not_a_fixed_number(built_engine):
+    """5% is four ATR on SPY and half an ATR on COIN. One number is either too
+    tight to hold a position or too loose to protect it."""
+    from core.regime_strategies import Direction, Signal
+
+    def signal_with(atr, price):
+        return Signal(
+            symbol="X", direction=Direction.LONG, confidence=0.9, entry_price=price,
+            stop_loss=price * 0.9, take_profit=None, position_size_pct=0.1,
+            leverage=1.0, regime_id=0, regime_name="strong_bull", regime_probability=0.9,
+            timestamp=pd.Timestamp("2026-09-04"), reasoning="t",
+            strategy_name="s", metadata={"atr": atr},
+        )
+
+    quiet = built_engine._trail_percent(signal_with(atr=2.0, price=770.0))
+    wild = built_engine._trail_percent(signal_with(atr=12.0, price=185.0))
+    assert wild > quiet, "a more volatile name should get a wider trail"
+
+    # Both clamped into the configured band, whatever ATR says.
+    assert built_engine._trail_percent(signal_with(atr=0.01, price=770.0)) == 1.5
+    assert built_engine._trail_percent(signal_with(atr=500.0, price=100.0)) == 15.0
 
 
 def test_reduction_does_not_consult_the_risk_manager(built_engine, monkeypatch):

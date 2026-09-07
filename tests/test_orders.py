@@ -73,6 +73,13 @@ class FakeTradingClient:
             limit_price=getattr(request, "limit_price", None),
         )
         raw.client_order_id = getattr(request, "client_order_id", None) or "trade-1"
+        # Echo back what was actually asked for. A fake that silently drops
+        # stop_price makes a working fallback look like a broken one.
+        raw.stop_price = getattr(request, "stop_price", None)
+        if getattr(request, "trail_percent", None) is not None:
+            raw.order_type = "trailing_stop"
+        elif raw.stop_price is not None:
+            raw.order_type = "stop"
         return raw
 
     def cancel_order_by_id(self, order_id):
@@ -611,6 +618,74 @@ def test_an_unreadable_open_order_list_does_not_block_trading(signal, approved):
     fake = Unreadable()
     executor = OrderExecutor(FakeAlpacaClient(fake))
     assert executor.submit_order(signal, approved, reference_price=100.0).was_submitted
+
+
+# -- trailing stops ---------------------------------------------------------
+
+def test_a_trailing_stop_is_gtc_not_day():
+    """Alpaca requires day or gtc. A stop that expires at the close is not one."""
+    fake = FakeTradingClient()
+    OrderExecutor(FakeAlpacaClient(fake)).place_trailing_stop("COIN", 16, 8.5)
+
+    request = fake.submitted[0]
+    assert str(getattr(request.time_in_force, "value", request.time_in_force)) == "gtc"
+    assert float(request.trail_percent) == 8.5
+    assert str(getattr(request.side, "value", request.side)) == "sell"
+
+
+def test_protect_position_prefers_the_trailing_stop():
+    fake = FakeTradingClient()
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+    executor.protect_position("COIN", 16, trail_percent=8.5, stop_price=163.0)
+
+    assert float(fake.submitted[0].trail_percent) == 8.5
+    assert not hasattr(fake.submitted[0], "stop_price") or \
+        fake.submitted[0].stop_price is None
+
+
+def test_a_failed_trailing_stop_falls_back_to_a_fixed_stop():
+    """The reason the fallback exists: a filled position must never sit without
+    a stop while somebody works out why the trailing one was rejected."""
+    class RejectsTrailing(FakeTradingClient):
+        def submit_order(self, request):
+            if hasattr(request, "trail_percent"):
+                raise RuntimeError("trailing stop not supported for this asset")
+            return super().submit_order(request)
+
+    fake = RejectsTrailing()
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+    order = executor.protect_position("COIN", 16, trail_percent=8.5, stop_price=163.0)
+
+    assert order.stop_price == 163.0
+    assert len(fake.submitted) == 1, "the fallback stop did not reach the broker"
+
+
+def test_a_failed_trailing_stop_with_no_fallback_raises_loudly():
+    """Silence here would mean an unprotected position nobody knows about."""
+    class RejectsEverything(FakeTradingClient):
+        def submit_order(self, request):
+            raise RuntimeError("nope")
+
+    executor = OrderExecutor(FakeAlpacaClient(RejectsEverything()))
+    with pytest.raises(OrderExecutionError, match="unprotected"):
+        executor.protect_position("COIN", 16, trail_percent=8.5, stop_price=None)
+
+
+def test_protect_position_without_a_trail_places_a_plain_stop():
+    fake = FakeTradingClient()
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+    order = executor.protect_position("COIN", 16, trail_percent=None, stop_price=163.0)
+    assert order.stop_price == 163.0
+
+
+def test_the_trailing_stop_is_recorded_against_the_trade(signal, approved):
+    """So audit_stops can tell a protected position from an unprotected one."""
+    fake = FakeTradingClient()
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+    trade = executor.submit_order(signal, approved, reference_price=100.0)
+
+    executor.place_trailing_stop("NVDA", 27, 6.0, trade_id=trade.trade_id)
+    assert executor.trades[trade.trade_id].stop_order_id
 
 
 def test_trade_record_links_signal_to_order(signal, approved):
