@@ -162,7 +162,7 @@ def assert_paper_mode(settings: dict[str, Any]) -> None:
     if not settings.get("broker", {}).get("paper_trading", True):
         raise ConfigError(
             "broker.paper_trading is false in settings.yaml. Live trading is a "
-            "deliberate act: read docs/GO-LIVE.md, then run with --i-understand-live."
+            "deliberate act: read the README FAQ on live trading, then run with --i-understand-live."
         )
 
     credentials = load_credentials()

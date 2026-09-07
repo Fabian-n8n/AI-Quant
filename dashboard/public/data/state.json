@@ -1,0 +1,1793 @@
+{
+  "schema_version": 1,
+  "source": "demo",
+  "published_at": "2026-09-07T08:07:16.576049+00:00",
+  "timestamp": "2026-09-07T08:07:16.575699+00:00",
+  "regime": {
+    "regime": "strong_bull",
+    "confidence": 0.72,
+    "confirmed": true,
+    "consecutive_bars": 14,
+    "flicker_rate": 1,
+    "flicker_window": 20,
+    "flicker_threshold": 4,
+    "is_flickering": false,
+    "size_multiplier": 1.0,
+    "volatility_rank": "low",
+    "raw_regime": "strong_bull",
+    "n_regimes": 7,
+    "model_age_days": 2.1,
+    "timestamp": "2026-09-07T08:07:16.575699+00:00",
+    "model_trained": "2026-09-05T05:43:16.575699+00:00"
+  },
+  "portfolio": {
+    "equity": 125652.03,
+    "cash": 45234.73,
+    "buying_power": 301564.87,
+    "daily_pnl": -1005.46,
+    "daily_pnl_pct": -0.007938419491303368,
+    "allocation": 0.5,
+    "target_allocation": 0.95,
+    "leverage": 0.5,
+    "gross_exposure": 0.5,
+    "n_positions": 2,
+    "unrealised_pnl": 228.55,
+    "peak_equity": 129934.35,
+    "day_start_equity": 126657.49,
+    "daily_trades": 2
+  },
+  "positions": [
+    {
+      "symbol": "SPY",
+      "direction": "LONG",
+      "quantity": 62,
+      "entry_price": 514.2,
+      "current_price": 520.3,
+      "market_value": 32258.6,
+      "stop_loss": 508.0,
+      "has_stop": true,
+      "unrealised_pnl": 378.2,
+      "unrealised_pnl_pct": 0.0119,
+      "distance_to_stop_pct": 0.0236,
+      "regime_at_entry": "strong_bull",
+      "regime_current": "strong_bull",
+      "regime_changed": false,
+      "holding_periods": 3,
+      "held_for": "3h",
+      "adopted": false
+    },
+    {
+      "symbol": "QQQ",
+      "direction": "LONG",
+      "quantity": 41,
+      "entry_price": 441.8,
+      "current_price": 438.15,
+      "market_value": 17964.15,
+      "stop_loss": 429.6,
+      "has_stop": true,
+      "unrealised_pnl": -149.65,
+      "unrealised_pnl_pct": -0.0083,
+      "distance_to_stop_pct": 0.0195,
+      "regime_at_entry": "weak_bull",
+      "regime_current": "strong_bull",
+      "regime_changed": true,
+      "holding_periods": 9,
+      "held_for": "2d",
+      "adopted": false
+    }
+  ],
+  "signals": [
+    {
+      "timestamp": "2026-09-07T07:55:16.575699+00:00",
+      "event": "signal_generated",
+      "symbol": "SPY",
+      "shares": 62,
+      "notional": 31880.4,
+      "signal_regime": "strong_bull",
+      "message": "SPY: approved 62 shares ($31,880.40)",
+      "rejection_reason": null
+    },
+    {
+      "timestamp": "2026-09-07T07:55:16.575699+00:00",
+      "event": "signal_rejected",
+      "symbol": "AAPL",
+      "shares": 0,
+      "notional": 0.0,
+      "signal_regime": "strong_bull",
+      "message": "AAPL: rejected, correlation 0.89 with SPY",
+      "rejection_reason": "correlation_too_high"
+    },
+    {
+      "timestamp": "2026-09-07T06:54:16.575699+00:00",
+      "event": "signal_generated",
+      "symbol": "QQQ",
+      "shares": 41,
+      "notional": 18113.8,
+      "signal_regime": "weak_bull",
+      "message": "QQQ: approved 41 shares ($18,113.80)",
+      "rejection_reason": null
+    },
+    {
+      "timestamp": "2026-09-06T07:05:16.575699+00:00",
+      "event": "signal_rejected",
+      "symbol": "TSLA",
+      "shares": 0,
+      "notional": 0.0,
+      "signal_regime": "weak_bull",
+      "message": "TSLA: rejected, $92 is below the $100 minimum",
+      "rejection_reason": "below_minimum_size"
+    }
+  ],
+  "risk": {
+    "halted": false,
+    "daily_tripped": "none",
+    "weekly_tripped": "none",
+    "peak_tripped": false,
+    "size_multiplier": 1.0,
+    "n_triggers": 0,
+    "breaker_now": "none",
+    "drawdowns": {
+      "daily": -0.007938419491303368,
+      "weekly": -0.008,
+      "from_peak": -0.033
+    },
+    "limits": {
+      "daily_reduce": 0.02,
+      "daily_halt": 0.03,
+      "weekly_reduce": 0.05,
+      "weekly_halt": 0.07,
+      "max_from_peak": 0.1,
+      "max_exposure": 0.8,
+      "max_leverage": 1.25,
+      "max_risk_per_trade": 0.01
+    }
+  },
+  "system": {
+    "data_feed_healthy": true,
+    "broker_connected": true,
+    "api_latency_ms": 23.0,
+    "model_age_days": 2.1,
+    "paper": true,
+    "mode": "demo",
+    "market_open": true,
+    "bars_processed": 180,
+    "consecutive_errors": 0,
+    "started_at": "2026-09-07T02:07:16.575699+00:00",
+    "symbols": [
+      "SPY",
+      "QQQ",
+      "AAPL",
+      "MSFT",
+      "NVDA"
+    ],
+    "timeframe": "1Day"
+  },
+  "equity_history": [
+    {
+      "t": "2026-03-11",
+      "equity": 100732.03,
+      "peak": 100732.03
+    },
+    {
+      "t": "2026-03-12",
+      "equity": 100698.31,
+      "peak": 100732.03
+    },
+    {
+      "t": "2026-03-13",
+      "equity": 101937.0,
+      "peak": 101937.0
+    },
+    {
+      "t": "2026-03-14",
+      "equity": 102440.44,
+      "peak": 102440.44
+    },
+    {
+      "t": "2026-03-15",
+      "equity": 103282.45,
+      "peak": 103282.45
+    },
+    {
+      "t": "2026-03-16",
+      "equity": 103906.43,
+      "peak": 103906.43
+    },
+    {
+      "t": "2026-03-17",
+      "equity": 104439.58,
+      "peak": 104439.58
+    },
+    {
+      "t": "2026-03-18",
+      "equity": 104372.58,
+      "peak": 104439.58
+    },
+    {
+      "t": "2026-03-19",
+      "equity": 105101.11,
+      "peak": 105101.11
+    },
+    {
+      "t": "2026-03-20",
+      "equity": 105607.93,
+      "peak": 105607.93
+    },
+    {
+      "t": "2026-03-21",
+      "equity": 105824.15,
+      "peak": 105824.15
+    },
+    {
+      "t": "2026-03-22",
+      "equity": 106800.12,
+      "peak": 106800.12
+    },
+    {
+      "t": "2026-03-23",
+      "equity": 107746.09,
+      "peak": 107746.09
+    },
+    {
+      "t": "2026-03-24",
+      "equity": 108222.45,
+      "peak": 108222.45
+    },
+    {
+      "t": "2026-03-25",
+      "equity": 109267.55,
+      "peak": 109267.55
+    },
+    {
+      "t": "2026-03-26",
+      "equity": 109142.46,
+      "peak": 109267.55
+    },
+    {
+      "t": "2026-03-27",
+      "equity": 109114.17,
+      "peak": 109267.55
+    },
+    {
+      "t": "2026-03-28",
+      "equity": 109172.21,
+      "peak": 109267.55
+    },
+    {
+      "t": "2026-03-29",
+      "equity": 109167.43,
+      "peak": 109267.55
+    },
+    {
+      "t": "2026-03-30",
+      "equity": 109235.16,
+      "peak": 109267.55
+    },
+    {
+      "t": "2026-03-31",
+      "equity": 109561.49,
+      "peak": 109561.49
+    },
+    {
+      "t": "2026-04-01",
+      "equity": 110566.02,
+      "peak": 110566.02
+    },
+    {
+      "t": "2026-04-02",
+      "equity": 111207.99,
+      "peak": 111207.99
+    },
+    {
+      "t": "2026-04-03",
+      "equity": 112826.88,
+      "peak": 112826.88
+    },
+    {
+      "t": "2026-04-04",
+      "equity": 114133.99,
+      "peak": 114133.99
+    },
+    {
+      "t": "2026-04-05",
+      "equity": 115322.99,
+      "peak": 115322.99
+    },
+    {
+      "t": "2026-04-06",
+      "equity": 115733.35,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-07",
+      "equity": 114132.2,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-08",
+      "equity": 110989.71,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-09",
+      "equity": 109173.03,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-10",
+      "equity": 106990.05,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-11",
+      "equity": 108847.28,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-12",
+      "equity": 109392.5,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-13",
+      "equity": 109505.2,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-14",
+      "equity": 110259.61,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-15",
+      "equity": 113471.29,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-16",
+      "equity": 111426.78,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-17",
+      "equity": 112121.31,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-18",
+      "equity": 109723.35,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-19",
+      "equity": 108239.51,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-20",
+      "equity": 106810.53,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-21",
+      "equity": 110475.75,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-22",
+      "equity": 109732.64,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-23",
+      "equity": 107914.18,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-24",
+      "equity": 105283.5,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-25",
+      "equity": 103886.93,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-26",
+      "equity": 103987.04,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-27",
+      "equity": 103644.08,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-28",
+      "equity": 104120.31,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-29",
+      "equity": 104248.07,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-04-30",
+      "equity": 103501.43,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-01",
+      "equity": 104183.37,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-02",
+      "equity": 104770.11,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-03",
+      "equity": 105535.1,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-04",
+      "equity": 106621.71,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-05",
+      "equity": 107024.8,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-06",
+      "equity": 107272.92,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-07",
+      "equity": 106610.42,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-08",
+      "equity": 107176.17,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-09",
+      "equity": 106954.48,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-10",
+      "equity": 106835.17,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-11",
+      "equity": 106197.27,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-12",
+      "equity": 105751.58,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-13",
+      "equity": 105583.91,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-14",
+      "equity": 106573.94,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-15",
+      "equity": 105451.2,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-16",
+      "equity": 104700.31,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-17",
+      "equity": 105018.67,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-18",
+      "equity": 106101.72,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-19",
+      "equity": 107205.41,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-20",
+      "equity": 111265.8,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-21",
+      "equity": 110877.96,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-22",
+      "equity": 110184.76,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-23",
+      "equity": 112236.12,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-24",
+      "equity": 111788.67,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-25",
+      "equity": 111151.84,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-26",
+      "equity": 109587.77,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-27",
+      "equity": 109723.34,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-28",
+      "equity": 110122.05,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-29",
+      "equity": 110465.41,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-30",
+      "equity": 110406.16,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-05-31",
+      "equity": 109004.12,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-01",
+      "equity": 108842.2,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-02",
+      "equity": 110942.22,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-03",
+      "equity": 111403.42,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-04",
+      "equity": 110513.3,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-05",
+      "equity": 107571.77,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-06",
+      "equity": 108275.76,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-07",
+      "equity": 111247.45,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-08",
+      "equity": 108199.18,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-09",
+      "equity": 109214.24,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-10",
+      "equity": 107631.63,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-11",
+      "equity": 109699.14,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-12",
+      "equity": 109450.09,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-13",
+      "equity": 108634.22,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-14",
+      "equity": 109269.08,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-15",
+      "equity": 109910.93,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-16",
+      "equity": 110253.18,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-17",
+      "equity": 110065.78,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-18",
+      "equity": 109812.93,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-19",
+      "equity": 110189.52,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-20",
+      "equity": 109333.27,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-21",
+      "equity": 109108.96,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-22",
+      "equity": 109825.82,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-23",
+      "equity": 107864.93,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-24",
+      "equity": 107386.44,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-25",
+      "equity": 107020.53,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-26",
+      "equity": 107612.52,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-27",
+      "equity": 109739.81,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-28",
+      "equity": 107004.84,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-29",
+      "equity": 105665.7,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-06-30",
+      "equity": 103755.79,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-01",
+      "equity": 101099.12,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-02",
+      "equity": 101756.23,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-03",
+      "equity": 103619.92,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-04",
+      "equity": 102461.16,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-05",
+      "equity": 100600.38,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-06",
+      "equity": 101760.08,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-07",
+      "equity": 104013.47,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-08",
+      "equity": 105716.34,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-09",
+      "equity": 106294.04,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-10",
+      "equity": 106420.55,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-11",
+      "equity": 106569.87,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-12",
+      "equity": 107671.15,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-13",
+      "equity": 107080.57,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-14",
+      "equity": 107512.56,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-15",
+      "equity": 108617.76,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-16",
+      "equity": 108424.34,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-17",
+      "equity": 109979.74,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-18",
+      "equity": 111094.33,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-19",
+      "equity": 115677.13,
+      "peak": 115733.35
+    },
+    {
+      "t": "2026-07-20",
+      "equity": 116259.73,
+      "peak": 116259.73
+    },
+    {
+      "t": "2026-07-21",
+      "equity": 115013.24,
+      "peak": 116259.73
+    },
+    {
+      "t": "2026-07-22",
+      "equity": 113911.71,
+      "peak": 116259.73
+    },
+    {
+      "t": "2026-07-23",
+      "equity": 113675.57,
+      "peak": 116259.73
+    },
+    {
+      "t": "2026-07-24",
+      "equity": 115693.91,
+      "peak": 116259.73
+    },
+    {
+      "t": "2026-07-25",
+      "equity": 114672.49,
+      "peak": 116259.73
+    },
+    {
+      "t": "2026-07-26",
+      "equity": 115397.47,
+      "peak": 116259.73
+    },
+    {
+      "t": "2026-07-27",
+      "equity": 117018.31,
+      "peak": 117018.31
+    },
+    {
+      "t": "2026-07-28",
+      "equity": 116874.37,
+      "peak": 117018.31
+    },
+    {
+      "t": "2026-07-29",
+      "equity": 116165.82,
+      "peak": 117018.31
+    },
+    {
+      "t": "2026-07-30",
+      "equity": 116161.02,
+      "peak": 117018.31
+    },
+    {
+      "t": "2026-07-31",
+      "equity": 117203.75,
+      "peak": 117203.75
+    },
+    {
+      "t": "2026-08-01",
+      "equity": 117971.71,
+      "peak": 117971.71
+    },
+    {
+      "t": "2026-08-02",
+      "equity": 117634.61,
+      "peak": 117971.71
+    },
+    {
+      "t": "2026-08-03",
+      "equity": 120458.44,
+      "peak": 120458.44
+    },
+    {
+      "t": "2026-08-04",
+      "equity": 120565.02,
+      "peak": 120565.02
+    },
+    {
+      "t": "2026-08-05",
+      "equity": 120780.58,
+      "peak": 120780.58
+    },
+    {
+      "t": "2026-08-06",
+      "equity": 122555.19,
+      "peak": 122555.19
+    },
+    {
+      "t": "2026-08-07",
+      "equity": 121891.46,
+      "peak": 122555.19
+    },
+    {
+      "t": "2026-08-08",
+      "equity": 123023.43,
+      "peak": 123023.43
+    },
+    {
+      "t": "2026-08-09",
+      "equity": 124553.16,
+      "peak": 124553.16
+    },
+    {
+      "t": "2026-08-10",
+      "equity": 126448.56,
+      "peak": 126448.56
+    },
+    {
+      "t": "2026-08-11",
+      "equity": 126713.64,
+      "peak": 126713.64
+    },
+    {
+      "t": "2026-08-12",
+      "equity": 129934.35,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-13",
+      "equity": 129403.64,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-14",
+      "equity": 128892.97,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-15",
+      "equity": 127592.46,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-16",
+      "equity": 126846.89,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-17",
+      "equity": 127513.3,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-18",
+      "equity": 127717.87,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-19",
+      "equity": 124259.16,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-20",
+      "equity": 123150.78,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-21",
+      "equity": 124548.92,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-22",
+      "equity": 127208.32,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-23",
+      "equity": 120023.39,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-24",
+      "equity": 122578.17,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-25",
+      "equity": 118694.21,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-26",
+      "equity": 120192.74,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-27",
+      "equity": 116275.43,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-28",
+      "equity": 116495.73,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-29",
+      "equity": 119240.49,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-30",
+      "equity": 118653.41,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-08-31",
+      "equity": 118916.3,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-09-01",
+      "equity": 120706.2,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-09-02",
+      "equity": 120847.37,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-09-03",
+      "equity": 120406.11,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-09-04",
+      "equity": 124122.46,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-09-05",
+      "equity": 126657.49,
+      "peak": 129934.35
+    },
+    {
+      "t": "2026-09-06",
+      "equity": 125652.03,
+      "peak": 129934.35
+    }
+  ],
+  "regime_history": [
+    {
+      "t": "2026-03-11",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-12",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-13",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-14",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-15",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-16",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-17",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-18",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-19",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-20",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-21",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-22",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-23",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-24",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-25",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-26",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-27",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-28",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-29",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-30",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-03-31",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-04-01",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-04-02",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-04-03",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-04",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-05",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-06",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-07",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-08",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-09",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-10",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-11",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-12",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-13",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-14",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-15",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-16",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-17",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-18",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-19",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-20",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-21",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-22",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-23",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-24",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-25",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-04-26",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-04-27",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-04-28",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-04-29",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-04-30",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-01",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-02",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-03",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-04",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-05",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-06",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-07",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-08",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-09",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-10",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-11",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-12",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-13",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-14",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-15",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-16",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-17",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-18",
+      "regime": "strong_bull"
+    },
+    {
+      "t": "2026-05-19",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-20",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-21",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-22",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-23",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-24",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-25",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-26",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-27",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-28",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-29",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-30",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-05-31",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-01",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-02",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-03",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-04",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-05",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-06",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-07",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-08",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-09",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-10",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-06-11",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-12",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-13",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-14",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-15",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-16",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-17",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-18",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-19",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-20",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-21",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-22",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-23",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-24",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-25",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-26",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-27",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-28",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-29",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-06-30",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-07-01",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-07-02",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-07-03",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-07-04",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-05",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-06",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-07",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-08",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-09",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-10",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-11",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-12",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-13",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-14",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-15",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-16",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-17",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-18",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-19",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-20",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-21",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-22",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-23",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-24",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-25",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-26",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-07-27",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-07-28",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-07-29",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-07-30",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-07-31",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-01",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-02",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-03",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-04",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-05",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-06",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-07",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-08",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-09",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-10",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-11",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-12",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-13",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-14",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-15",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-16",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-17",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-18",
+      "regime": "weak_bear"
+    },
+    {
+      "t": "2026-08-19",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-20",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-21",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-22",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-23",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-24",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-25",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-26",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-27",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-28",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-29",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-30",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-08-31",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-09-01",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-09-02",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-09-03",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-09-04",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-09-05",
+      "regime": "strong_bear"
+    },
+    {
+      "t": "2026-09-06",
+      "regime": "strong_bear"
+    }
+  ],
+  "notes": {
+    "banner": "Demo data. Not a real account.",
+    "verdict": "no demonstrated edge out-of-sample"
+  }
+}

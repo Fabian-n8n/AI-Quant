@@ -55,7 +55,8 @@ PHASES = [
     ("5", "Risk management layer", True),
     ("6", "Alpaca broker integration", True),
     ("7", "Main loop and orchestration", True),
-    ("8", "Monitoring, alerts and dashboard UI", False),
+    ("8", "Monitoring, alerts and dashboard UI", True),
+    ("9", "Integration testing and documentation", True),
 ]
 
 logger = logging.getLogger("regime-trader.engine")
@@ -97,6 +98,10 @@ class SessionState:
     last_regime_confidence: float = 0.0
 
     stops: dict[str, float] = field(default_factory=dict)
+    #: One point per processed bar, capped. Enough for the dashboard's equity
+    #: chart without turning the snapshot into an unbounded append-only log.
+    equity_history: list = field(default_factory=list)
+    regime_history: list = field(default_factory=list)
     breaker_daily_tripped: str = "none"
     breaker_weekly_tripped: str = "none"
     breaker_peak_tripped: bool = False
@@ -218,6 +223,7 @@ class TradingEngine:
         lock_file: Optional[Path] = None,
         model_path: Optional[Path] = None,
         allow_live: bool = False,
+        publish_path: Optional[Path] = None,
     ) -> None:
         self.settings = settings
         self.dry_run = dry_run
@@ -236,6 +242,7 @@ class TradingEngine:
             "state_snapshot_path", "state_snapshot.json"))
         self.lock_file = Path(lock_file) if lock_file else None
         self.model_path = Path(model_path) if model_path else None
+        self.publish_path = Path(publish_path) if publish_path else None
 
         # Collaborators, wired in startup() unless injected.
         self.client = client
@@ -265,6 +272,8 @@ class TradingEngine:
         self.market_open: Optional[bool] = None
         self.next_open: Optional[datetime] = None
         self.data_feed_healthy = True
+        self.api_latency_ms: Optional[float] = None
+        self.target_allocation: Optional[float] = None
         self.consecutive_errors = 0
         self.is_paper = True
         self.orders_submitted = 0
@@ -315,7 +324,12 @@ class TradingEngine:
         self._emit(EventType.DATA_FEED_DOWN,
                    f"{what} failed after {attempts} attempts: {last}", error=str(last))
         if self.alerts is not None:
-            self.alerts.alert_broker_down(f"{what}: {last}")
+            # Market data failing means trading blind; the trading API failing
+            # means orders may not be arriving. Different alerts, different fixes.
+            if "bars" in what or "data" in what:
+                self.alerts.alert_data_feed_down(f"{what}: {last}")
+            else:
+                self.alerts.alert_broker_down(f"{what}: {last}")
         raise BrokerUnavailable(f"{what} failed after {attempts} attempts: {last}") from last
 
     # =======================================================================
@@ -353,6 +367,7 @@ class TradingEngine:
             self.alerts = AlertManager(
                 self.monitoring_config,
                 rate_limit_minutes=int(self.monitoring_config.get("alert_rate_limit_minutes", 15)),
+                trading_logger=self.log,
             )
 
     def _connect_broker(self) -> None:
@@ -762,7 +777,9 @@ class TradingEngine:
 
     def refresh_portfolio(self):
         """Rebuild `PortfolioState` from the broker plus the session baselines."""
+        started = time.perf_counter()
         self.account = self._broker_retry(self.client.get_account, what="account refresh")
+        self.api_latency_ms = (time.perf_counter() - started) * 1000.0
         self._roll_periods(date.today(), self.account.equity)
         self.session.peak_equity = max(self.session.peak_equity, self.account.equity)
         self.session.equity_at_save = self.account.equity
@@ -965,7 +982,11 @@ class TradingEngine:
             return outcome
 
         outcome.timestamp = self.bars[primary].index[-1]
-        if self.session.last_bar_timestamp == str(outcome.timestamp):
+        # Keyed on symbol as well as timestamp. Two symbols share a daily bar
+        # close, so a timestamp alone made a switch of universe look like a bar
+        # this session had already traded.
+        bar_key = f"{primary}@{outcome.timestamp}"
+        if self.session.last_bar_timestamp == bar_key:
             outcome.skipped = "bar already processed"
             return outcome
 
@@ -996,10 +1017,17 @@ class TradingEngine:
                 self.previous_regime, outcome.regime, outcome.confidence,
                 confirmed=outcome.confirmed, flicker_rate=regime_state.flicker_rate,
             )
+            if self.alerts is not None:
+                self.alerts.alert_regime_change(
+                    self.previous_regime, outcome.regime, outcome.confidence,
+                    confirmed=outcome.confirmed,
+                )
         self.previous_regime = outcome.regime
         self.position_tracker.update_regime(outcome.regime)
 
         self.refresh_portfolio()
+        self._update_log_context(regime_state)
+        self._check_alert_conditions(regime_state, outcome)
         self._reconcile(outcome)
 
         # ---- 6. target allocation -----------------------------------------
@@ -1008,6 +1036,7 @@ class TradingEngine:
         current = self.portfolio.gross_exposure
         outcome.target_allocation = target
         outcome.current_allocation = current
+        self.target_allocation = target
 
         # ---- 7. validate and act ------------------------------------------
         if not self.data_feed_healthy:
@@ -1048,12 +1077,15 @@ class TradingEngine:
         self.consecutive_errors = 0
         self._mark_feed_healthy()
         self.session.bars_processed = self.bars_processed
-        self.session.last_bar_timestamp = str(outcome.timestamp)
+        self.session.last_bar_timestamp = bar_key
         self.session.last_regime = outcome.regime
         self.session.last_regime_confidence = outcome.confidence
         self.position_tracker.increment_holding_periods()
         self._capture_stops()
+        self._append_history(outcome)
         self.save_state()
+        if self.publish_path is not None:
+            self.publish_snapshot()
 
         self._emit(EventType.BAR_PROCESSED,
                    f"bar {outcome.timestamp} {outcome.regime} p={outcome.confidence:.2f} "
@@ -1107,6 +1139,53 @@ class TradingEngine:
                        f"{self.regime_state.label.value if self.regime_state else 'unknown'}.",
                        error=str(exc))
             return self.regime_state
+
+    def _update_log_context(self, regime_state) -> None:
+        """Stamp the spec's six required fields onto every subsequent log entry.
+
+        timestamp, regime, probability, equity, positions, daily_pnl. They are
+        properties of the moment rather than of any one event, so they are set
+        once per bar instead of being passed at forty call sites, where the
+        first one anyone forgot would be the one that mattered.
+        """
+        portfolio = self.portfolio
+        day_start = portfolio.day_start_equity or portfolio.equity
+        self.log.set_context(
+            regime=regime_state.label.value,
+            probability=round(regime_state.probability, 4),
+            equity=round(portfolio.equity, 2),
+            positions=portfolio.n_positions,
+            daily_pnl=round(portfolio.equity - day_start, 2),
+        )
+
+    def _check_alert_conditions(self, regime_state, outcome: BarOutcome) -> None:
+        """The spec's triggers that are conditions rather than events.
+
+        Regime change, breaker, retrain, feed and API alerts fire from the code
+        paths that cause them. These two have to be looked for.
+        """
+        if self.alerts is None:
+            return
+
+        if regime_state.is_flickering:
+            self._emit(_EventTypes().FLICKER_EXCEEDED,
+                       f"Regime flickering: {regime_state.flicker_rate} changes in "
+                       f"{self.hmm.flicker_window} bars",
+                       flicker_rate=regime_state.flicker_rate,
+                       threshold=self.hmm.flicker_threshold)
+            self.alerts.alert_flicker_exceeded(
+                regime_state.flicker_rate, self.hmm.flicker_threshold,
+                self.hmm.flicker_window,
+            )
+
+        day_start = self.portfolio.day_start_equity or self.portfolio.equity
+        daily_pnl = self.portfolio.equity - day_start
+        daily_pct = daily_pnl / day_start if day_start else 0.0
+        if abs(daily_pct) >= self.alerts.large_pnl_pct:
+            self._emit(_EventTypes().LARGE_PNL,
+                       f"Large daily move: {daily_pct:+.2%} ({daily_pnl:+,.2f})",
+                       daily_pnl=daily_pnl, daily_pnl_pct=daily_pct)
+            self.alerts.alert_large_pnl(daily_pnl, daily_pct, self.portfolio.equity)
 
     def _price_context(self, bars) -> tuple[float, float]:
         from data.feature_engineering import ema
@@ -1325,6 +1404,30 @@ class TradingEngine:
                                symbol, exc)
         return updated
 
+    def _append_history(self, outcome: BarOutcome) -> None:
+        """One equity and regime point per bar, capped at `history_points`."""
+        stamp = str(outcome.timestamp)[:10]
+        cap = int(self.orch.get("history_points", 500))
+        self.session.equity_history.append({
+            "t": stamp,
+            "equity": round(self.portfolio.equity, 2),
+            "peak": round(self.session.peak_equity, 2),
+        })
+        self.session.regime_history.append({"t": stamp, "regime": outcome.regime})
+        del self.session.equity_history[:-cap]
+        del self.session.regime_history[:-cap]
+
+    def publish_snapshot(self, path=None):
+        """Write the web dashboard's JSON. Never raises: publishing a view must
+        not be able to stop the loop that produced it."""
+        from monitoring.publish import DEFAULT_OUTPUT, publish_from_engine
+
+        try:
+            return publish_from_engine(self, path or self.publish_path or DEFAULT_OUTPUT)
+        except Exception as exc:
+            logger.warning("dashboard publish failed: %s", exc)
+            return None
+
     def _capture_stops(self) -> None:
         """Snapshot current stops so a restart can restore them onto adopted
         positions, which come back from the broker with no stop attached."""
@@ -1401,6 +1504,7 @@ class TradingEngine:
             return False
 
         logger.info("Retraining: %s", why)
+        previous_states = getattr(self.hmm, "n_states", None)
         try:
             path = self.model_path or ROOT / self.hmm_config.get(
                 "model_path", "models/hmm_model.pkl")
@@ -1409,9 +1513,13 @@ class TradingEngine:
             if self.dashboard_state is not None:
                 self.dashboard_state.hmm_engine = self.hmm
             self.previous_regime = None      # state ids changed meaning
-            self._emit(_EventTypes().SYSTEM_START,
+            self._emit(_EventTypes().MODEL_RETRAINED,
                        f"Retrained: {self.hmm.n_states} states ({why})",
-                       n_states=self.hmm.n_states, reason=why)
+                       n_states=self.hmm.n_states, previous_states=previous_states,
+                       reason=why)
+            if self.alerts is not None:
+                self.alerts.alert_hmm_retrained(
+                    self.hmm.n_states, why, previous_states=previous_states)
             return True
         except Exception as exc:
             self._emit(_EventTypes().ERROR,
@@ -1611,12 +1719,15 @@ def run_trading(args) -> int:
             args.timeframe, args.timeframe,
         )
 
+    from monitoring.publish import DEFAULT_OUTPUT
+
     engine = TradingEngine(
         settings,
         dry_run=args.dry_run,
         symbols=args.symbols,
         timeframe=args.timeframe,
         allow_live=args.i_understand_live,
+        publish_path=DEFAULT_OUTPUT if args.publish else None,
     )
 
     try:
@@ -1629,6 +1740,10 @@ def run_trading(args) -> int:
 
     if args.once:
         outcome = engine.process_bar()
+        if args.publish:
+            path = engine.publish_snapshot()
+            if path:
+                logging.getLogger(__name__).info("Published dashboard data to %s", path)
         engine.shutdown("single bar requested")
         _print_bar_outcome(outcome)
         return 0
@@ -1729,7 +1844,8 @@ def run_dashboard(args) -> int:
             console.print(f"  {event['timestamp'][11:19]}  {event['event']:<18} "
                           f"{event.get('message', '')}")
 
-    console.print("\n[dim]The Streamlit web dashboard is Phase 8.[/dim]")
+    console.print("\n[dim]Web dashboard: python main.py --publish, "
+                  "then cd dashboard && npm run dev[/dim]")
     return 0
 
 
@@ -1739,11 +1855,13 @@ def run_status(args) -> int:
     print(f"regime-trader: phase {done} of {len(PHASES)} complete.\n")
     for number, name, complete in PHASES:
         print(f"  [{'x' if complete else ' '}] Phase {number}  {name}")
-    print("\nNext: Phase 8, monitoring and the dashboard UI.")
-    print("\n  python main.py --dry-run          full pipeline, no orders")
+    print("\nAll phases built. The strategy still has no demonstrated edge:")
+    print("out-of-sample it loses to buy-and-hold and to random allocation.")
+    print("\n  python main.py --dry-run --once   full pipeline, no orders")
     print("  python main.py --mode backtest --compare   out-of-sample validation")
-    print("  python main.py --train-only       fit the HMM and exit")
-    print("\nSee PROGRESS.md for state and docs/OPEN-QUESTIONS.md for open decisions.")
+    print("  python main.py --publish          write the web dashboard's data")
+    print("  python main.py --dashboard        terminal dashboard")
+    print("\nSee README.md, PROGRESS.md, and docs/OPEN-QUESTIONS.md.")
     return 0
 
 
@@ -1947,13 +2065,19 @@ def build_parser() -> argparse.ArgumentParser:
                         help="build status only, touches nothing")
     parser.add_argument("--once", action="store_true",
                         help="process a single bar and exit, for cron")
+    parser.add_argument("--publish", action="store_true",
+                        help="write dashboard/public/data/state.json each bar, for the web UI")
+    parser.add_argument("--publish-demo", action="store_true",
+                        help="write a labelled demo snapshot and exit")
+    parser.add_argument("--live-view", action="store_true",
+                        help="with --dashboard, refresh continuously instead of once")
 
     parser.add_argument("--symbols", nargs="+", help="override the configured universe")
     parser.add_argument("--timeframe", help="override broker.timeframe (default 1Day)")
     parser.add_argument("--log-level", default="INFO",
                         choices=("DEBUG", "INFO", "WARNING", "ERROR"))
     parser.add_argument("--i-understand-live", action="store_true",
-                        help="permit a live (non-paper) account. Read docs/GO-LIVE.md first.")
+                        help="permit a live (non-paper) account. Read the README FAQ first.")
 
     backtest = parser.add_argument_group("backtest options")
     backtest.add_argument("--start", help="start date, YYYY-MM-DD")
@@ -1978,6 +2102,11 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.status:
         return run_status(args)
+    if args.publish_demo:
+        from monitoring.publish import publish_demo
+
+        print(f"Wrote demo snapshot to {publish_demo()}")
+        return 0
     if args.dashboard:
         return run_dashboard(args)
     if args.train_only:

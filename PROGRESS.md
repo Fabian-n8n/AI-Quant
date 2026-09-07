@@ -11,10 +11,13 @@ Update when a phase completes, before starting the next one.
 | 5 | Risk management layer | **Done** (2026-09-07) |
 | 6 | Alpaca broker integration | **Done** (2026-09-07) |
 | 7 | Main loop and orchestration | **Done** (2026-09-07) |
-| 8 | Monitoring, alerts and dashboard UI | **Next** |
+| 8 | Monitoring, alerts and dashboard UI | **Done** (2026-09-07) |
+| 9 | Integration testing and documentation | **Done** (2026-09-07) |
 
-Tests: 374 passing, 2 skipped (3 hit the live Alpaca paper API). Skips are phase-gated placeholders naming what
-each later phase has to prove.
+Tests: 437 passing, 3 skipped (4 hit the live Alpaca paper API). All nine phases are built. The skips are
+conditional, not phase-gated: two need an open position to attach a stop to, one needs credentials.
+
+**The strategy still has no demonstrated edge.** Every item on the validation checklist below is unticked.
 
 ---
 
@@ -414,3 +417,63 @@ buy-and-hold and to random allocation out-of-sample. Phase 7 makes it run
 unattended; it does not make it work.
 
 Full detail in `docs/PHASE7-NOTES.md`.
+
+### 2026-09-07 - Phases 8 and 9 complete
+
+Monitoring, both dashboards, integration tests and documentation. 437 tests
+pass (63 new), 3 skipped, 4 against the live Alpaca paper API. All nine phases
+are now built.
+
+**A real bug in Python's own log rotation.** `TimedRotatingFileHandler.doRollover()`
+in 3.14 returns early when the dated backup already exists. Since that name is
+identical for every rotation on a given day, the first daily rotation makes
+every later size-triggered rotation a silent no-op and the file grows unbounded
+until midnight. Measured against a 400-byte cap, `main.log` reached 7,288 bytes
+while the handler reported success. `doRollover` is reimplemented with `.1`,
+`.2` suffixes for same-day rotations and mtime-based pruning; the same test now
+ends at 384 bytes. Two regression tests fail against the stdlib behaviour.
+
+**Alert severity is not the spec's trigger list.** All seven triggers exist, but
+regime change and routine retrain are INFO and never leave the console. A
+regime change is the system doing its job; mailing one every few days produces
+an inbox that stops being read, and then the breaker alert arrives in a thread
+nobody opens. A retrain that lands on a *different state count* is escalated,
+because the allocator's map has been redrawn. Rate limiting keys on the trigger,
+not the message, so a value that changes every bar cannot defeat it.
+
+**The web dashboard is Next.js, not Streamlit, and holds no credentials.**
+Streamlit needs a persistent Python server and cannot deploy to Vercel. More
+importantly, the alternative — serverless routes calling Alpaca with keys in
+Vercel env vars — would mean a public URL that can read a live account. Instead
+the engine publishes a JSON snapshot and the static site reads it. The publisher
+strips a denylist including `api_key`, `account_number`, `order_id` and
+`lock_file` (an absolute path containing the operator's home directory), and a
+test asserts none survive.
+
+**Both dashboards render one `DashboardState.snapshot()`.** Adding a surface
+means adding a renderer, never a second way of computing the numbers. Neither
+can trade: `DashboardState` takes no order executor, so the capability is absent
+rather than unused.
+
+**Integration tests use SIGKILL, not shutdown().** The spec says "kill process,
+restart", and a graceful shutdown is not what recovery has to survive. The
+sharpest test is that a snapshot truncated mid-write must be *rejected* rather
+than partially read, because restoring `peak_equity: 0.0` would silently disarm
+the only breaker that never resets.
+
+**The Alpaca round-trip leaves the account as it found it.** Places a limit
+order 20% below market so it rests, verifies it, cancels it, and asserts no
+leaked orders. A test that leaves a resting order behind changes the next run,
+and on a broker that is a test that lies.
+
+**Documentation.** README rewritten to the Phase 9 structure. One departure: the
+"no demonstrated edge" verdict is a callout at the top rather than a disclaimer
+at the bottom. A reader who stops after the first screen should still know the
+strategy loses to buy-and-hold in testing.
+
+**Where this leaves the project.** Everything specified is built and tested. The
+validation checklist has ten items and none of them pass. The next useful work
+is not another phase, it is the allocation layer — starting with whether 1.25x
+leverage belongs in a system whose own risk config caps gross exposure at 80%.
+
+Full detail in `docs/PHASE8-NOTES.md` and `docs/PHASE9-NOTES.md`.
