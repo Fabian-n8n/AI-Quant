@@ -1,0 +1,121 @@
+# Scheduled trading run.
+#
+# Separate from ci.yml on purpose. CI runs on every push and must never touch a
+# broker; this runs on a schedule and does nothing else. Merging them would mean
+# a pull request from a fork could reach the paper account.
+#
+# DAYLIGHT SAVING
+# ---------------
+# 21:15 UTC is 17:15 ET in winter and 16:15 ET in summer. No cron expression
+# means "after the US close" all year, so cron fires on the wider of the two and
+# core/calendar.py decides whether the session has actually finished. On a
+# holiday, or before the close, the job exits 0 having done nothing.
+#
+# GOING LIVE
+# ----------
+# The DRY_RUN repository variable gates order submission and defaults to true.
+# Watch a week of intended orders in the run logs, then set it to false in
+# Settings > Secrets and variables > Actions > Variables. No code change, and
+# no commit that could be reverted by accident.
+
+name: Scheduled trading run
+
+on:
+  schedule:
+    - cron: "15 21 * * 1-5"      # weekdays, after the close in both DST halves
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print intended orders without submitting"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write                # to commit state.db and new bars back
+
+concurrency:
+  # One run at a time. Two concurrent jobs would both commit state.db and the
+  # second would fail to push, or worse, overwrite the first.
+  group: trading-run
+  cancel-in-progress: false
+
+jobs:
+  trade:
+    name: Daily decision
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Resolve mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DRY="${{ inputs.dry_run }}"
+          else
+            DRY="${{ vars.DRY_RUN != 'false' }}"
+          fi
+          echo "dry_run=$DRY" >> "$GITHUB_OUTPUT"
+          if [ "$DRY" = "true" ]; then
+            echo "::notice::DRY RUN. Intended orders will be printed, none submitted."
+          else
+            echo "::warning::LIVE. Orders will be submitted to the Alpaca paper account."
+          fi
+
+      - name: Run
+        id: run
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_PAPER: "true"
+        run: |
+          set -o pipefail
+          FLAGS="--once --publish --log-level INFO"
+          if [ "${{ steps.mode.outputs.dry_run }}" = "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+          fi
+          python main.py $FLAGS 2>&1 | tee run.log
+
+      # Failure has to be legible in the run log without opening an artifact.
+      # A job that goes red with a stack trace buried under 300 lines of INFO
+      # is a job nobody reads twice.
+      - name: Summarise failure
+        if: failure()
+        run: |
+          echo "::error::The trading run failed. Last 40 lines:"
+          tail -40 run.log || echo "no log was produced, the failure was before startup"
+
+      - name: Commit state
+        if: success()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/state.db data/cache/bars state_snapshot.json \
+                    dashboard/public/data/state.json
+          if git diff --cached --quiet; then
+            echo "Nothing changed. Not a trading day, or no new bar."
+            exit 0
+          fi
+          MODE=$([ "${{ steps.mode.outputs.dry_run }}" = "true" ] && echo "dry-run" || echo "live")
+          git commit -m "Scheduled run ($MODE) $(date -u +%Y-%m-%d)" \
+                     -m "Automated. State and bar cache updated by the daily job."
+          git push
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-log-${{ github.run_number }}
+          path: |
+            run.log
+            logs/
+          retention-days: 14
+          if-no-files-found: ignore

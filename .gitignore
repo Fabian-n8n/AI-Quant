@@ -4,9 +4,17 @@ config/credentials.yaml
 *.pem
 *.key
 
-# Runtime state
+# Runtime state.
+#
+# state_snapshot.json is committed, unlike the halt lock. The GitHub runner is
+# a fresh machine every run, so without it the peak-equity baseline resets to
+# whatever the account is worth today and the drawdown breaker can never fire.
+# It holds equity figures and regime history, no credentials and no order ids,
+# and the same numbers are already on the public dashboard.
+#
+# The halt lock stays ignored on purpose. Committing it would propagate a halt
+# to every future run, and clearing it is meant to be a deliberate local act.
 trading_halted.lock
-state_snapshot.json
 logs/
 *.log
 
