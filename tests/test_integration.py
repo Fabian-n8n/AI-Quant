@@ -293,7 +293,7 @@ class TestAlpacaPaperRoundTrip:
         from broker.order_executor import OrderExecutor
         from core.risk_manager import RiskDecision
 
-        executor = OrderExecutor(client)
+        executor = OrderExecutor(client, order_id_prefix="itest-")
         before = {o.order_id for o in client.get_open_orders()}
 
         # Far below the market so it rests rather than filling.
@@ -308,8 +308,18 @@ class TestAlpacaPaperRoundTrip:
 
         created: list[str] = []
         try:
+            # `allow_price_deviation` because pricing 20% below the touch is the
+            # entire point of this test, and it is exactly what the sanity guard
+            # exists to refuse. The opt-out lives here, on the one call site that
+            # needs it, rather than being switched off for the whole executor.
+            #
+            # The `itest-` prefix is what stops this order looking like a broken
+            # production order in the Alpaca dashboard. Thirty of these resting
+            # at 20% below SPY is what a working test suite looks like; without
+            # the tag there is no way to tell that from a real pricing bug.
             trade = executor.submit_order(
-                signal, decision, order_type=OrderType.LIMIT, reference_price=entry
+                signal, decision, order_type=OrderType.LIMIT, reference_price=entry,
+                allow_price_deviation=True,
             )
             assert trade.order_id
             created.append(trade.order_id)

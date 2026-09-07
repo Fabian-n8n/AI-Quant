@@ -346,6 +346,112 @@ def test_limit_falls_back_to_entry_price_when_the_quote_is_dead(signal, approved
     assert float(fake.submitted[0].limit_price) > 90
 
 
+# -- price sanity guard -----------------------------------------------------
+#
+# The failure this exists for is silent. A limit far from the market is accepted
+# by the broker, rests, and expires. Nothing raises, so the only symptom is an
+# order log full of `canceled` with filled_qty 0 and an account that never moves.
+
+def test_a_limit_far_below_the_market_is_refused(signal, approved):
+    fake = FakeTradingClient()
+    client = FakeAlpacaClient(fake, quote={"bid": 765.0, "ask": 765.2, "tradeable": True})
+    executor = OrderExecutor(client, max_price_deviation=0.05)
+
+    with pytest.raises(OrderExecutionError, match="deviates"):
+        executor.submit_order(signal, approved, reference_price=616.5)
+
+    assert fake.submitted == [], "the guard raised but the order still went out"
+
+
+def test_a_limit_far_above_the_market_is_refused(signal, approved):
+    """Both directions. Overpaying by 20% is as wrong as underbidding by 20%,
+    and unlike the underbid it fills instantly."""
+    fake = FakeTradingClient()
+    client = FakeAlpacaClient(fake, quote={"bid": 99.99, "ask": 100.01, "tradeable": True})
+    executor = OrderExecutor(client, max_price_deviation=0.05)
+
+    with pytest.raises(OrderExecutionError, match="deviates"):
+        executor.submit_order(signal, approved, reference_price=130.0)
+    assert fake.submitted == []
+
+
+def test_the_rejection_names_both_prices(signal, approved):
+    """A rejection you cannot act on is only marginally better than silence."""
+    client = FakeAlpacaClient(quote={"bid": 765.0, "ask": 765.2, "tradeable": True})
+    executor = OrderExecutor(client, max_price_deviation=0.05)
+
+    with pytest.raises(OrderExecutionError) as exc:
+        executor.submit_order(signal, approved, reference_price=616.5)
+
+    message = str(exc.value)
+    assert "617" in message or "616" in message, message   # the limit
+    assert "765" in message, message                        # the market
+
+
+def test_a_price_just_inside_the_cap_is_allowed(signal, approved):
+    """4.9% against a 5% cap. A guard that also rejects the legal cases is a
+    guard that gets switched off."""
+    fake = FakeTradingClient()
+    client = FakeAlpacaClient(fake, quote={"bid": 100.0, "ask": 100.0, "tradeable": True})
+    executor = OrderExecutor(client, max_price_deviation=0.05, limit_offset=0.0)
+
+    executor.submit_order(signal, approved, reference_price=104.9)
+    assert len(fake.submitted) == 1
+
+
+def test_a_dead_quote_does_not_block_the_order(signal, approved):
+    """Outside hours the IEX feed returns a zero bid and ask. Refusing every
+    after-hours order because the reference is missing trades one silent
+    failure for a louder one."""
+    fake = FakeTradingClient()
+    client = FakeAlpacaClient(fake, quote={"bid": 0.0, "ask": 0.0, "tradeable": True})
+    executor = OrderExecutor(client, max_price_deviation=0.05)
+
+    executor.submit_order(signal, approved, reference_price=100.0)
+    assert len(fake.submitted) == 1
+
+
+def test_the_guard_can_be_opted_out_of_per_call(signal, approved):
+    """The integration suite prices 20% below the touch on purpose. The opt-out
+    is per call so that test cannot disable the guard for anything else."""
+    fake = FakeTradingClient()
+    client = FakeAlpacaClient(fake, quote={"bid": 765.0, "ask": 765.2, "tradeable": True})
+    executor = OrderExecutor(client, max_price_deviation=0.05)
+
+    executor.submit_order(signal, approved, reference_price=616.5,
+                          allow_price_deviation=True)
+    assert len(fake.submitted) == 1
+
+
+def test_market_orders_skip_the_guard(signal, approved):
+    """A market order has no limit price to check."""
+    fake = FakeTradingClient()
+    client = FakeAlpacaClient(fake, quote={"bid": 765.0, "ask": 765.2, "tradeable": True})
+    executor = OrderExecutor(client, max_price_deviation=0.05)
+
+    executor.submit_order(signal, approved, order_type=OrderType.MARKET,
+                          reference_price=616.5)
+    assert len(fake.submitted) == 1
+
+
+def test_orders_carry_the_prefix_that_identifies_who_placed_them(signal, approved):
+    """Test orders rest far from the market by design. Without a tag on the
+    broker's side there is no way to tell them from a production pricing fault
+    when you are looking at the account rather than the code."""
+    fake = FakeTradingClient()
+    executor = OrderExecutor(FakeAlpacaClient(fake), order_id_prefix="itest-")
+    executor.submit_order(signal, approved, reference_price=100.0)
+    assert fake.submitted[0].client_order_id.startswith("itest-")
+
+
+def test_production_orders_carry_the_default_prefix(signal, approved):
+    fake = FakeTradingClient()
+    trade = OrderExecutor(FakeAlpacaClient(fake)).submit_order(
+        signal, approved, reference_price=100.0
+    )
+    assert fake.submitted[0].client_order_id == f"rt-{trade.trade_id}"
+
+
 def test_trade_record_links_signal_to_order(signal, approved):
     """Without a trade_id, reconstructing why a position exists means
     correlating three logs by timestamp and hoping."""

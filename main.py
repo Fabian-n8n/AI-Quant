@@ -580,7 +580,12 @@ class TradingEngine:
 
         self.position_tracker = PositionTracker(self.client)
         self.order_executor = (
-            _RefusingExecutor() if self.dry_run else OrderExecutor(self.client)
+            _RefusingExecutor() if self.dry_run else OrderExecutor(
+                self.client,
+                max_price_deviation=float(
+                    self.settings["broker"].get("max_price_deviation_pct", 0.05)
+                ),
+            )
         )
 
         report = self._broker_retry(self.position_tracker.sync, what="position sync")

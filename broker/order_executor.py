@@ -31,6 +31,19 @@ Order submission. A network timeout does not tell you whether the order reached
 the exchange, and a blind retry is how you end up holding two copies of the same
 position. Reads retry with backoff; writes fail loudly and leave the decision to
 a human or to the orchestrator's error path.
+
+THE PRICE SANITY GUARD
+----------------------
+Every limit price is checked against the live quote before submission and
+refused above `max_price_deviation`. A limit far below the market does not
+error, it just never fills, so the failure mode is a silent one: orders that
+look placed, an account that never moves, and nothing in the logs to say why.
+The guard converts that into a loud rejection naming both prices.
+
+It is deliberately overridable per call. The integration suite prices 20% below
+the touch so its order rests instead of filling, which is the guard's exact
+trigger condition. A guard that the test disables globally to keep working
+protects nothing, so the opt-out is one argument on one call site.
 """
 
 from __future__ import annotations
@@ -49,6 +62,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LIMIT_OFFSET = 0.001      # 0.1% through the touch
 DEFAULT_FILL_TIMEOUT = 30.0       # seconds before an unfilled limit is cancelled
+DEFAULT_MAX_DEVIATION = 0.05      # reject a limit more than 5% off the market
+DEFAULT_ORDER_PREFIX = "rt-"      # every real order. Tests override it, so the
+                                  # broker's order book distinguishes the two.
 
 
 @dataclass
@@ -91,10 +107,14 @@ class OrderExecutor:
         client: AlpacaClient,
         limit_offset: float = DEFAULT_LIMIT_OFFSET,
         fill_timeout: float = DEFAULT_FILL_TIMEOUT,
+        max_price_deviation: float = DEFAULT_MAX_DEVIATION,
+        order_id_prefix: str = DEFAULT_ORDER_PREFIX,
     ) -> None:
         self.client = client
         self.limit_offset = limit_offset
         self.fill_timeout = fill_timeout
+        self.max_price_deviation = max_price_deviation
+        self.order_id_prefix = order_id_prefix
         self.trades: dict[str, TradeRecord] = {}
 
     # -- submission ---------------------------------------------------------
@@ -107,6 +127,7 @@ class OrderExecutor:
         reference_price: float | None = None,
         wait_for_fill: bool = False,
         retry_at_market: bool = False,
+        allow_price_deviation: bool = False,
     ) -> TradeRecord:
         """Place an order the risk manager approved.
 
@@ -117,6 +138,10 @@ class OrderExecutor:
         `reference_price` overrides the live quote, which matters when the market
         is closed: Alpaca's IEX feed returns a zero ask outside hours, and
         pricing a limit off zero would submit a nonsense order.
+
+        `allow_price_deviation` skips the sanity guard. Only the integration
+        suite passes it, because it prices deliberately far from the market so
+        the order rests. Nothing in the trading path should ever set it.
         """
         if not decision.approved:
             raise OrderExecutionError(
@@ -137,7 +162,12 @@ class OrderExecutor:
         trade = self._new_trade_record(signal, decision, side, quantity)
 
         price = reference_price if reference_price is not None else self._reference_price(signal)
-        request = self._build_request(signal.symbol, quantity, side, order_type, price)
+        if order_type is OrderType.LIMIT and not allow_price_deviation:
+            self._assert_price_sane(signal.symbol, round(self._limit_price(price, side), 2), side)
+        request = self._build_request(
+            signal.symbol, quantity, side, order_type, price,
+            client_order_id=self._client_order_id(trade),
+        )
 
         try:
             raw = self.client.trading_client.submit_order(request)
@@ -202,6 +232,7 @@ class OrderExecutor:
         side = OrderSide.BUY if signal.direction is Direction.LONG else OrderSide.SELL
         trade = self._new_trade_record(signal, decision, side, quantity)
         price = reference_price if reference_price is not None else self._reference_price(signal)
+        self._assert_price_sane(signal.symbol, round(self._limit_price(price, side), 2), side)
 
         request = LimitOrderRequest(
             symbol=signal.symbol,
@@ -210,7 +241,7 @@ class OrderExecutor:
             time_in_force=TimeInForce.GTC,      # bracket legs must outlive the session
             order_class=OrderClass.BRACKET,
             limit_price=round(self._limit_price(price, side), 2),
-            client_order_id=trade.trade_id,
+            client_order_id=self._client_order_id(trade),
             take_profit=TakeProfitRequest(limit_price=round(signal.take_profit, 2)),
             stop_loss=StopLossRequest(stop_price=round(signal.stop_loss, 2)),
         )
@@ -430,8 +461,63 @@ class OrderExecutor:
         offset = 1 + self.limit_offset if side is OrderSide.BUY else 1 - self.limit_offset
         return price * offset
 
+    def _assert_price_sane(self, symbol: str, limit: float, side: OrderSide) -> None:
+        """Refuse a limit price too far from the market to ever fill.
+
+        The whole point is that the bad case is silent. A buy limit 19% below
+        the market is accepted by the broker, rests, expires, and leaves an
+        order log full of `canceled` with `filled_qty` 0. Nothing raises, so the
+        only symptom is an account that never moves.
+
+        Skipped when the quote is unusable rather than treated as a failure.
+        Alpaca's IEX feed returns a zero bid and ask outside regular hours, and
+        blocking every after-hours order because the reference is missing would
+        trade one silent failure for a louder one.
+        """
+        if self.max_price_deviation <= 0:
+            return
+        try:
+            quote = self.client.get_latest_quote(symbol)
+        except Exception as exc:
+            logger.debug("%s: no quote for the price guard (%s), allowing", symbol, exc)
+            return
+
+        bid, ask = quote.get("bid", 0.0) or 0.0, quote.get("ask", 0.0) or 0.0
+        market = (bid + ask) / 2 if bid > 0 and ask > 0 else (ask or bid)
+        if not market or market <= 0:
+            logger.debug("%s: quote has no usable price, skipping the guard", symbol)
+            return
+
+        deviation = (limit - market) / market
+        if abs(deviation) <= self.max_price_deviation:
+            return
+
+        logger.error(
+            "%s: REFUSING %s limit %.2f against market %.2f (%.2f%% off, cap %.2f%%). "
+            "Not submitted.",
+            symbol, side.value, limit, market, deviation * 100,
+            self.max_price_deviation * 100,
+        )
+        raise OrderExecutionError(
+            f"{symbol}: limit {limit:.2f} deviates {deviation:+.2%} from the market "
+            f"price {market:.2f}, beyond the {self.max_price_deviation:.0%} cap. "
+            f"An order this far off would rest unfilled rather than fail, so it is "
+            f"refused instead of submitted."
+        )
+
+    def _client_order_id(self, trade: TradeRecord) -> str:
+        """The id the broker stores alongside the order.
+
+        Carries `order_id_prefix` so the Alpaca order book says which process
+        placed a given order. Test orders rest far from the market by design,
+        and without a tag they are indistinguishable from a production pricing
+        fault when you are looking at the account rather than the code.
+        """
+        return f"{self.order_id_prefix}{trade.trade_id}"
+
     def _build_request(self, symbol: str, quantity: float, side: OrderSide,
-                       order_type: OrderType, price: float):
+                       order_type: OrderType, price: float,
+                       client_order_id: str | None = None):
         from alpaca.trading.enums import OrderSide as AlpacaSide
         from alpaca.trading.enums import TimeInForce
         from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest
@@ -439,11 +525,13 @@ class OrderExecutor:
         alpaca_side = AlpacaSide.BUY if side is OrderSide.BUY else AlpacaSide.SELL
         if order_type is OrderType.MARKET:
             return MarketOrderRequest(
-                symbol=symbol, qty=quantity, side=alpaca_side, time_in_force=TimeInForce.DAY
+                symbol=symbol, qty=quantity, side=alpaca_side,
+                time_in_force=TimeInForce.DAY, client_order_id=client_order_id,
             )
         return LimitOrderRequest(
             symbol=symbol, qty=quantity, side=alpaca_side, time_in_force=TimeInForce.DAY,
             limit_price=round(self._limit_price(price, side), 2),
+            client_order_id=client_order_id,
         )
 
     def _reference_price(self, signal: Signal) -> float:

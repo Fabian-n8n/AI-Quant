@@ -72,6 +72,12 @@ broker:
 
   timeframe: 1Day              # swing horizon: evaluate on daily bar close
 
+  # Reject any limit price further than this from the live quote. A limit far
+  # from the market does not error, it rests and expires, so without this the
+  # symptom is an order log full of `canceled` and an account that never moves.
+  # 5% is wide enough for a fast tape and narrow enough to catch a stale price.
+  max_price_deviation_pct: 0.05
+
 # ---------------------------------------------------------------------------
 # hmm - the regime detection brain (Phase 2)
 # ---------------------------------------------------------------------------
