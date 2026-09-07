@@ -1,0 +1,468 @@
+"""
+Order placement, modification and cancellation.
+
+Phase 6.
+
+Sits between the risk manager and the Alpaca client. Nothing else in the system
+calls `submit_order` directly, which makes this the single choke point where the
+"no order without a stop" rule is enforced a second time, independently of the
+risk manager. One rule, two places it is checked, because it is the rule that
+cannot be allowed to fail quietly.
+
+LIMIT ORDERS BY DEFAULT
+-----------------------
+Market orders on a daily-bar swing system are unnecessary risk. The system has
+until the next bar to get filled, so it posts a limit 0.1% through the current
+price, waits 30 seconds, and cancels if unfilled. Retrying at market is opt-in
+per call rather than automatic: a limit that will not fill is usually telling you
+something about liquidity, and converting it to a market order discards that
+information at exactly the wrong moment.
+
+TRADE IDS
+---------
+Every order carries a `trade_id` that links signal to risk decision to order to
+fill. Without it, reconstructing why a position exists means correlating three
+logs by timestamp and hoping. Alpaca's `client_order_id` carries it, so the link
+survives on the broker's side too.
+
+WHAT IS NEVER RETRIED
+---------------------
+Order submission. A network timeout does not tell you whether the order reached
+the exchange, and a blind retry is how you end up holding two copies of the same
+position. Reads retry with backoff; writes fail loudly and leave the decision to
+a human or to the orchestrator's error path.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+from broker.alpaca_client import AlpacaClient, Order, OrderSide, OrderStatus, OrderType
+from core.regime_strategies import Direction, Signal
+from core.risk_manager import RiskDecision
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_LIMIT_OFFSET = 0.001      # 0.1% through the touch
+DEFAULT_FILL_TIMEOUT = 30.0       # seconds before an unfilled limit is cancelled
+
+
+@dataclass
+class TradeRecord:
+    """One trade's full provenance: signal -> risk decision -> order -> fill.
+
+    The object that makes "why do I own this" answerable six months later
+    without correlating three logs by timestamp.
+    """
+    trade_id: str
+    symbol: str
+    side: OrderSide
+    requested_qty: float
+    approved_qty: float
+    signal_reasoning: str
+    risk_modifications: list[str]
+    regime: str
+    regime_confidence: float
+    stop_loss: Optional[float]
+    take_profit: Optional[float]
+    order_id: Optional[str] = None
+    stop_order_id: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    filled_at: Optional[datetime] = None
+    fill_price: Optional[float] = None
+    filled_qty: float = 0.0
+    status: OrderStatus = OrderStatus.PENDING
+    notes: list[str] = field(default_factory=list)
+
+
+class OrderExecutionError(RuntimeError):
+    """Raised when an order cannot be placed. Never retried automatically."""
+
+
+class OrderExecutor:
+    """Places orders that the risk manager has already approved."""
+
+    def __init__(
+        self,
+        client: AlpacaClient,
+        limit_offset: float = DEFAULT_LIMIT_OFFSET,
+        fill_timeout: float = DEFAULT_FILL_TIMEOUT,
+    ) -> None:
+        self.client = client
+        self.limit_offset = limit_offset
+        self.fill_timeout = fill_timeout
+        self.trades: dict[str, TradeRecord] = {}
+
+    # -- submission ---------------------------------------------------------
+
+    def submit_order(
+        self,
+        signal: Signal,
+        decision: RiskDecision,
+        order_type: OrderType = OrderType.LIMIT,
+        reference_price: Optional[float] = None,
+        wait_for_fill: bool = False,
+        retry_at_market: bool = False,
+    ) -> TradeRecord:
+        """Place an order the risk manager approved.
+
+        Refuses if the decision was not approved, or if the signal has no stop,
+        even though the risk manager checks both. Two independent checks on the
+        one rule that cannot be allowed to fail.
+
+        `reference_price` overrides the live quote, which matters when the market
+        is closed: Alpaca's IEX feed returns a zero ask outside hours, and
+        pricing a limit off zero would submit a nonsense order.
+        """
+        if not decision.approved:
+            raise OrderExecutionError(
+                f"{signal.symbol}: risk manager rejected this signal "
+                f"({decision.rejection_reason}). It may not be submitted."
+            )
+        if signal.stop_loss is None:
+            raise OrderExecutionError(
+                f"{signal.symbol}: no stop loss. The system does not place "
+                f"unprotected orders."
+            )
+
+        quantity = float(decision.modified_signal.get("shares", 0))
+        if quantity <= 0:
+            raise OrderExecutionError(f"{signal.symbol}: approved quantity is zero")
+
+        side = OrderSide.BUY if signal.direction is Direction.LONG else OrderSide.SELL
+        trade = self._new_trade_record(signal, decision, side, quantity)
+
+        price = reference_price if reference_price is not None else self._reference_price(signal)
+        request = self._build_request(signal.symbol, quantity, side, order_type, price)
+
+        try:
+            raw = self.client.trading_client.submit_order(request)
+        except Exception as exc:
+            trade.status = OrderStatus.REJECTED
+            trade.notes.append(f"submission failed: {exc}")
+            self.trades[trade.trade_id] = trade
+            raise OrderExecutionError(f"{signal.symbol}: {exc}") from exc
+
+        order = self.client.to_order(raw)
+        trade.order_id = order.order_id
+        trade.submitted_at = order.submitted_at or datetime.now(timezone.utc)
+        trade.status = order.status
+        self.trades[trade.trade_id] = trade
+
+        logger.info(
+            "Submitted %s %s x%g @ %s (trade %s, order %s)",
+            side.value, signal.symbol, quantity,
+            f"{price:.2f} limit" if order_type is OrderType.LIMIT else "market",
+            trade.trade_id[:8], order.order_id[:8],
+        )
+
+        if wait_for_fill:
+            self._await_fill(trade, retry_at_market, signal, side, quantity)
+        return trade
+
+    def submit_bracket_order(
+        self,
+        signal: Signal,
+        decision: RiskDecision,
+        reference_price: Optional[float] = None,
+    ) -> TradeRecord:
+        """Entry, stop and take-profit as one Alpaca bracket.
+
+        Preferred over submitting the entry and then attaching a stop, because
+        the broker links the legs: the stop exists the instant the entry fills,
+        with no window in which the position is naked. That window is small but
+        it is exactly when a gap would hurt.
+
+        Requires a take_profit. Alpaca's bracket class demands both legs; use
+        `submit_order` plus `place_stop` when there is no profit target.
+        """
+        if not decision.approved:
+            raise OrderExecutionError(f"{signal.symbol}: not approved by risk manager")
+        if signal.stop_loss is None:
+            raise OrderExecutionError(f"{signal.symbol}: no stop loss")
+        if signal.take_profit is None:
+            raise OrderExecutionError(
+                f"{signal.symbol}: bracket orders need a take_profit. Use "
+                f"submit_order() then place_stop() for a stop-only position."
+            )
+
+        from alpaca.trading.enums import OrderClass, TimeInForce
+        from alpaca.trading.requests import (
+            LimitOrderRequest,
+            StopLossRequest,
+            TakeProfitRequest,
+        )
+        from alpaca.trading.enums import OrderSide as AlpacaSide
+
+        quantity = float(decision.modified_signal.get("shares", 0))
+        side = OrderSide.BUY if signal.direction is Direction.LONG else OrderSide.SELL
+        trade = self._new_trade_record(signal, decision, side, quantity)
+        price = reference_price if reference_price is not None else self._reference_price(signal)
+
+        request = LimitOrderRequest(
+            symbol=signal.symbol,
+            qty=quantity,
+            side=AlpacaSide.BUY if side is OrderSide.BUY else AlpacaSide.SELL,
+            time_in_force=TimeInForce.GTC,      # bracket legs must outlive the session
+            order_class=OrderClass.BRACKET,
+            limit_price=round(self._limit_price(price, side), 2),
+            client_order_id=trade.trade_id,
+            take_profit=TakeProfitRequest(limit_price=round(signal.take_profit, 2)),
+            stop_loss=StopLossRequest(stop_price=round(signal.stop_loss, 2)),
+        )
+
+        try:
+            raw = self.client.trading_client.submit_order(request)
+        except Exception as exc:
+            trade.status = OrderStatus.REJECTED
+            trade.notes.append(f"bracket submission failed: {exc}")
+            self.trades[trade.trade_id] = trade
+            raise OrderExecutionError(f"{signal.symbol}: {exc}") from exc
+
+        order = self.client.to_order(raw)
+        trade.order_id = order.order_id
+        trade.submitted_at = order.submitted_at or datetime.now(timezone.utc)
+        trade.status = order.status
+        trade.notes.append(f"bracket: stop {signal.stop_loss:.2f}, target {signal.take_profit:.2f}")
+        self.trades[trade.trade_id] = trade
+        logger.info("Submitted bracket %s x%g (trade %s)", signal.symbol, quantity, trade.trade_id[:8])
+        return trade
+
+    def place_stop(self, symbol: str, quantity: float, stop_price: float,
+                   trade_id: Optional[str] = None) -> Order:
+        """Attach a protective stop to a filled position.
+
+        Placed immediately after the entry fills. A position that exists without
+        its stop, even for one cycle, is an unbounded loss.
+
+        Sized to the quantity actually filled, not the quantity requested. A
+        partial fill with a full-size stop leaves the excess as a naked short
+        the moment it triggers.
+        """
+        from alpaca.trading.enums import OrderSide as AlpacaSide, TimeInForce
+        from alpaca.trading.requests import StopOrderRequest
+
+        request = StopOrderRequest(
+            symbol=symbol, qty=quantity, side=AlpacaSide.SELL,
+            time_in_force=TimeInForce.GTC, stop_price=round(stop_price, 2),
+        )
+        raw = self.client.trading_client.submit_order(request)
+        order = self.client.to_order(raw)
+        if trade_id and trade_id in self.trades:
+            self.trades[trade_id].stop_order_id = order.order_id
+        logger.info("Placed stop for %s x%g @ %.2f", symbol, quantity, stop_price)
+        return order
+
+    # -- modification -------------------------------------------------------
+
+    def modify_stop(self, symbol: str, new_stop: float) -> Optional[Order]:
+        """Move a stop, tightening only.
+
+        A stop that can move away from price is not a stop, it is a hope. This
+        refuses to widen and says so rather than failing silently, because the
+        caller asking to widen has a bug worth surfacing.
+
+        Implemented as cancel-then-replace: Alpaca cannot change the stop price
+        of a live stop order in place.
+        """
+        existing = [
+            o for o in self.client.get_open_orders()
+            if o.symbol == symbol and o.order_type in (OrderType.STOP, OrderType.STOP_LIMIT)
+        ]
+        if not existing:
+            logger.warning("%s: no open stop order to modify", symbol)
+            return None
+
+        current = existing[0]
+        if current.stop_price is not None and new_stop <= current.stop_price:
+            logger.info(
+                "%s: refusing to widen stop from %.2f to %.2f (tighten only)",
+                symbol, current.stop_price, new_stop,
+            )
+            return None
+
+        self.cancel_order(current.order_id)
+        return self.place_stop(symbol, current.quantity, new_stop)
+
+    # -- cancellation and closing -------------------------------------------
+
+    def cancel_order(self, order_id: str) -> None:
+        self.client.trading_client.cancel_order_by_id(order_id)
+        logger.info("Cancelled order %s", order_id[:8])
+
+    def cancel_all_orders(self) -> None:
+        self.client.trading_client.cancel_orders()
+        logger.info("Cancelled all open orders")
+
+    def close_position(self, symbol: str) -> Optional[Order]:
+        try:
+            raw = self.client.trading_client.close_position(symbol)
+        except Exception as exc:
+            logger.warning("Could not close %s: %s", symbol, exc)
+            return None
+        logger.info("Closing position %s", symbol)
+        return self.client.to_order(raw)
+
+    def close_all_positions(self, reason: str = "") -> list[Order]:
+        """Flatten everything. Called by the risk manager on a halt breach.
+
+        Cancels resting orders first. Closing a position while a stop for it is
+        still live would leave the stop as a naked short once the position is
+        gone.
+        """
+        logger.warning("Closing ALL positions%s", f": {reason}" if reason else "")
+        try:
+            self.cancel_all_orders()
+        except Exception as exc:
+            logger.warning("Could not cancel open orders before flattening: %s", exc)
+
+        raw_responses = self.client.trading_client.close_all_positions(cancel_orders=True)
+        orders = []
+        for response in raw_responses or []:
+            body = getattr(response, "body", None)
+            if body is not None:
+                try:
+                    orders.append(self.client.to_order(body))
+                except Exception:
+                    continue
+        return orders
+
+    # -- fill handling ------------------------------------------------------
+
+    def _await_fill(
+        self, trade: TradeRecord, retry_at_market: bool,
+        signal: Signal, side: OrderSide, quantity: float,
+    ) -> None:
+        """Poll until filled or the timeout expires, then cancel.
+
+        Cancelling an unfilled limit is the default. Retrying at market is
+        opt-in: a limit that will not fill is usually saying something about
+        liquidity, and converting it to a market order discards that information
+        at the worst possible moment.
+        """
+        deadline = time.monotonic() + self.fill_timeout
+        while time.monotonic() < deadline:
+            order = self.client.get_order(trade.order_id)
+            trade.status = order.status
+            if order.status is OrderStatus.FILLED:
+                trade.filled_at = order.filled_at
+                trade.fill_price = order.average_fill_price
+                trade.filled_qty = order.filled_quantity
+                logger.info("Filled %s x%g @ %.2f", trade.symbol, trade.filled_qty,
+                            trade.fill_price or 0)
+                return
+            if order.is_done:
+                trade.notes.append(f"terminal without fill: {order.status.value}")
+                return
+            time.sleep(1.0)
+
+        logger.info("%s: unfilled after %.0fs, cancelling", trade.symbol, self.fill_timeout)
+        try:
+            self.cancel_order(trade.order_id)
+            trade.notes.append(f"limit unfilled after {self.fill_timeout:.0f}s, cancelled")
+            trade.status = OrderStatus.CANCELLED
+        except Exception as exc:
+            trade.notes.append(f"cancel failed: {exc}")
+
+        if retry_at_market:
+            trade.notes.append("retried at market")
+            logger.warning("%s: retrying at market", trade.symbol)
+            self._submit_market_retry(trade, signal, side, quantity)
+
+    def _submit_market_retry(self, trade: TradeRecord, signal: Signal,
+                             side: OrderSide, quantity: float) -> None:
+        from alpaca.trading.enums import OrderSide as AlpacaSide, TimeInForce
+        from alpaca.trading.requests import MarketOrderRequest
+
+        request = MarketOrderRequest(
+            symbol=signal.symbol, qty=quantity,
+            side=AlpacaSide.BUY if side is OrderSide.BUY else AlpacaSide.SELL,
+            time_in_force=TimeInForce.DAY,
+            client_order_id=f"{trade.trade_id}-mkt",
+        )
+        order = self.client.to_order(self.client.trading_client.submit_order(request))
+        trade.order_id = order.order_id
+        trade.status = order.status
+
+    def handle_partial_fill(self, trade: TradeRecord, order: Order) -> None:
+        """Reconcile a partial fill.
+
+        The stop must cover the quantity actually filled, not the quantity
+        requested. Getting this wrong leaves part of the position naked, or
+        turns the excess into a short when the stop triggers.
+        """
+        trade.filled_qty = order.filled_quantity
+        trade.fill_price = order.average_fill_price
+        trade.status = OrderStatus.PARTIALLY_FILLED
+        trade.notes.append(f"partial fill {order.filled_quantity}/{order.quantity}")
+        logger.warning(
+            "%s partially filled %g of %g: stop must cover the filled quantity only",
+            trade.symbol, order.filled_quantity, order.quantity,
+        )
+
+    # -- helpers ------------------------------------------------------------
+
+    def _new_trade_record(
+        self, signal: Signal, decision: RiskDecision, side: OrderSide, quantity: float
+    ) -> TradeRecord:
+        return TradeRecord(
+            trade_id=str(uuid.uuid4()),
+            symbol=signal.symbol,
+            side=side,
+            requested_qty=signal.position_size_pct,
+            approved_qty=quantity,
+            signal_reasoning=signal.reasoning,
+            risk_modifications=list(decision.modifications),
+            regime=signal.regime_name,
+            regime_confidence=signal.regime_probability,
+            stop_loss=signal.stop_loss,
+            take_profit=signal.take_profit,
+        )
+
+    def _limit_price(self, price: float, side: OrderSide) -> float:
+        """Price 0.1% through the touch, so a resting limit can actually fill."""
+        offset = 1 + self.limit_offset if side is OrderSide.BUY else 1 - self.limit_offset
+        return price * offset
+
+    def _build_request(self, symbol: str, quantity: float, side: OrderSide,
+                       order_type: OrderType, price: float):
+        from alpaca.trading.enums import OrderSide as AlpacaSide, TimeInForce
+        from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest
+
+        alpaca_side = AlpacaSide.BUY if side is OrderSide.BUY else AlpacaSide.SELL
+        if order_type is OrderType.MARKET:
+            return MarketOrderRequest(
+                symbol=symbol, qty=quantity, side=alpaca_side, time_in_force=TimeInForce.DAY
+            )
+        return LimitOrderRequest(
+            symbol=symbol, qty=quantity, side=alpaca_side, time_in_force=TimeInForce.DAY,
+            limit_price=round(self._limit_price(price, side), 2),
+        )
+
+    def _reference_price(self, signal: Signal) -> float:
+        """Price to build the limit around.
+
+        Falls back to the signal's entry price when the quote is unusable.
+        Outside market hours Alpaca's IEX feed returns a zero ask, and pricing a
+        limit off zero would submit a nonsense order at a fraction of a cent.
+        """
+        try:
+            quote = self.client.get_latest_quote(signal.symbol)
+            bid, ask = quote.get("bid", 0.0), quote.get("ask", 0.0)
+            if bid > 0 and ask > 0:
+                return (bid + ask) / 2
+            if ask > 0:
+                return ask
+            if bid > 0:
+                return bid
+        except Exception as exc:
+            logger.debug("%s: quote unavailable (%s), using signal entry price", signal.symbol, exc)
+        return signal.entry_price
+
+    def get_trade(self, trade_id: str) -> Optional[TradeRecord]:
+        return self.trades.get(trade_id)

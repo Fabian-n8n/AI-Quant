@@ -1,0 +1,35 @@
+# Secrets. Never commit.
+.env
+config/credentials.yaml
+*.pem
+*.key
+
+# Runtime state
+trading_halted.lock
+state_snapshot.json
+logs/
+*.log
+
+# Trained models. Build artifacts: regenerable by refitting, and large.
+models/
+*.pkl
+
+# Cached market data and backtest output
+data/cache/
+backtest/results/*
+!backtest/results/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# macOS / editors
+.DS_Store
+.vscode/
+.idea/

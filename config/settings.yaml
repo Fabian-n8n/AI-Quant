@@ -1,0 +1,217 @@
+# regime-trader settings
+#
+# Every configurable parameter in the system lives here. Nothing outside this
+# file should contain a hardcoded threshold, allocation or limit.
+#
+# Values below are the tutorial's defaults, shipped verbatim as requested.
+# Four of them contradict the hard constraints in CLAUDE.md. Each is marked
+# CONFLICT with the line to change. See docs/TUTORIAL-CONFLICTS.md for the full
+# reasoning. Nothing is wrong with running the tutorial values on paper; they
+# just should not reach a funded account without a deliberate decision.
+
+# ---------------------------------------------------------------------------
+# broker
+# ---------------------------------------------------------------------------
+broker:
+  paper_trading: true          # never flip this without reading docs/GO-LIVE.md
+  symbols:                     # the tradable universe
+    - SPY
+    - QQQ
+    - AAPL
+    - MSFT
+    - AMZN
+    - GOOGL
+    - NVDA
+    - META
+    - TSLA
+    - AMD
+  timeframe: 1Day              # swing horizon: evaluate on daily bar close
+
+# ---------------------------------------------------------------------------
+# hmm - the regime detection brain (Phase 2)
+# ---------------------------------------------------------------------------
+hmm:
+  n_candidates: [3, 4, 5, 6, 7]  # fit each, select lowest BIC
+  n_init: 10                     # random restarts per candidate; EM is a local
+                                 # optimiser, so one fit is a random draw
+  covariance_type: full
+  min_train_bars: 504            # 2 years. NOTE: this counts *usable feature*
+                                 # rows, and the feature warmup discards 450
+                                 # bars, so 504 usable rows needs 954 raw bars
+                                 # (~3.8 years). Use required_raw_bars().
+  stability_bars: 3              # regime must persist this long to be confirmed
+  flicker_window: 20             # lookback for the instability check
+  flicker_threshold: 4           # >4 raw changes in 20 bars = model is unsure
+  min_confidence: 0.55           # below this, treat the classification as weak
+
+  transition_size_mult: 0.75     # -25% while a regime change is unconfirmed
+  uncertainty_size_mult: 0.50    # deeper cut while flickering (see strategy too)
+
+  zscore_lookback: 252           # rolling standardisation window. Rolling, not
+                                 # a fitted scaler: a fitted one leaks the
+                                 # future's mean and variance backwards.
+  zscore_clip: 5.0               # bound outliers. One 40-sigma day will
+                                 # otherwise consume an entire Gaussian state.
+
+  retrain_interval_bars: 21      # expanding-window refit cadence, ~monthly
+  random_state: 42               # fixed so the same data gives the same model
+  covars_prior: 0.01             # regularisation, keeps covariances invertible
+  min_covar: 0.001
+  n_iter: 200                    # EM iterations per restart
+
+  # Which features the HMM observes. `null` means all 14 from FEATURE_COLUMNS.
+  #
+  # WARNING: with all 14 and covariance_type 'full', candidates 5/6/7 need
+  # 619/749/881 parameters. At the 504-row minimum that exceeds the sample
+  # count, covariances go singular, and BIC's penalty collapses the selection
+  # onto n=3 regardless of the data. The engine raises InsufficientDataError
+  # rather than let that happen silently.
+  #
+  # Set to `volatility` for the 6-column subset that fits at 504 rows and suits
+  # the design philosophy: this is a volatility classifier, and it does not need
+  # momentum and mean-reversion features to do that job.
+  # See docs/PHASE2-NOTES.md.
+  feature_columns: volatility    # `volatility` | `all` | explicit list
+  strict_fittability: true       # fail loudly rather than fit garbage
+
+  model_path: models/hmm_model.pkl
+
+# ---------------------------------------------------------------------------
+# strategy - volatility-based allocation (Phase 3)
+# ---------------------------------------------------------------------------
+# Mapped by MEASURED volatility, never by regime label. A regime labelled
+# "bull" is not necessarily calm: on the current fixture all 7 regimes sit in a
+# different position under the return sort than under the volatility sort.
+strategy:
+  low_vol_allocation: 0.95         # calm market, near fully invested
+  mid_vol_allocation_trend: 0.95   # choppy but above the 50 EMA, stay invested
+  mid_vol_allocation_no_trend: 0.60  # choppy and below it, cut back
+  high_vol_allocation: 0.60        # turbulent, reduce but stay in for rebounds
+  low_vol_leverage: 1.25           # CONFLICT: CLAUDE.md says "Leverage: None"
+  rebalance_threshold: 0.10        # only act on a >10% allocation gap
+  uncertainty_size_mult: 0.50      # halve size when the regime call is unreliable
+
+  # Stop construction. Every stop is anchored to the 50 EMA per the spec, then
+  # clamped to sit strictly below entry.
+  #
+  # The clamp is not optional. The spec's raw formulas return a stop AT OR ABOVE
+  # entry on 25-36% of bars, because price sits below the 50 EMA for most of any
+  # selloff. On a long that is an instant stop-out, and Phase 5 sizes as
+  # risk / abs(entry - stop), so it is also a division by zero. Measured on the
+  # synthetic fixture, the clamp fires on 38-47% of bars and a majority of those
+  # were the fatal case. See docs/PHASE3-NOTES.md.
+  ema_span: 50
+  atr_window: 14
+  min_stop_atr_mult: 0.5           # stop must be >= this many ATR below entry
+  min_stop_pct: 0.005              # and >= this fraction of price, for when ATR
+                                   # collapses in a very quiet stretch
+
+# ---------------------------------------------------------------------------
+# risk - independent veto layer, overrides everything above
+# ---------------------------------------------------------------------------
+risk:
+  max_risk_per_trade: 0.01     # 1% of portfolio per trade
+  max_exposure: 0.80           # 20% cash minimum
+  max_leverage: 1.25           # CONFLICT: CLAUDE.md hard constraint is 1.0
+  max_single_position: 0.15
+  max_concurrent: 5
+  max_daily_trades: 20
+
+  # Circuit breakers. CONFLICT: CLAUDE.md argues these are day-trading numbers
+  # that will misfire on a days-to-months holding period. A 3% down day is
+  # ordinary noise on a multi-week hold, and SPY draws down 10% in normal years.
+  # Shipped as the tutorial specifies. Swing-horizon alternatives are in
+  # docs/TUTORIAL-CONFLICTS.md, to be chosen against your own backtest.
+  daily_dd_reduce: 0.02        # halve position sizes
+  daily_dd_halt: 0.03          # close everything
+  weekly_dd_reduce: 0.05
+  weekly_dd_halt: 0.07
+  max_dd_from_peak: 0.10       # halt and write trading_halted.lock
+
+  # -- position level -------------------------------------------------------
+  min_position_usd: 100        # below this, costs outweigh the position
+  max_sector_exposure: 0.30    # correlated exposure cap
+
+  # Overnight gap risk. Positions are sized assuming the stop gaps through by
+  # `gap_multiplier` times the stop distance, capped so that worst case costs
+  # `gap_max_loss_pct` of the portfolio.
+  #
+  # NOTE: with 3x and 2%, the gap cap is 0.02/3 = 0.667% of equity, which is
+  # BELOW max_risk_per_trade (1%). The gap constraint therefore always binds,
+  # and since this is a swing system every position is held overnight. Effective
+  # risk per trade is 0.667%, not 1%. See docs/PHASE5-NOTES.md.
+  gap_multiplier: 3.0
+  gap_max_loss_pct: 0.02
+
+  # -- correlation ----------------------------------------------------------
+  correlation_window: 60       # trading days of rolling correlation
+  correlation_reduce: 0.70     # above this, halve the size
+  correlation_reject: 0.85     # above this, refuse the trade
+
+  # -- order validation -----------------------------------------------------
+  max_spread_pct: 0.005        # reject if bid-ask spread exceeds 0.5%
+  duplicate_window_seconds: 60 # block same symbol+direction inside this window
+  force_1x_position_count: 3   # 3+ open positions forces leverage to 1.0x
+
+# ---------------------------------------------------------------------------
+# backtest
+# ---------------------------------------------------------------------------
+backtest:
+  slippage_pct: 0.0005         # 5 bps each way
+  initial_capital: 100000      # CONFLICT: CLAUDE.md says use real starting
+                               # capital, not an inflated number. Commission
+                               # drag behaves very differently at 5k than 100k.
+  train_window: 252            # in-sample, one year
+  test_window: 126             # out-of-sample, six months, evaluated blind
+  step_size: 126               # slide forward by the test window
+  risk_free_rate: 0.045        # for Sharpe
+
+# ---------------------------------------------------------------------------
+# monitoring
+# ---------------------------------------------------------------------------
+monitoring:
+  dashboard_refresh_seconds: 5
+  alert_rate_limit_minutes: 15   # do not send the same alert more than once
+                                 # per this window
+  alert_email:                   # optional. SMTP_HOST/USER/PASSWORD from env.
+  alert_webhook:                 # optional. Slack/Discord incoming webhook URL.
+
+# ---------------------------------------------------------------------------
+# orchestration - the main loop (Phase 7)
+# ---------------------------------------------------------------------------
+orchestration:
+  # The model is refit when EITHER condition holds: the spec's calendar rule, or
+  # the bar-count rule Phase 2 already had. Calendar alone would skip a refit
+  # across a long holiday break; bars alone would let a model sit unrefreshed
+  # through a month of halted trading.
+  model_max_age_days: 7          # spec: "if model >7 days old or missing, retrain"
+
+  training_bars: 954             # raw bars pulled to fit. 504 usable rows after
+                                 # the 450-bar feature warmup. See
+                                 # data.feature_engineering.required_raw_bars().
+
+  state_snapshot_path: state_snapshot.json
+
+  # What to do when the market is closed. `wait` sleeps until the next open and
+  # is the right choice for a long-running process; `exit` returns 0 immediately
+  # and is the right choice under cron.
+  market_closed_action: wait     # wait | exit
+  poll_seconds: 60               # loop wake interval while waiting
+  max_wait_seconds: 86400        # give up waiting after this and exit cleanly
+
+  # Error handling.
+  broker_retry_attempts: 3       # spec: 3 retries, exponential backoff
+  broker_retry_base_delay: 2.0
+  max_consecutive_errors: 5      # after this many bad cycles, halt and alert
+
+  # Stops.
+  require_broker_stops: true     # every open position must have a resting stop
+                                 # order at the broker, not just a number in
+                                 # memory. Shutdown deliberately leaves positions
+                                 # open, so an in-memory-only stop would mean an
+                                 # unprotected position the moment the process
+                                 # exits. See docs/PHASE7-NOTES.md section 4.
+  update_stops_each_bar: true    # recompute the regime's stop and tighten only
+
+  # Session summary written on shutdown.
+  print_session_summary: true

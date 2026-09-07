@@ -1,0 +1,51 @@
+# regime-trader dependencies.
+# Verified installing on Python 3.14.3 (this machine) on 2026-09-07.
+
+# --- the brain -----------------------------------------------------------
+hmmlearn                 # hidden Markov models for regime detection
+scikit-learn             # hmmlearn dependency, plus scaling and model selection
+scipy
+
+# --- data ----------------------------------------------------------------
+pandas
+numpy
+ta                       # technical analysis indicators
+
+# --- broker --------------------------------------------------------------
+alpaca-py                # the supported Alpaca SDK
+websocket-client         # live streaming
+
+# alpaca-trade-api is in the tutorial's list but is deliberately NOT installed.
+# It is Alpaca's deprecated SDK, superseded by alpaca-py, and installing both
+# is not just redundant: alpaca-trade-api pins websockets==10.4 and
+# urllib3==1.26.20, which downgrades what alpaca-py installs (17.1 and 2.7.0).
+# alpaca-py covers trading, market data and streaming on its own. Verified on
+# this machine, 2026-09-07.
+# alpaca-trade-api
+
+# --- config and scheduling ------------------------------------------------
+pyyaml                   # settings.yaml, credentials.yaml
+python-dotenv            # .env
+schedule                 # daily bar-close runs
+
+# --- monitoring -----------------------------------------------------------
+rich                     # terminal dashboard
+
+# --- testing --------------------------------------------------------------
+pytest
+
+# --- Phase 8, web dashboard ----------------------------------------------
+# Installed at Phase 8, not before. Streamlit pulls a large dependency tree
+# and contributes nothing to whether the system works.
+# streamlit
+# plotly
+
+# -------------------------------------------------------------------------
+# pandas 3.x note
+#
+# pip resolves pandas to 3.x here, not 2.x. pandas 3.0 made copy-on-write the
+# default and changed the default string dtype. Nothing in Phase 1 touches
+# that, but from Phase 2 onward, tutorial or Stack Overflow code that relies on
+# chained assignment mutating a DataFrame in place will silently no-op instead
+# of working. If a data transformation behaves oddly, check this first. The
+# escape hatch is pinning pandas>=2.2,<3.
