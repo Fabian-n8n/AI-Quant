@@ -293,7 +293,10 @@ class TestAlpacaPaperRoundTrip:
         from broker.order_executor import OrderExecutor
         from core.risk_manager import RiskDecision
 
-        executor = OrderExecutor(client, order_id_prefix="itest-")
+        # deterministic_ids off: this test resubmits the same synthetic probe
+        # every run, and a deterministic id would make the second run of the
+        # day get refused as a duplicate. Idempotency is not what it tests.
+        executor = OrderExecutor(client, order_id_prefix="itest-", deterministic_ids=False)
         before = {o.order_id for o in client.get_open_orders()}
 
         # Far below the market so it rests rather than filling.

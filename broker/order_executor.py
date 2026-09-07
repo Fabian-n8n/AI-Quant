@@ -32,6 +32,26 @@ the exchange, and a blind retry is how you end up holding two copies of the same
 position. Reads retry with backoff; writes fail loudly and leave the decision to
 a human or to the orchestrator's error path.
 
+IDEMPOTENCY
+-----------
+Two independent mechanisms, because they fail in different places.
+
+`_equivalent_open_order` asks the broker whether an order for this symbol, side
+and roughly this price is already resting, and skips if so. This catches the
+common case: a loop that comes round again while the previous order is still
+working. Every open order also consumes buying power, so resubmitting does not
+merely duplicate the intent, it starves the rest of the universe.
+
+The deterministic `client_order_id` (`rt-SYMBOL-SIDE-YYYYMMDD`) catches what the
+broker query cannot. A restarted process has no memory, and an order that
+already filled is no longer open, so nothing local or in the open-order list
+would stop a second entry on the same signal. Alpaca rejects a repeated
+client_order_id itself, which makes the broker the arbiter rather than our
+in-memory state. One signal on one bar date can produce exactly one order,
+across restarts, forever.
+
+`risk_manager.is_duplicate` stays as the cheap in-process check before either.
+
 THE PRICE SANITY GUARD
 ----------------------
 Every limit price is checked against the live quote before submission and
@@ -54,6 +74,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+import pandas as pd
+
 from broker.alpaca_client import AlpacaClient, Order, OrderSide, OrderStatus, OrderType
 from core.regime_strategies import Direction, Signal
 from core.risk_manager import RiskDecision
@@ -65,6 +87,7 @@ DEFAULT_FILL_TIMEOUT = 30.0       # seconds before an unfilled limit is cancelle
 DEFAULT_MAX_DEVIATION = 0.05      # reject a limit more than 5% off the market
 DEFAULT_ORDER_PREFIX = "rt-"      # every real order. Tests override it, so the
                                   # broker's order book distinguishes the two.
+DEFAULT_PRICE_TOLERANCE = 0.005   # "roughly the same price" for dedupe: 0.5%
 
 
 @dataclass
@@ -93,10 +116,34 @@ class TradeRecord:
     filled_qty: float = 0.0
     status: OrderStatus = OrderStatus.PENDING
     notes: list[str] = field(default_factory=list)
+    # Set when the idempotency layer declined to submit. A skip is not an
+    # error, so it comes back as a record rather than an exception, and callers
+    # check this instead of counting it as a placed order.
+    skipped_reason: str | None = None
+
+    @property
+    def was_submitted(self) -> bool:
+        return self.skipped_reason is None
 
 
 class OrderExecutionError(RuntimeError):
     """Raised when an order cannot be placed. Never retried automatically."""
+
+
+def _is_duplicate_id_error(exc: Exception) -> bool:
+    """Is this the broker rejecting a repeated client_order_id?
+
+    Matched on the message because alpaca-py raises a generic APIError for
+    this, with no distinguishing type or code we can rely on. Narrow patterns
+    only: mistaking a real submission failure for a duplicate would mean
+    silently not trading and reporting it as fine.
+    """
+    text = str(exc).lower()
+    return "client_order_id" in text and (
+        "already" in text or "duplicate" in text or "exists" in text
+    )
+
+
 
 
 class OrderExecutor:
@@ -109,13 +156,18 @@ class OrderExecutor:
         fill_timeout: float = DEFAULT_FILL_TIMEOUT,
         max_price_deviation: float = DEFAULT_MAX_DEVIATION,
         order_id_prefix: str = DEFAULT_ORDER_PREFIX,
+        deterministic_ids: bool = True,
+        price_tolerance: float = DEFAULT_PRICE_TOLERANCE,
     ) -> None:
         self.client = client
         self.limit_offset = limit_offset
         self.fill_timeout = fill_timeout
         self.max_price_deviation = max_price_deviation
         self.order_id_prefix = order_id_prefix
+        self.deterministic_ids = deterministic_ids
+        self.price_tolerance = price_tolerance
         self.trades: dict[str, TradeRecord] = {}
+        self.skipped: list[str] = []
 
     # -- submission ---------------------------------------------------------
 
@@ -162,16 +214,38 @@ class OrderExecutor:
         trade = self._new_trade_record(signal, decision, side, quantity)
 
         price = reference_price if reference_price is not None else self._reference_price(signal)
+        limit = round(self._limit_price(price, side), 2)
         if order_type is OrderType.LIMIT and not allow_price_deviation:
-            self._assert_price_sane(signal.symbol, round(self._limit_price(price, side), 2), side)
+            self._assert_price_sane(signal.symbol, limit, side)
+
+        existing = self._equivalent_open_order(signal.symbol, side, limit)
+        if existing is not None:
+            return self._skip(
+                trade,
+                f"an equivalent {side.value} order is already open "
+                f"({existing.order_id[:8]}, {existing.quantity:g} @ "
+                f"{existing.limit_price if existing.limit_price else 'market'})",
+                existing,
+            )
+
+        client_order_id = self._client_order_id(trade, signal)
         request = self._build_request(
             signal.symbol, quantity, side, order_type, price,
-            client_order_id=self._client_order_id(trade),
+            client_order_id=client_order_id,
         )
 
         try:
             raw = self.client.trading_client.submit_order(request)
         except Exception as exc:
+            if _is_duplicate_id_error(exc):
+                # The broker refusing our client_order_id is the idempotency
+                # key doing its job, not a fault. This is the path a restarted
+                # process takes when the original order already filled and so
+                # no longer appears in the open-order list.
+                return self._skip(
+                    trade,
+                    f"broker already has an order with id {client_order_id}",
+                )
             trade.status = OrderStatus.REJECTED
             trade.notes.append(f"submission failed: {exc}")
             self.trades[trade.trade_id] = trade
@@ -232,7 +306,17 @@ class OrderExecutor:
         side = OrderSide.BUY if signal.direction is Direction.LONG else OrderSide.SELL
         trade = self._new_trade_record(signal, decision, side, quantity)
         price = reference_price if reference_price is not None else self._reference_price(signal)
-        self._assert_price_sane(signal.symbol, round(self._limit_price(price, side), 2), side)
+        limit = round(self._limit_price(price, side), 2)
+        self._assert_price_sane(signal.symbol, limit, side)
+
+        existing = self._equivalent_open_order(signal.symbol, side, limit)
+        if existing is not None:
+            return self._skip(
+                trade,
+                f"an equivalent {side.value} order is already open "
+                f"({existing.order_id[:8]})",
+                existing,
+            )
 
         request = LimitOrderRequest(
             symbol=signal.symbol,
@@ -240,8 +324,8 @@ class OrderExecutor:
             side=AlpacaSide.BUY if side is OrderSide.BUY else AlpacaSide.SELL,
             time_in_force=TimeInForce.GTC,      # bracket legs must outlive the session
             order_class=OrderClass.BRACKET,
-            limit_price=round(self._limit_price(price, side), 2),
-            client_order_id=self._client_order_id(trade),
+            limit_price=limit,
+            client_order_id=self._client_order_id(trade, signal),
             take_profit=TakeProfitRequest(limit_price=round(signal.take_profit, 2)),
             stop_loss=StopLossRequest(stop_price=round(signal.stop_loss, 2)),
         )
@@ -505,15 +589,82 @@ class OrderExecutor:
             f"refused instead of submitted."
         )
 
-    def _client_order_id(self, trade: TradeRecord) -> str:
+    def _client_order_id(self, trade: TradeRecord, signal: Signal | None = None) -> str:
         """The id the broker stores alongside the order.
 
-        Carries `order_id_prefix` so the Alpaca order book says which process
-        placed a given order. Test orders rest far from the market by design,
-        and without a tag they are indistinguishable from a production pricing
-        fault when you are looking at the account rather than the code.
+        Deterministic by default: `rt-SPY-buy-20260904`. Alpaca refuses a
+        repeated client_order_id, which turns "one signal on one bar date
+        produces one order" into a rule the broker enforces rather than one our
+        process memory hopes to. That distinction is the whole point, because
+        the case it protects against is a restart, when there is no memory.
+
+        Falls back to the random trade_id when there is no signal to key on, or
+        when `deterministic_ids` is off. The integration suite turns it off: it
+        submits the same synthetic probe repeatedly by design, and re-running
+        the test an hour later must not be rejected as a duplicate.
+
+        Carries `order_id_prefix` either way, so the order book says which
+        process placed a given order.
         """
-        return f"{self.order_id_prefix}{trade.trade_id}"
+        if not self.deterministic_ids or signal is None:
+            return f"{self.order_id_prefix}{trade.trade_id}"
+        side = "buy" if signal.direction is Direction.LONG else "sell"
+        bar_date = pd.Timestamp(signal.timestamp).strftime("%Y%m%d")
+        return f"{self.order_id_prefix}{signal.symbol}-{side}-{bar_date}"
+
+    def _equivalent_open_order(
+        self, symbol: str, side: OrderSide, price: float
+    ) -> Order | None:
+        """A resting order for the same symbol, side and roughly this price.
+
+        Resubmitting is worse than merely redundant. Every open order holds
+        buying power until it cancels, so a loop that reposts the same intent
+        each cycle starves the rest of the universe of capital while filling
+        nothing.
+
+        Price is compared within `price_tolerance` rather than exactly, because
+        the limit is derived from a live quote that moves between cycles. Two
+        orders a cent apart are the same intent, not two intents.
+        """
+        try:
+            resting = self.client.get_open_orders()
+        except Exception as exc:
+            # Failing open. A broker we cannot query is a broker we cannot
+            # trade against either, and the submission below will surface it
+            # with a better message than a dedupe check can.
+            logger.warning("could not read open orders for the dedupe check: %s", exc)
+            return None
+
+        for order in resting:
+            if order.symbol != symbol or order.side != side or not order.is_open:
+                continue
+            if order.limit_price is None or price <= 0:
+                return order
+            if abs(order.limit_price - price) / price <= self.price_tolerance:
+                return order
+        return None
+
+    def _skip(self, trade: TradeRecord, reason: str, existing: Order | None = None
+              ) -> TradeRecord:
+        """Mark a submission that did not happen, and say why.
+
+        Returned rather than raised. A skip is the idempotency layer working,
+        not a failure, and routing it through the exception path would file it
+        alongside genuine broker errors in the orchestrator's error count.
+
+        Logged at INFO, because a system that silently declines to trade looks
+        exactly like a system with no signals, and the difference is the first
+        thing you want to know when nothing happened.
+        """
+        trade.skipped_reason = reason
+        trade.status = OrderStatus.CANCELLED
+        trade.notes.append(f"not submitted: {reason}")
+        if existing is not None:
+            trade.order_id = existing.order_id
+        self.trades[trade.trade_id] = trade
+        self.skipped.append(reason)
+        logger.info("%s: not submitting, %s", trade.symbol, reason)
+        return trade
 
     def _build_request(self, symbol: str, quantity: float, side: OrderSide,
                        order_type: OrderType, price: float,

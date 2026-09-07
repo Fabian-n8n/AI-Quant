@@ -47,9 +47,12 @@ live = pytest.mark.skipif(not HAS_CREDENTIALS, reason="no Alpaca credentials in 
 class FakeTradingClient:
     """Enough of alpaca-py's TradingClient to exercise our logic offline."""
 
-    def __init__(self, positions=None, orders=None):
+    def __init__(self, positions=None, orders=None, open_orders=None,
+                 raise_on_submit=None):
         self._positions = positions or []
         self._orders = orders or {}
+        self._open_orders = list(open_orders or [])
+        self._raise_on_submit = raise_on_submit
         self.submitted = []
         self.cancelled = []
         self.closed = []
@@ -57,13 +60,20 @@ class FakeTradingClient:
     def get_all_positions(self):
         return self._positions
 
+    def get_orders(self, request=None):
+        return list(self._open_orders)
+
     def submit_order(self, request):
+        if self._raise_on_submit is not None:
+            raise self._raise_on_submit
         self.submitted.append(request)
-        return _fake_raw_order(
+        raw = _fake_raw_order(
             symbol=request.symbol, qty=float(request.qty),
             side=str(getattr(request.side, "value", request.side)),
             limit_price=getattr(request, "limit_price", None),
         )
+        raw.client_order_id = getattr(request, "client_order_id", None) or "trade-1"
+        return raw
 
     def cancel_order_by_id(self, order_id):
         self.cancelled.append(order_id)
@@ -446,10 +456,161 @@ def test_orders_carry_the_prefix_that_identifies_who_placed_them(signal, approve
 
 def test_production_orders_carry_the_default_prefix(signal, approved):
     fake = FakeTradingClient()
-    trade = OrderExecutor(FakeAlpacaClient(fake)).submit_order(
+    OrderExecutor(FakeAlpacaClient(fake)).submit_order(
         signal, approved, reference_price=100.0
     )
-    assert fake.submitted[0].client_order_id == f"rt-{trade.trade_id}"
+    assert fake.submitted[0].client_order_id.startswith("rt-")
+
+
+# -- idempotency ------------------------------------------------------------
+
+def test_the_same_signal_twice_in_one_session_submits_once(signal, approved):
+    """The second call finds the first order still resting and skips it."""
+    fake = FakeTradingClient()
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+
+    first = executor.submit_order(signal, approved, reference_price=100.0)
+    assert first.was_submitted
+
+    # The order the first call placed is now open at the broker.
+    fake._open_orders = [_fake_raw_order(
+        symbol="NVDA", qty=27, side="buy", limit_price=100.10, status="new"
+    )]
+
+    second = executor.submit_order(signal, approved, reference_price=100.0)
+    assert not second.was_submitted
+    assert "already open" in second.skipped_reason
+    assert len(fake.submitted) == 1, "the duplicate reached the broker"
+
+
+def test_the_skip_records_which_order_it_deduplicated_against(signal, approved):
+    """A skip you cannot trace back to the order that caused it is a skip you
+    cannot debug."""
+    resting = _fake_raw_order(symbol="NVDA", qty=27, side="buy",
+                              limit_price=100.10, status="new")
+    fake = FakeTradingClient(open_orders=[resting])
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+
+    trade = executor.submit_order(signal, approved, reference_price=100.0)
+    assert trade.order_id == resting.id
+    assert executor.skipped and "already open" in executor.skipped[0]
+
+
+def test_a_resting_order_at_a_different_price_is_still_the_same_intent(signal, approved):
+    """The limit is derived from a moving quote, so two orders a few cents
+    apart are one intent, not two."""
+    fake = FakeTradingClient(open_orders=[_fake_raw_order(
+        symbol="NVDA", qty=27, side="buy", limit_price=100.35, status="new"
+    )])
+    executor = OrderExecutor(FakeAlpacaClient(fake), price_tolerance=0.005)
+
+    trade = executor.submit_order(signal, approved, reference_price=100.0)
+    assert not trade.was_submitted
+
+
+def test_a_resting_order_far_away_is_a_different_intent(signal, approved):
+    """Beyond the tolerance it is a genuinely different order and must go."""
+    fake = FakeTradingClient(open_orders=[_fake_raw_order(
+        symbol="NVDA", qty=27, side="buy", limit_price=80.0, status="new"
+    )])
+    executor = OrderExecutor(FakeAlpacaClient(fake), price_tolerance=0.005)
+
+    trade = executor.submit_order(signal, approved, reference_price=100.0)
+    assert trade.was_submitted
+
+
+def test_a_resting_order_on_the_other_side_does_not_block(signal, approved):
+    fake = FakeTradingClient(open_orders=[_fake_raw_order(
+        symbol="NVDA", qty=27, side="sell", limit_price=100.10, status="new"
+    )])
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+    assert executor.submit_order(signal, approved, reference_price=100.0).was_submitted
+
+
+def test_a_resting_order_on_another_symbol_does_not_block(signal, approved):
+    fake = FakeTradingClient(open_orders=[_fake_raw_order(
+        symbol="AAPL", qty=27, side="buy", limit_price=100.10, status="new"
+    )])
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+    assert executor.submit_order(signal, approved, reference_price=100.0).was_submitted
+
+
+def test_the_client_order_id_is_deterministic_for_one_signal_on_one_bar(signal, approved):
+    """Two separate executors, as two runs of the process would be. Same id,
+    which is what lets the broker reject the second."""
+    ids = []
+    for _ in range(2):
+        fake = FakeTradingClient()
+        OrderExecutor(FakeAlpacaClient(fake)).submit_order(
+            signal, approved, reference_price=100.0
+        )
+        ids.append(fake.submitted[0].client_order_id)
+
+    assert ids[0] == ids[1]
+    assert ids[0].startswith("rt-NVDA-buy-")
+
+
+def test_a_new_bar_date_gets_a_new_client_order_id(signal, approved):
+    """Otherwise the system could only ever trade a symbol once."""
+    import dataclasses
+
+    fake = FakeTradingClient()
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+    executor.submit_order(signal, approved, reference_price=100.0)
+
+    tomorrow = dataclasses.replace(
+        signal, timestamp=pd.Timestamp(signal.timestamp) + pd.Timedelta(days=1)
+    )
+    executor.submit_order(tomorrow, approved, reference_price=100.0)
+
+    assert fake.submitted[0].client_order_id != fake.submitted[1].client_order_id
+
+
+def test_a_broker_rejecting_the_id_is_a_skip_not_a_failure(signal, approved):
+    """The path a restarted process takes when the original order already
+    filled, so it no longer shows up in the open-order list."""
+    fake = FakeTradingClient(
+        raise_on_submit=RuntimeError("client_order_id must be unique, already exists")
+    )
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+
+    trade = executor.submit_order(signal, approved, reference_price=100.0)
+    assert not trade.was_submitted
+    assert "already has an order" in trade.skipped_reason
+
+
+def test_a_genuine_submission_failure_still_raises(signal, approved):
+    """Mistaking a real failure for a duplicate would mean not trading and
+    reporting it as fine."""
+    fake = FakeTradingClient(raise_on_submit=RuntimeError("insufficient buying power"))
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+
+    with pytest.raises(OrderExecutionError, match="buying power"):
+        executor.submit_order(signal, approved, reference_price=100.0)
+
+
+def test_deterministic_ids_can_be_turned_off(signal, approved):
+    """The integration suite resubmits one synthetic probe every run."""
+    ids = []
+    for _ in range(2):
+        fake = FakeTradingClient()
+        OrderExecutor(FakeAlpacaClient(fake), deterministic_ids=False).submit_order(
+            signal, approved, reference_price=100.0
+        )
+        ids.append(fake.submitted[0].client_order_id)
+    assert ids[0] != ids[1]
+
+
+def test_an_unreadable_open_order_list_does_not_block_trading(signal, approved):
+    """A broker we cannot query is one we cannot trade against either. The
+    submission below surfaces that with a better message than a dedupe check."""
+    class Unreadable(FakeTradingClient):
+        def get_orders(self, request=None):
+            raise RuntimeError("broker timeout")
+
+    fake = Unreadable()
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+    assert executor.submit_order(signal, approved, reference_price=100.0).was_submitted
 
 
 def test_trade_record_links_signal_to_order(signal, approved):

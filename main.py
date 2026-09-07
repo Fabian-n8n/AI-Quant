@@ -159,6 +159,7 @@ class BarOutcome:
     approved: int = 0
     rejected: int = 0
     submitted: int = 0
+    deduped: int = 0          # approved, then skipped as an equivalent already open
     stops_updated: int = 0
     candidates: int = 0
     top_pick: str = ""
@@ -1209,6 +1210,7 @@ class TradingEngine:
                    f"bar {outcome.timestamp} {outcome.regime} p={outcome.confidence:.2f} "
                    f"target {target:.1%} current {current:.1%} "
                    f"{outcome.submitted} orders {outcome.rejected} rejected"
+                   + (f" {outcome.deduped} deduped" if outcome.deduped else "")
                    + (f" [{outcome.skipped}]" if outcome.skipped else ""),
                    **{("bar_timestamp" if k == "timestamp" else k): v
                       for k, v in asdict(outcome).items() if k != "errors"})
@@ -1377,6 +1379,14 @@ class TradingEngine:
 
             try:
                 trade = self.order_executor.submit_order(candidate_signal, decision)
+                if getattr(trade, "skipped_reason", None):
+                    # The idempotency layer declined. Not an error, not a
+                    # submission, and specifically not a stop to attach: there
+                    # is no new position, and the order it deduplicated
+                    # against already carries its own.
+                    outcome.deduped += 1
+                    logger.info("  %s: %s", candidate_signal.symbol, trade.skipped_reason)
+                    continue
                 outcome.submitted += 1
                 self.orders_submitted += 1
                 self.session.daily_trades += 1
