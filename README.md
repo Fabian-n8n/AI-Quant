@@ -156,6 +156,39 @@ entry on switching to live below.
 
 ---
 
+## Deploying the dashboard
+
+```bash
+./scripts/deploy.sh
+```
+
+It refuses to run if anything key-shaped is committed, builds the dashboard, then
+pushes and deploys. Both logins are browser flows, so the first run will stop and
+tell you which one to do:
+
+```bash
+brew install gh && gh auth login    # GitHub
+vercel login                        # Vercel
+```
+
+Import the **repository root** into Vercel, not `dashboard/` — the root
+`vercel.json` points the build at the right place.
+
+The deployed site is a static export, so its data is baked in at build time.
+Refreshing it means committing a new snapshot:
+
+```bash
+python main.py --once --publish
+git add dashboard/public/data/state.json && git commit -m "publish" && git push
+```
+
+Think before committing a snapshot of a real account to a public repository. The
+publisher strips credentials, order ids and file paths, but equity and positions
+are still in there. For a continuously updating view, use the terminal dashboard,
+which reads local state directly.
+
+---
+
 ## CLI reference
 
 | Command | What it does |
