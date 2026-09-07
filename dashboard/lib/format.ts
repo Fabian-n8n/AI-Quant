@@ -1,8 +1,8 @@
-/** Formatters. Every figure on this page goes through one of these.
+/** Formatters. Every figure on the page goes through one of these.
  *
- *  Centralised because a dashboard that shows "$105230" in one panel and
- *  "$105,230.00" in another reads as two systems, and because the rules for
- *  what gets a sign and what gets decimals are decisions, not defaults. */
+ *  Centralised because a dashboard showing "$105230" in one panel and
+ *  "$105,230.00" in another reads as two systems, and because what gets a sign
+ *  and what gets decimals are decisions rather than defaults. */
 
 export const money = (v: number, decimals = 0) =>
   v.toLocaleString("en-US", {
@@ -10,17 +10,14 @@ export const money = (v: number, decimals = 0) =>
     minimumFractionDigits: decimals, maximumFractionDigits: decimals,
   });
 
-/** Signed, for anything that is a change rather than a level. The explicit
- *  plus matters: "+340" and "340" carry different information at a glance. */
+/** Signed, for anything that is a change rather than a level. The explicit plus
+ *  matters: "+340" and "340" carry different information at a glance. */
 export const signedMoney = (v: number, decimals = 0) =>
   (v >= 0 ? "+" : "") + money(v, decimals);
 
-export const pct = (v: number, decimals = 1) =>
-  `${(v * 100).toFixed(decimals)}%`;
-
+export const pct = (v: number, decimals = 1) => `${(v * 100).toFixed(decimals)}%`;
 export const signedPct = (v: number, decimals = 2) =>
   `${v >= 0 ? "+" : ""}${(v * 100).toFixed(decimals)}%`;
-
 export const price = (v: number) =>
   v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -46,17 +43,32 @@ export const relativeTime = (iso: string | null | undefined) => {
   return `${Math.round(seconds / 86400)}d ago`;
 };
 
-export const tone = (v: number) => (v > 0 ? "pos" : v < 0 ? "neg" : "dim");
-
-/** Colour for a drawdown, graded on the FRACTION OF ITS LIMIT consumed, not on
+/** Tone for a drawdown, graded on the FRACTION OF ITS LIMIT consumed, not on
  *  the drawdown itself. 2% of a 3% limit is nearly spent; 2% of a 10% limit has
- *  room. Grading the raw number would colour both the same, which is backwards. */
-export const riskTone = (used: number, limit: number) => {
-  if (!limit) return "dim";
+ *  room. Grading the raw number would tone both the same, which is backwards. */
+export const riskTone = (used: number, limit: number): Tone => {
+  if (!limit) return "muted";
   const ratio = Math.abs(used) / Math.abs(limit);
-  return ratio < 0.5 ? "pos" : ratio < 0.8 ? "warn" : "neg";
+  return ratio < 0.5 ? "positive" : ratio < 0.8 ? "warning" : "negative";
 };
 
-export const toneColor = (t: string) =>
-  ({ pos: "var(--pos)", neg: "var(--neg)", warn: "var(--warn)", dim: "var(--fg-dim)" }[t] ??
-    "var(--fg-dim)");
+export type Tone = "positive" | "negative" | "warning" | "muted" | "primary";
+
+export const toneText: Record<Tone, string> = {
+  positive: "text-positive",
+  negative: "text-negative",
+  warning: "text-warning",
+  muted: "text-muted-foreground",
+  primary: "text-primary",
+};
+
+export const toneHsl: Record<Tone, string> = {
+  positive: "hsl(var(--positive))",
+  negative: "hsl(var(--negative))",
+  warning: "hsl(var(--warning))",
+  muted: "hsl(var(--muted-foreground))",
+  primary: "hsl(var(--primary))",
+};
+
+export const pnlTone = (v: number): Tone =>
+  v > 0 ? "positive" : v < 0 ? "negative" : "muted";

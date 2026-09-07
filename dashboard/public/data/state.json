@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "source": "demo",
-  "published_at": "2026-09-07T08:07:16.576049+00:00",
-  "timestamp": "2026-09-07T08:07:16.575699+00:00",
+  "published_at": "2026-09-07T08:20:24.392688+00:00",
+  "timestamp": "2026-09-07T08:20:24.392332+00:00",
   "regime": {
     "regime": "strong_bull",
     "confidence": 0.72,
@@ -17,8 +17,8 @@
     "raw_regime": "strong_bull",
     "n_regimes": 7,
     "model_age_days": 2.1,
-    "timestamp": "2026-09-07T08:07:16.575699+00:00",
-    "model_trained": "2026-09-05T05:43:16.575699+00:00"
+    "timestamp": "2026-09-07T08:20:24.392332+00:00",
+    "model_trained": "2026-09-05T05:56:24.392332+00:00"
   },
   "portfolio": {
     "equity": 125652.03,
@@ -78,7 +78,7 @@
   ],
   "signals": [
     {
-      "timestamp": "2026-09-07T07:55:16.575699+00:00",
+      "timestamp": "2026-09-07T08:08:24.392332+00:00",
       "event": "signal_generated",
       "symbol": "SPY",
       "shares": 62,
@@ -88,7 +88,7 @@
       "rejection_reason": null
     },
     {
-      "timestamp": "2026-09-07T07:55:16.575699+00:00",
+      "timestamp": "2026-09-07T08:08:24.392332+00:00",
       "event": "signal_rejected",
       "symbol": "AAPL",
       "shares": 0,
@@ -98,7 +98,7 @@
       "rejection_reason": "correlation_too_high"
     },
     {
-      "timestamp": "2026-09-07T06:54:16.575699+00:00",
+      "timestamp": "2026-09-07T07:07:24.392332+00:00",
       "event": "signal_generated",
       "symbol": "QQQ",
       "shares": 41,
@@ -108,7 +108,7 @@
       "rejection_reason": null
     },
     {
-      "timestamp": "2026-09-06T07:05:16.575699+00:00",
+      "timestamp": "2026-09-06T07:18:24.392332+00:00",
       "event": "signal_rejected",
       "symbol": "TSLA",
       "shares": 0,
@@ -152,7 +152,7 @@
     "market_open": true,
     "bars_processed": 180,
     "consecutive_errors": 0,
-    "started_at": "2026-09-07T02:07:16.575699+00:00",
+    "started_at": "2026-09-07T02:20:24.392332+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -1784,6 +1784,23 @@
     {
       "t": "2026-09-06",
       "regime": "strong_bear"
+    }
+  ],
+  "regime_mix": [
+    {
+      "regime": "strong_bear",
+      "bars": 88,
+      "pct": 0.4888888888888889
+    },
+    {
+      "regime": "strong_bull",
+      "bars": 46,
+      "pct": 0.25555555555555554
+    },
+    {
+      "regime": "weak_bear",
+      "bars": 46,
+      "pct": 0.25555555555555554
     }
   ],
   "notes": {

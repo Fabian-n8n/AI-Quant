@@ -65,6 +65,29 @@ def _clean(value: Any) -> Any:
     return _jsonable(value)
 
 
+def regime_mix(regime_history: list) -> list[dict[str, Any]]:
+    """Share of bars spent in each regime, most frequent first.
+
+    Computed here rather than in the UI because it is a statement about the
+    model, not a presentation detail. A system reporting seven regimes that sat
+    in one of them for 90% of the window has not really found seven, and that is
+    worth seeing on the dashboard rather than only in a fit log.
+    """
+    counts: dict[str, int] = {}
+    for point in regime_history or []:
+        label = (point or {}).get("regime")
+        if label and label != "unknown":
+            counts[label] = counts.get(label, 0) + 1
+
+    total = sum(counts.values())
+    if not total:
+        return []
+    return [
+        {"regime": label, "bars": bars, "pct": bars / total}
+        for label, bars in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+    ]
+
+
 def build_payload(snapshot: dict[str, Any], *, source: str = "live",
                   equity_history: Optional[list] = None,
                   regime_history: Optional[list] = None,
@@ -77,6 +100,7 @@ def build_payload(snapshot: dict[str, Any], *, source: str = "live",
         **_clean(snapshot),
         "equity_history": _clean(equity_history or []),
         "regime_history": _clean(regime_history or []),
+        "regime_mix": regime_mix(regime_history or []),
         "notes": _clean(notes or {}),
     }
     return payload

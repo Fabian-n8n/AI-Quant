@@ -1,34 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import EquityChart from "@/components/EquityChart";
-import { Info, Mark, Warning } from "@/components/Icons";
+import * as React from "react";
+import { AlertTriangle, Loader2, TerminalSquare, TrendingUp } from "lucide-react";
 import {
-  Positions, PortfolioStats, RegimeHero, RiskStatus, SignalFeed, SystemStatus,
-} from "@/components/Panels";
+  AllocationCard, EquityCard, EquityChartCard, PositionsCard, RegimeCard,
+  RegimeMixCard, RiskCard, SignalsCard, SystemCard, VerdictCard,
+} from "@/components/panels";
+import { Badge } from "@/components/ui/badge";
 import { relativeTime } from "@/lib/format";
 import type { Snapshot } from "@/lib/types";
 
-/** The dashboard reads a published JSON file and nothing else.
+/** Read-only view of a published snapshot.
  *
- *  It holds no credentials and has no route that can reach a broker, so the
- *  deployed page cannot place an order, clear a breaker, or read the account
- *  directly. A display that can act is no longer a display.
- *
- *  Data arrives via `python main.py --publish`, which writes the same
- *  `DashboardState.snapshot()` the terminal view renders. One source, two
- *  surfaces, no chance of the two disagreeing about what the system thinks. */
+ *  No credentials, no broker connection, no route that can place an order. The
+ *  engine runs on your machine with your Alpaca keys and writes JSON; this
+ *  renders it. A display that can act is no longer a display. */
 export default function Page() {
-  const [snap, setSnap] = useState<Snapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [snap, setSnap] = React.useState<Snapshot | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       try {
-        // Cache-bust: the file is republished in place, and a cached read would
-        // show a stale account for as long as the browser felt like it.
+        // Cache-busted: the file is republished in place, and a cached read
+        // would show a stale account for as long as the browser felt like it.
         const res = await fetch(`data/state.json?t=${Date.now()}`, { cache: "no-store" });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const json = (await res.json()) as Snapshot;
@@ -44,122 +41,150 @@ export default function Page() {
     return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
-  if (error && !snap) {
-    return (
-      <main className="shell">
-        <div className="banner banner-neg">
-          <Warning />
-          <span>
-            <strong>No snapshot found.</strong> Run <code>python main.py --publish-demo</code> for
-            sample data, or <code>python main.py --dry-run --once --publish</code> to publish your
-            own. ({error})
-          </span>
-        </div>
-      </main>
-    );
-  }
-
-  if (!snap) {
-    return (
-      <main className="shell">
-        <p className="faint">Loading…</p>
-      </main>
-    );
-  }
+  if (error && !snap) return <ErrorState message={error} />;
+  if (!snap) return <LoadingState />;
 
   const demo = snap.source === "demo";
-  const { regime, portfolio, positions, signals, risk, system } = snap;
 
   return (
-    <main className="shell">
-      <header className="masthead">
-        <div className="brand">
-          <span className="brand-mark"><Mark /></span>
-          <div>
-            <div className="brand-name">regime-trader</div>
-            <div className="brand-sub">
-              HMM regime detection · volatility-based allocation
-            </div>
-          </div>
-        </div>
-
-        <div className="badges">
-          {demo ? (
-            <span className="badge badge-warn"><span className="dot" />Demo data</span>
-          ) : (
-            <span className="badge badge-accent"><span className="dot" />Live snapshot</span>
-          )}
-          <span className={`badge ${system.paper ? "badge-pos" : "badge-neg"}`}>
-            {system.paper ? "Paper" : "Live money"}
-          </span>
-          {risk.halted && <span className="badge badge-neg"><span className="dot" />Halted</span>}
-          <span className="badge">Updated {relativeTime(snap.published_at)}</span>
-        </div>
-      </header>
+    <main className="container py-6 sm:py-8">
+      <Masthead snap={snap} demo={demo} />
 
       {demo && (
-        <div className="banner banner-warn">
-          <Info />
-          <span>
-            <strong>Demo data, not a real account.</strong> Every figure below is generated
-            so the interface can be judged. Publish your own with{" "}
-            <code>python main.py --dry-run --once --publish</code>.
-          </span>
-        </div>
+        <Notice tone="warning">
+          <strong className="font-semibold text-foreground">Demo data, not a real account.</strong>{" "}
+          Every figure below is generated so the interface can be judged. Publish your own with{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+            python main.py --dry-run --once --publish
+          </code>
+          .
+        </Notice>
       )}
 
-      {risk.halted && (
-        <div className="banner banner-neg">
-          <Warning />
-          <span>
-            <strong>Trading halted by a circuit breaker.</strong> Every signal will be
-            rejected until <code>trading_halted.lock</code> is deleted by hand. The friction
-            is deliberate: someone should look at what broke before the system can lose more.
-          </span>
-        </div>
+      {snap.risk.halted && (
+        <Notice tone="negative">
+          <strong className="font-semibold text-foreground">
+            Trading halted by a circuit breaker.
+          </strong>{" "}
+          Every signal is rejected until <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+            trading_halted.lock
+          </code>{" "}
+          is deleted by hand. The friction is deliberate: someone should look at what broke
+          before the system can lose more.
+        </Notice>
       )}
 
-      <div className="grid grid-main" style={{ marginBottom: "var(--s4)" }}>
-        <RegimeHero regime={regime} />
-        <PortfolioStats portfolio={portfolio} />
+      {/* Bento grid. 12 columns; each card declares its own span. */}
+      <div className="grid grid-cols-12 gap-4">
+        <RegimeCard regime={snap.regime} />
+        <EquityCard portfolio={snap.portfolio} history={snap.equity_history} />
+        <AllocationCard portfolio={snap.portfolio} risk={snap.risk} />
+
+        <EquityChartCard snapshot={snap} />
+        <RiskCard risk={snap.risk} />
+
+        <PositionsCard positions={snap.positions} />
+        <SignalsCard signals={snap.signals} />
+
+        <RegimeMixCard mix={snap.regime_mix} />
+        <SystemCard system={snap.system} risk={snap.risk} />
+        <VerdictCard />
       </div>
 
-      <div className="grid grid-main" style={{ marginBottom: "var(--s4)" }}>
-        <section className="card enter" aria-labelledby="equity-heading">
-          <div className="card-head">
-            <h2 className="card-title" id="equity-heading">Equity and regime history</h2>
-            <span className="card-note">{snap.equity_history.length} bars</span>
-          </div>
-          <EquityChart data={snap.equity_history} regimes={snap.regime_history} />
-        </section>
-        <RiskStatus risk={risk} />
-      </div>
-
-      <div style={{ marginBottom: "var(--s4)" }}>
-        <Positions positions={positions} />
-      </div>
-
-      <div className="grid grid-halves">
-        <SignalFeed signals={signals} />
-        <SystemStatus system={system} risk={risk} />
-      </div>
-
-      <div className="banner" style={{ marginTop: "var(--s5)", marginBottom: 0 }}>
-        <Info />
-        <span>
-          <strong>This strategy has no demonstrated edge.</strong> Out-of-sample it loses to
-          buy-and-hold and to random allocation under identical risk rules, and its drawdown
-          trips the peak breaker early in the backtest. The dashboard is honest about what the
-          system does; that is not the same as the system working. Paper only.
-        </span>
-      </div>
-
-      <footer className="footer">
-        <span>Read-only view. No credentials, no broker connection, no order path.</span>
-        <span className="num">
+      <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-5 text-xs text-muted-foreground">
+        <span>Read-only. No credentials, no broker connection, no order path.</span>
+        <span className="tnum">
           Snapshot {new Date(snap.timestamp).toISOString().slice(0, 19).replace("T", " ")} UTC
         </span>
       </footer>
+    </main>
+  );
+}
+
+/* ------------------------------------------------------------ chrome -- */
+
+function Masthead({ snap, demo }: { snap: Snapshot; demo: boolean }) {
+  return (
+    <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <span
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary to-[hsl(263_70%_45%)] shadow-lg shadow-primary/25"
+          aria-hidden
+        >
+          <TrendingUp className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
+        </span>
+        <div>
+          <h1 className="text-base font-semibold leading-tight tracking-tight">regime-trader</h1>
+          <p className="text-xs text-muted-foreground">
+            HMM regime detection · volatility-based allocation
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {demo
+          ? <Badge variant="warning" dot>Demo data</Badge>
+          : <Badge variant="primary" dot pulse>Live snapshot</Badge>}
+        <Badge variant={snap.system.paper ? "positive" : "negative"}>
+          {snap.system.paper ? "Paper" : "Live money"}
+        </Badge>
+        {snap.risk.halted && <Badge variant="negative" dot pulse>Halted</Badge>}
+        <Badge variant="outline">Updated {relativeTime(snap.published_at)}</Badge>
+      </div>
+    </header>
+  );
+}
+
+function Notice({ tone, children }: { tone: "warning" | "negative"; children: React.ReactNode }) {
+  return (
+    <div
+      className={
+        "mb-4 flex items-start gap-3 rounded-lg border p-4 text-sm leading-relaxed text-muted-foreground " +
+        (tone === "warning"
+          ? "border-warning/30 bg-warning/[0.07]"
+          : "border-negative/30 bg-negative/[0.07]")
+      }
+    >
+      <AlertTriangle
+        className={"mt-0.5 h-4 w-4 shrink-0 " + (tone === "warning" ? "text-warning" : "text-negative")}
+        aria-hidden
+      />
+      <p>{children}</p>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <main className="container flex min-h-screen items-center justify-center">
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        Loading snapshot…
+      </div>
+    </main>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <main className="container flex min-h-screen items-center justify-center">
+      <div className="max-w-lg rounded-lg border border-border bg-card p-6">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <TerminalSquare className="h-4 w-4 text-primary" aria-hidden />
+          No snapshot found
+        </div>
+        <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+          The dashboard reads <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+            public/data/state.json
+          </code>{" "}
+          and nothing else. Generate one:
+        </p>
+        <pre className="overflow-x-auto rounded-md border border-border bg-background p-3 text-xs leading-relaxed text-muted-foreground">
+{`python main.py --publish-demo                 # sample data
+python main.py --dry-run --once --publish     # your own account`}
+        </pre>
+        <p className="mt-3 text-xs text-muted-foreground">({message})</p>
+      </div>
     </main>
   );
 }
