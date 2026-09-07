@@ -35,8 +35,7 @@ import pandas as pd
 import pytest
 
 from core import hmm_engine as m
-from core.hmm_engine import HMMEngine, VOLATILITY_FEATURES
-
+from core.hmm_engine import VOLATILITY_FEATURES
 
 # -- the mandatory test -----------------------------------------------------
 

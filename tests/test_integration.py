@@ -25,7 +25,7 @@ import signal
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -407,7 +407,7 @@ time.sleep(60)
         SessionState(
             session_id="before-crash", peak_equity=100_000.0,
             bars_processed=12, last_bar_timestamp="SPY@2026-09-04 00:00:00",
-            day_start_date=datetime.now(timezone.utc).date().isoformat(),
+            day_start_date=datetime.now(UTC).date().isoformat(),
         ).save(snapshot)
 
         restored = SessionState.load(snapshot)

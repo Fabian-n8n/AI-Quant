@@ -67,7 +67,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -112,7 +112,7 @@ class Signal:
     confidence: float
     entry_price: float
     stop_loss: float
-    take_profit: Optional[float]
+    take_profit: float | None
     position_size_pct: float
     leverage: float
     regime_id: int
@@ -177,7 +177,7 @@ class BaseStrategy(ABC):
 
     def generate_signal(
         self, symbol: str, bars: pd.DataFrame, regime_state: RegimeState
-    ) -> Optional[Signal]:
+    ) -> Signal | None:
         """Build a signal for one symbol, or None if the bars cannot support one.
 
         Returns None rather than raising when indicators are still in warmup:
@@ -224,7 +224,7 @@ class BaseStrategy(ABC):
 
     def _indicator_context(
         self, bars: pd.DataFrame
-    ) -> Optional[tuple[float, float, float, pd.Timestamp]]:
+    ) -> tuple[float, float, float, pd.Timestamp] | None:
         required = {"high", "low", "close"}
         if not required <= set(bars.columns) or len(bars) < max(self.ema_span, self.atr_window) + 1:
             return None
@@ -432,8 +432,8 @@ class StrategyOrchestrator:
 
     def __init__(
         self,
-        config: Optional[dict[str, Any]] = None,
-        regime_infos: Optional[dict[int, RegimeInfo]] = None,
+        config: dict[str, Any] | None = None,
+        regime_infos: dict[int, RegimeInfo] | None = None,
     ) -> None:
         self.config = dict(config or {})
         self.min_confidence: float = self.config.get("min_confidence", 0.55)
@@ -516,7 +516,7 @@ class StrategyOrchestrator:
 
     # -- uncertainty --------------------------------------------------------
 
-    def is_uncertain(self, regime_state: RegimeState, is_flickering: Optional[bool] = None) -> bool:
+    def is_uncertain(self, regime_state: RegimeState, is_flickering: bool | None = None) -> bool:
         """Uncertainty triggers on any of three conditions.
 
         - probability below `min_confidence`: the model is unsure which regime
@@ -556,7 +556,7 @@ class StrategyOrchestrator:
             },
         )
 
-    def _uncertainty_reason(self, regime_state: RegimeState, is_flickering: Optional[bool]) -> str:
+    def _uncertainty_reason(self, regime_state: RegimeState, is_flickering: bool | None) -> str:
         flickering = regime_state.is_flickering if is_flickering is None else is_flickering
         reasons = []
         if regime_state.probability < self.min_confidence:
@@ -574,7 +574,7 @@ class StrategyOrchestrator:
         symbols: list[str],
         bars: dict[str, pd.DataFrame],
         regime_state: RegimeState,
-        is_flickering: Optional[bool] = None,
+        is_flickering: bool | None = None,
     ) -> list[Signal]:
         """One signal per tradable symbol for the current bar.
 
@@ -627,7 +627,7 @@ class StrategyOrchestrator:
         regime_state: RegimeState,
         price: float,
         ema50: float,
-        is_flickering: Optional[bool] = None,
+        is_flickering: bool | None = None,
     ) -> float:
         """Gross allocation target: allocation x leverage. No Signal built.
 
@@ -690,8 +690,8 @@ class RegimeStrategies:
 
     def __init__(
         self,
-        config: Optional[dict[str, Any]] = None,
-        regime_infos: Optional[dict[int, RegimeInfo]] = None,
+        config: dict[str, Any] | None = None,
+        regime_infos: dict[int, RegimeInfo] | None = None,
     ) -> None:
         self.orchestrator = StrategyOrchestrator(config, regime_infos)
 
@@ -699,7 +699,7 @@ class RegimeStrategies:
         self,
         regime_state: RegimeState,
         bars: pd.DataFrame,
-        is_flickering: Optional[bool] = None,
+        is_flickering: bool | None = None,
     ) -> tuple[float, float]:
         """Return (allocation, leverage) for the current regime."""
         strategy = self.orchestrator.get_strategy(regime_state.state_id)

@@ -32,12 +32,11 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Optional
-
-import pandas as pd
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -121,12 +120,12 @@ class Order:
     filled_quantity: float
     status: OrderStatus
     order_type: OrderType
-    limit_price: Optional[float]
-    stop_price: Optional[float]
-    average_fill_price: Optional[float]
-    submitted_at: Optional[datetime]
-    filled_at: Optional[datetime]
-    client_order_id: Optional[str] = None
+    limit_price: float | None
+    stop_price: float | None
+    average_fill_price: float | None
+    submitted_at: datetime | None
+    filled_at: datetime | None
+    client_order_id: str | None = None
     legs: tuple = ()
 
     @property
@@ -152,7 +151,7 @@ class Position:
     unrealised_pnl: float
     unrealised_pnl_pct: float
     side: str = "long"
-    asset_id: Optional[str] = None
+    asset_id: str | None = None
 
 
 class BrokerConnectionError(RuntimeError):
@@ -173,7 +172,7 @@ def _retry(attempts: int = 4, base_delay: float = 0.5):
     """
     def decorator(fn: Callable) -> Callable:
         def wrapper(*args, **kwargs):
-            last: Optional[Exception] = None
+            last: Exception | None = None
             for attempt in range(attempts):
                 try:
                     return fn(*args, **kwargs)
@@ -203,10 +202,10 @@ class AlpacaClient:
 
     def __init__(
         self,
-        paper: Optional[bool] = None,
-        api_key: Optional[str] = None,
-        secret_key: Optional[str] = None,
-        confirm_live: Optional[Callable[[str], str]] = None,
+        paper: bool | None = None,
+        api_key: str | None = None,
+        secret_key: str | None = None,
+        confirm_live: Callable[[str], str] | None = None,
         load_env: bool = True,
     ) -> None:
         if load_env:
@@ -400,7 +399,7 @@ class AlpacaClient:
     def get_positions(self) -> list[Position]:
         return [self._to_position(p) for p in self._require_connection().get_all_positions()]
 
-    def get_position(self, symbol: str) -> Optional[Position]:
+    def get_position(self, symbol: str) -> Position | None:
         try:
             return self._to_position(self._require_connection().get_open_position(symbol))
         except Exception:
@@ -425,7 +424,7 @@ class AlpacaClient:
 
     @_retry()
     def get_order_history(
-        self, status: str = "all", limit: int = 100, after: Optional[datetime] = None
+        self, status: str = "all", limit: int = 100, after: datetime | None = None
     ) -> list[Order]:
         from alpaca.trading.enums import QueryOrderStatus
         from alpaca.trading.requests import GetOrdersRequest

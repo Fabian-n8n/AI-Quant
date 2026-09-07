@@ -3,9 +3,10 @@
 import * as React from "react";
 import { AlertTriangle, Loader2, TerminalSquare, TrendingUp } from "lucide-react";
 import {
-  AllocationCard, EquityCard, EquityChartCard, PositionsCard, RegimeCard,
-  RegimeMixCard, RiskCard, SignalsCard, SystemCard, VerdictCard,
+  AllocationCard, EquityCard, EquityChartCard, FreshnessCard, PositionsCard,
+  RegimeCard, RegimeMixCard, RiskCard, SignalsCard, SystemCard, VerdictCard,
 } from "@/components/panels";
+import { CandidatesCard, TopPickCard } from "@/components/panels/candidates";
 import { Badge } from "@/components/ui/badge";
 import { relativeTime } from "@/lib/format";
 import type { Snapshot } from "@/lib/types";
@@ -45,6 +46,10 @@ export default function Page() {
   if (!snap) return <LoadingState />;
 
   const demo = snap.source === "demo";
+  // The one name the system would act on. Absent when nothing is approved,
+  // which is a real answer rather than a gap.
+  const topPick =
+    (snap.candidates ?? []).find((c) => c.approved && c.action === "buy") ?? null;
 
   return (
     <main className="container py-6 sm:py-8">
@@ -74,19 +79,26 @@ export default function Page() {
         </Notice>
       )}
 
-      {/* Bento grid. 12 columns; each card declares its own span. */}
+      {/* Bento grid, 12 columns; each card declares its own span.
+          Order is deliberate: the actionable answer first, the state that
+          justifies it second, the machinery last. */}
       <div className="grid grid-cols-12 gap-4">
-        <RegimeCard regime={snap.regime} />
+        <TopPickCard pick={topPick} equity={snap.portfolio.equity} />
         <EquityCard portfolio={snap.portfolio} history={snap.equity_history} />
         <AllocationCard portfolio={snap.portfolio} risk={snap.risk} />
 
-        <EquityChartCard snapshot={snap} />
+        <CandidatesCard candidates={snap.candidates ?? []} />
+
+        <RegimeCard regime={snap.regime} />
         <RiskCard risk={snap.risk} />
+
+        <EquityChartCard snapshot={snap} />
+        <RegimeMixCard mix={snap.regime_mix} />
 
         <PositionsCard positions={snap.positions} />
         <SignalsCard signals={snap.signals} />
 
-        <RegimeMixCard mix={snap.regime_mix} />
+        <FreshnessCard freshness={snap.freshness} />
         <SystemCard system={snap.system} risk={snap.risk} />
         <VerdictCard />
       </div>

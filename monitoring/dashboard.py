@@ -22,8 +22,8 @@ executor at all, so the capability is absent rather than merely unused.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 #: Risk bar width in characters. Small on purpose: this is a status indicator,
 #: not a chart, and a wide bar reads as more precision than a drawdown ratio has.
@@ -70,9 +70,9 @@ class DashboardState:
             panel["model_trained"] = metadata.training_date
             trained = metadata.training_date
             if trained.tzinfo is None:
-                trained = trained.replace(tzinfo=timezone.utc)
+                trained = trained.replace(tzinfo=UTC)
             panel["model_age_days"] = (
-                datetime.now(timezone.utc) - trained
+                datetime.now(UTC) - trained
             ).total_seconds() / 86400.0
 
         if state is not None:
@@ -201,6 +201,10 @@ class DashboardState:
             "timeframe": getattr(engine, "timeframe", None),
         }
 
+    def candidates_panel(self) -> list[dict[str, Any]]:
+        """The ranked watchlist. The dashboard's primary answer."""
+        return [c.to_dict() for c in getattr(self.engine, "candidates", []) or []]
+
     def signal_feed(self, limit: int = 50) -> list[dict[str, Any]]:
         """Recent signals with allocation, entry, stop and the reason."""
         if self.logger is None:
@@ -213,11 +217,12 @@ class DashboardState:
     def snapshot(self) -> dict[str, Any]:
         """Everything both renderers draw, computed once."""
         return {
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": datetime.now(UTC),
             "session": self.system_panel(),
             "regime": self.regime_panel(),
             "portfolio": self.portfolio_panel(),
             "positions": self.positions_panel(),
+            "candidates": self.candidates_panel(),
             "risk": self.risk_panel(),
             "system": self.system_panel(),
             "signals": self.signal_feed(),
@@ -229,8 +234,8 @@ def _held_for(entry_time) -> str:
     if entry_time is None:
         return "-"
     if getattr(entry_time, "tzinfo", None) is None:
-        entry_time = entry_time.replace(tzinfo=timezone.utc)
-    seconds = (datetime.now(timezone.utc) - entry_time).total_seconds()
+        entry_time = entry_time.replace(tzinfo=UTC)
+    seconds = (datetime.now(UTC) - entry_time).total_seconds()
     if seconds < 3600:
         return f"{int(seconds // 60)}m"
     if seconds < 86400:

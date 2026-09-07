@@ -19,11 +19,10 @@ layer never produces.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
 
 import pandas as pd
 
-from core.hmm_engine import HMMEngine, RegimeState
+from core.hmm_engine import HMMEngine
 from core.regime_strategies import (  # re-exported: one definition, imported everywhere
     Direction,
     Signal,
@@ -53,7 +52,7 @@ class SignalGenerator:
         symbols: list[str],
         bars: dict[str, pd.DataFrame],
         features: pd.DataFrame,
-        as_of: Optional[pd.Timestamp] = None,
+        as_of: pd.Timestamp | None = None,
     ) -> list[Signal]:
         """Signals for one bar.
 
@@ -83,7 +82,7 @@ class SignalGenerator:
         self.orchestrator.update_regime_infos(self.hmm_engine.regime_info)
 
     @staticmethod
-    def _truncate(bars: pd.DataFrame, as_of: Optional[pd.Timestamp]) -> pd.DataFrame:
+    def _truncate(bars: pd.DataFrame, as_of: pd.Timestamp | None) -> pd.DataFrame:
         """Cut price history at `as_of`.
 
         A caller will eventually pass the full frame by mistake. Truncating here

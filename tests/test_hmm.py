@@ -17,16 +17,14 @@ from core.hmm_engine import (
     HMMEngine,
     InsufficientDataError,
     Regime,
-    RegimeInfo,
     RegimeState,
     RegimeTracker,
     VolatilityRank,
-    count_parameters,
     check_fittability,
+    count_parameters,
     resolve_feature_columns,
 )
 from data.feature_engineering import FEATURE_COLUMNS, VOLATILITY_FEATURES
-
 
 # -- labelling --------------------------------------------------------------
 

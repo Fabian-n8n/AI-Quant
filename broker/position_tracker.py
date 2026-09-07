@@ -36,9 +36,10 @@ from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 
 import pandas as pd
 
@@ -62,13 +63,13 @@ class TrackedPosition:
     entry_price: float
     entry_time: datetime
     current_price: float = 0.0
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
+    stop_loss: float | None = None
+    take_profit: float | None = None
     regime_at_entry: str = "unknown"
     confidence_at_entry: float = 0.0
     regime_current: str = "unknown"
     holding_periods: int = 0
-    trade_id: Optional[str] = None
+    trade_id: str | None = None
     rationale: str = ""
     strategy_name: str = ""
     adopted: bool = False        # found on the broker, not opened by us
@@ -122,7 +123,7 @@ class PositionTracker:
         self._lock = threading.Lock()
         self._fill_callbacks: list[Callable[[dict[str, Any]], None]] = []
         self._stream = None
-        self._stream_thread: Optional[threading.Thread] = None
+        self._stream_thread: threading.Thread | None = None
         self._stop_stream = threading.Event()
 
     # -- reconciliation -----------------------------------------------------
@@ -182,7 +183,7 @@ class PositionTracker:
             symbol=position.symbol,
             quantity=position.quantity,
             entry_price=position.average_entry_price,
-            entry_time=datetime.now(timezone.utc),
+            entry_time=datetime.now(UTC),
             current_price=position.current_price,
             adopted=True,
             rationale="adopted during reconciliation; origin unknown",
@@ -196,13 +197,13 @@ class PositionTracker:
         quantity: float,
         price: float,
         side: str,
-        trade_id: Optional[str] = None,
-        stop_loss: Optional[float] = None,
+        trade_id: str | None = None,
+        stop_loss: float | None = None,
         regime: str = "unknown",
         confidence: float = 0.0,
         rationale: str = "",
         strategy_name: str = "",
-    ) -> Optional[TrackedPosition]:
+    ) -> TrackedPosition | None:
         """Apply a fill: open, average up, partially close, or close out.
 
         Averaging up recomputes the weighted entry price. Keeping the original
@@ -221,7 +222,7 @@ class PositionTracker:
                     return None
                 position = TrackedPosition(
                     symbol=symbol, quantity=delta, entry_price=price,
-                    entry_time=datetime.now(timezone.utc), current_price=price,
+                    entry_time=datetime.now(UTC), current_price=price,
                     stop_loss=stop_loss, regime_at_entry=regime, regime_current=regime,
                     confidence_at_entry=confidence, trade_id=trade_id,
                     rationale=rationale, strategy_name=strategy_name,
@@ -430,7 +431,7 @@ class PositionTracker:
             day_start_equity=day_start_equity or account.last_equity or account.equity,
             week_start_equity=week_start_equity or account.equity,
             daily_trades=daily_trades,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             regime=regime,
             regime_confirmed=regime_confirmed,
             regime_confidence=regime_confidence,

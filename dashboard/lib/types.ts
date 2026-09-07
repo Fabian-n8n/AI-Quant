@@ -48,6 +48,21 @@ export interface SystemPanel {
   started_at: string | null; symbols: string[]; timeframe: string | null;
 }
 
+export interface Candidate {
+  symbol: string; rank: number; approved: boolean; action: string; conviction: number;
+  shares: number; notional: number; entry_price: number; stop_loss: number | null;
+  stop_distance_pct: number; stop_atr_mult: number; risk_dollars: number;
+  risk_pct_of_equity: number; trend: string; price_vs_ema50: number; atr_pct: number;
+  return_20d: number; strategy: string; regime: string; regime_confidence: number;
+  volatility_rank: string; held: boolean; held_quantity: number;
+  rejection_reason: string | null; reason: string; modifications: string[]; reasoning: string;
+}
+
+export interface Freshness {
+  bar_timestamp: string | null; bar_age_hours: number | null; timeframe: string | null;
+  sip_delay_minutes: number; publish_cadence: string; poll_seconds: number; realtime: boolean;
+}
+
 export interface Snapshot {
   schema_version: number;
   source: "live" | "demo";
@@ -62,5 +77,7 @@ export interface Snapshot {
   equity_history: { t: string; equity: number; peak: number }[];
   regime_history: { t: string; regime: string }[];
   regime_mix: { regime: string; bars: number; pct: number }[];
+  candidates: Candidate[];
+  freshness: Freshness;
   notes?: Record<string, unknown>;
 }

@@ -19,15 +19,13 @@ The tests that matter most are not the happy path. They are:
 
 import copy
 import json
-from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
+from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
 import pytest
 
 import main as engine_module
 from broker.alpaca_client import Account, Order, OrderSide, OrderStatus, OrderType, Position
-from core.hmm_engine import Regime, RegimeState
 from core.regime_strategies import Direction, Signal
 from core.risk_manager import BreakerType, RejectionReason, RiskDecision
 from main import (
@@ -36,8 +34,8 @@ from main import (
     EngineError,
     SessionState,
     TradingEngine,
-    _RefusingExecutor,
     _is_daily,
+    _RefusingExecutor,
     _timeframe_minutes,
     _week_start,
     build_parser,
@@ -45,7 +43,6 @@ from main import (
 from monitoring.alerts import AlertLevel, AlertManager
 from monitoring.dashboard import DashboardState, TerminalDashboard
 from monitoring.logger import EventType, TradingLogger
-
 
 # ===========================================================================
 # Fakes
@@ -89,9 +86,9 @@ class FakeBroker:
         if self.fail_calls > 0:
             self.fail_calls -= 1
             raise RuntimeError("alpaca unreachable")
-        return {"is_open": self.market_open, "timestamp": datetime.now(timezone.utc),
-                "next_open": datetime.now(timezone.utc) + timedelta(hours=12),
-                "next_close": datetime.now(timezone.utc) + timedelta(hours=6)}
+        return {"is_open": self.market_open, "timestamp": datetime.now(UTC),
+                "next_open": datetime.now(UTC) + timedelta(hours=12),
+                "next_close": datetime.now(UTC) + timedelta(hours=6)}
 
     def get_positions(self):
         return list(self._positions)
@@ -113,7 +110,7 @@ class FakeBroker:
             side=OrderSide.SELL, quantity=float(getattr(raw, "qty", 1)),
             filled_quantity=0.0, status=OrderStatus.OPEN, order_type=OrderType.MARKET,
             limit_price=None, stop_price=None, average_fill_price=None,
-            submitted_at=datetime.now(timezone.utc), filled_at=None,
+            submitted_at=datetime.now(UTC), filled_at=None,
         )
 
 
@@ -224,7 +221,7 @@ def built_engine(engine_settings, tmp_path, synthetic_bars, model):
         lock_file=tmp_path / "trading_halted.lock",
         model_path=tmp_path / "model.pkl",
     )
-    engine.started_at = datetime.now(timezone.utc)
+    engine.started_at = datetime.now(UTC)
     engine.account = broker.get_account()
     engine.hmm = model
     engine._init_risk_manager()
@@ -317,7 +314,7 @@ def test_peak_equity_survives_restart(engine_settings, tmp_path, model):
                            trading_logger=TradingLogger(log_dir=tmp_path / "l").setup(),
                            alerts=AlertManager({}, sink=lambda *a: None),
                            snapshot_path=snapshot, lock_file=tmp_path / "lock")
-    engine.started_at = datetime.now(timezone.utc)
+    engine.started_at = datetime.now(UTC)
     engine.account = broker.get_account()
     engine.hmm = model
     engine._init_risk_manager()
@@ -344,7 +341,7 @@ def test_peak_equity_rises_to_current_after_a_deposit(engine_settings, tmp_path,
                            trading_logger=TradingLogger(log_dir=tmp_path / "l").setup(),
                            alerts=AlertManager({}, sink=lambda *a: None),
                            snapshot_path=snapshot, lock_file=tmp_path / "lock")
-    engine.started_at = datetime.now(timezone.utc)
+    engine.started_at = datetime.now(UTC)
     engine.account = broker.get_account()
     engine.hmm = model
     engine._init_risk_manager()
@@ -368,7 +365,7 @@ def test_latched_breakers_survive_restart(engine_settings, tmp_path, model):
                            trading_logger=TradingLogger(log_dir=tmp_path / "l").setup(),
                            alerts=AlertManager({}, sink=lambda *a: None),
                            snapshot_path=snapshot, lock_file=tmp_path / "lock")
-    engine.started_at = datetime.now(timezone.utc)
+    engine.started_at = datetime.now(UTC)
     engine.account = broker.get_account()
     engine.hmm = model
     engine._init_risk_manager()
@@ -397,7 +394,7 @@ def test_stops_are_restored_onto_adopted_positions(engine_settings, tmp_path, mo
                            trading_logger=TradingLogger(log_dir=tmp_path / "l").setup(),
                            alerts=AlertManager({}, sink=lambda *a: None),
                            snapshot_path=snapshot, lock_file=tmp_path / "lock")
-    engine.started_at = datetime.now(timezone.utc)
+    engine.started_at = datetime.now(UTC)
     engine.account = broker.get_account()
     engine.hmm = model
     engine._init_risk_manager()
@@ -448,14 +445,14 @@ def test_retrain_when_no_model(built_engine):
 
 
 def test_retrain_when_model_is_older_than_seven_days(built_engine, model):
-    model.metadata.training_date = datetime.now(timezone.utc) - timedelta(days=8)
+    model.metadata.training_date = datetime.now(UTC) - timedelta(days=8)
     model._bars_since_fit = 0
     retrain, why = built_engine.needs_retrain(model)
     assert retrain and "days old" in why
 
 
 def test_no_retrain_for_a_fresh_model(built_engine, model):
-    model.metadata.training_date = datetime.now(timezone.utc) - timedelta(days=1)
+    model.metadata.training_date = datetime.now(UTC) - timedelta(days=1)
     model._bars_since_fit = 0
     retrain, _ = built_engine.needs_retrain(model)
     assert not retrain
@@ -464,7 +461,7 @@ def test_no_retrain_for_a_fresh_model(built_engine, model):
 def test_retrain_on_bar_count_even_when_calendar_is_fresh(built_engine, model):
     """Both rules apply. The calendar rule alone would skip a refit across a
     holiday break; the bar rule alone would let a model go stale while halted."""
-    model.metadata.training_date = datetime.now(timezone.utc)
+    model.metadata.training_date = datetime.now(UTC)
     model._bars_since_fit = model.retrain_interval_bars + 1
     retrain, why = built_engine.needs_retrain(model)
     assert retrain and "bars since fit" in why
@@ -483,7 +480,7 @@ def test_naive_training_date_is_read_as_utc_not_local(built_engine, model):
     Reading it as local time would make the model look up to a day younger or
     older depending on where the process happens to run.
     """
-    naive_utc = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=3)
+    naive_utc = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=3)
     model.metadata.training_date = naive_utc
     assert built_engine.model_age_days(model) == pytest.approx(3.0, abs=0.01)
 
@@ -493,7 +490,7 @@ def test_retrain_rebuilds_the_strategy_map(built_engine, monkeypatch):
     regime_info, it maps new state ids through old volatility ranks and every
     allocation is silently wrong."""
     engine = built_engine
-    engine.hmm.metadata.training_date = datetime.now(timezone.utc) - timedelta(days=30)
+    engine.hmm.metadata.training_date = datetime.now(UTC) - timedelta(days=30)
 
     rebuilt = {}
     monkeypatch.setattr(engine.orchestrator, "update_regime_infos",
@@ -508,7 +505,7 @@ def test_retrain_rebuilds_the_strategy_map(built_engine, monkeypatch):
 def test_failed_retrain_keeps_the_previous_model(built_engine, monkeypatch):
     engine = built_engine
     previous = engine.hmm
-    engine.hmm.metadata.training_date = datetime.now(timezone.utc) - timedelta(days=30)
+    engine.hmm.metadata.training_date = datetime.now(UTC) - timedelta(days=30)
 
     def boom(**kwargs):
         raise RuntimeError("no data")
@@ -871,7 +868,7 @@ def test_breakers_ignore_the_regime(built_engine):
     engine.client.equity = 80_000.0
     engine.refresh_portfolio()
 
-    for regime in ("strong_bull", "strong_bear", "unknown"):
+    for _regime in ("strong_bull", "strong_bear", "unknown"):
         engine.risk_manager.breaker.peak_tripped = False
         assert engine.risk_manager.breaker.check(engine.portfolio) is BreakerType.PEAK_HALT
 
@@ -1074,7 +1071,7 @@ def test_rejections_are_logged_as_prominently_as_approvals(tmp_path):
 
 def test_alert_rate_limit_suppresses_repeats():
     sent = []
-    alerts = AlertManager({}, rate_limit_minutes=15, sink=lambda l, s, b: sent.append(s))
+    alerts = AlertManager({}, rate_limit_minutes=15, sink=lambda level, s, b: sent.append(s))
     assert alerts.send(AlertLevel.WARNING, "same", "body") is True
     assert alerts.send(AlertLevel.WARNING, "same", "body") is False
     assert len(sent) == 1

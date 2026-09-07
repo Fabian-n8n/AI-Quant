@@ -28,8 +28,9 @@ PANELS = {
     "portfolio": "PortfolioPanel",
     "risk": "RiskPanel",
     "system": "SystemPanel",
+    "freshness": "Freshness",
 }
-ROW_PANELS = {"positions": "PositionRow", "signals": "SignalRow"}
+ROW_PANELS = {"positions": "PositionRow", "signals": "SignalRow", "candidates": "Candidate"}
 
 
 #: Strips the body of an inline object type, so `limits: { a: number }` yields
@@ -219,3 +220,82 @@ def test_publish_demo_round_trips(tmp_path):
     payload = json.loads(publish_demo(tmp_path / "state.json").read_text())
     assert payload["source"] == "demo"
     assert parse_interface("Snapshot") - set(payload) == set()
+
+
+# ===========================================================================
+# Candidates: the dashboard's primary answer
+# ===========================================================================
+
+def test_candidates_are_ranked_contiguously(payload):
+    ranks = [c["rank"] for c in payload["candidates"]]
+    assert ranks == list(range(1, len(ranks) + 1)), f"ranks are {ranks}"
+
+
+def test_approved_candidates_sort_above_blocked(payload):
+    """A blocked name ranked above a tradable one would put a row you cannot act
+    on at the top of a table whose whole purpose is telling you what to buy."""
+    approvals = [c["approved"] for c in payload["candidates"]]
+    assert approvals == sorted(approvals, reverse=True)
+
+
+def test_approved_candidates_are_ordered_by_conviction(payload):
+    """Ordering by notional alone let the 15% single-position cap flatten the
+    ranking, putting a below-trend name first on a rounding difference."""
+    convictions = [c["conviction"] for c in payload["candidates"] if c["approved"]]
+    assert convictions == sorted(convictions, reverse=True)
+
+
+def test_blocked_candidates_carry_a_reason(payload):
+    """"Blocked" with no reason is the least useful row a dashboard can show."""
+    for candidate in payload["candidates"]:
+        if not candidate["approved"]:
+            assert candidate["rejection_reason"], f"{candidate['symbol']} blocked with no reason"
+            assert candidate["reason"], f"{candidate['symbol']} has no explanation"
+
+
+def test_approved_candidates_have_a_size_and_a_stop(payload):
+    for candidate in payload["candidates"]:
+        if candidate["approved"]:
+            assert candidate["shares"] > 0, f"{candidate['symbol']} approved for zero shares"
+            assert candidate["stop_loss"] is not None, f"{candidate['symbol']} approved with no stop"
+            assert candidate["stop_loss"] < candidate["entry_price"]
+
+
+def test_conviction_is_a_fraction(payload):
+    for candidate in payload["candidates"]:
+        assert 0.0 <= candidate["conviction"] <= 1.0, candidate["symbol"]
+
+
+def test_demo_shows_the_full_range_of_outcomes(payload):
+    """A demo where everything is approved hides half the interface."""
+    actions = {c["action"] for c in payload["candidates"]}
+    reasons = {c["rejection_reason"] for c in payload["candidates"] if not c["approved"]}
+    assert {"buy", "blocked"} <= actions
+    assert len(reasons) >= 2, "every blocked demo row shares one rejection reason"
+
+
+# ===========================================================================
+# Freshness: the UI must not be able to imply real time
+# ===========================================================================
+
+def test_freshness_declares_it_is_not_realtime(payload):
+    assert payload["freshness"]["realtime"] is False
+
+
+def test_freshness_publishes_every_delay_in_the_chain(payload):
+    """Three delays stack: bar interval, feed delay, publish cadence. A UI that
+    polls every 5 seconds looks live, so all three have to be on the page."""
+    freshness = payload["freshness"]
+    assert freshness["timeframe"]
+    assert freshness["sip_delay_minutes"] >= 15
+    assert freshness["publish_cadence"]
+    assert freshness["poll_seconds"] > 0
+
+
+def test_freshness_survives_a_missing_bar_timestamp():
+    """Before the first bar there is no timestamp, and the panel still renders."""
+    from monitoring.publish import freshness
+
+    result = freshness({"regime": {}, "system": {}})
+    assert result["bar_age_hours"] is None
+    assert result["realtime"] is False

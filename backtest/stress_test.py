@@ -28,7 +28,7 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -84,7 +84,7 @@ def evaluate_breakers(equity: pd.Series, risk_config: dict) -> dict[str, Any]:
     Reads only P&L, never model state. That is the property the breakers exist
     for: they must still work when the HMM is confidently wrong.
     """
-    from core.risk_manager import BreakerState, CircuitBreaker, PortfolioState
+    from core.risk_manager import CircuitBreaker, PortfolioState
 
     if equity.empty:
         return {"halted": False, "peak_drawdown": 0.0}
@@ -206,7 +206,7 @@ def inject_gaps(
 class StressTester:
     """Runs the three stress categories against a configured backtester."""
 
-    def __init__(self, backtester, risk_config: Optional[dict] = None,
+    def __init__(self, backtester, risk_config: dict | None = None,
                  ruin_threshold: float = 0.50) -> None:
         self.backtester = backtester
         self.risk_config = dict(risk_config or {})
@@ -358,7 +358,7 @@ class StressTester:
 # Reporting
 # ---------------------------------------------------------------------------
 
-def render_stress(summaries: list[MonteCarloSummary], baseline: Optional[dict] = None,
+def render_stress(summaries: list[MonteCarloSummary], baseline: dict | None = None,
                   console=None) -> None:
     from rich.console import Console
     from rich.table import Table

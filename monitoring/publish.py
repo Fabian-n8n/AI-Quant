@@ -31,9 +31,9 @@ from __future__ import annotations
 import json
 import math
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT = ROOT / "dashboard" / "public" / "data" / "state.json"
@@ -88,28 +88,70 @@ def regime_mix(regime_history: list) -> list[dict[str, Any]]:
     ]
 
 
+def freshness(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """How old the data actually is, published so the UI cannot imply live prices.
+
+    This system is not real time and should never look like it. Three separate
+    delays stack up:
+
+    1. **Bar interval.** Daily bars. A bar is only final at the session close,
+       so intraday the newest complete bar is yesterday's.
+    2. **Feed delay.** Alpaca's free tier will not serve the most recent 15
+       minutes of SIP data, so requests deliberately stop 16 minutes short.
+    3. **Publish cadence.** The engine writes this file once per processed bar.
+       Between bars the file does not change no matter how often it is polled.
+
+    A dashboard that polls every 5 seconds looks live. Publishing these numbers
+    is what stops that impression from being a lie.
+    """
+    regime = snapshot.get("regime", {}) or {}
+    system = snapshot.get("system", {}) or {}
+    bar_time = regime.get("timestamp")
+
+    age_hours = None
+    if bar_time:
+        try:
+            stamp = datetime.fromisoformat(str(bar_time).replace("Z", "+00:00"))
+            if stamp.tzinfo is None:
+                stamp = stamp.replace(tzinfo=UTC)
+            age_hours = round((datetime.now(UTC) - stamp).total_seconds() / 3600, 2)
+        except ValueError:
+            pass
+
+    return {
+        "bar_timestamp": bar_time,
+        "bar_age_hours": age_hours,
+        "timeframe": system.get("timeframe"),
+        "sip_delay_minutes": 16,
+        "publish_cadence": "once per processed bar",
+        "poll_seconds": 5,
+        "realtime": False,
+    }
+
+
 def build_payload(snapshot: dict[str, Any], *, source: str = "live",
-                  equity_history: Optional[list] = None,
-                  regime_history: Optional[list] = None,
-                  notes: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+                  equity_history: list | None = None,
+                  regime_history: list | None = None,
+                  notes: dict[str, Any] | None = None) -> dict[str, Any]:
     """Wrap a `DashboardState.snapshot()` in the envelope the UI expects."""
     payload = {
         "schema_version": SCHEMA_VERSION,
         "source": source,
-        "published_at": datetime.now(timezone.utc).isoformat(),
+        "published_at": datetime.now(UTC).isoformat(),
         **_clean(snapshot),
         "equity_history": _clean(equity_history or []),
         "regime_history": _clean(regime_history or []),
         "regime_mix": regime_mix(regime_history or []),
+        "freshness": _clean(freshness(snapshot)),
         "notes": _clean(notes or {}),
     }
     return payload
 
 
 def publish(snapshot: dict[str, Any], path: Path = DEFAULT_OUTPUT, *,
-            source: str = "live", equity_history: Optional[list] = None,
-            regime_history: Optional[list] = None,
-            notes: Optional[dict[str, Any]] = None) -> Path:
+            source: str = "live", equity_history: list | None = None,
+            regime_history: list | None = None,
+            notes: dict[str, Any] | None = None) -> Path:
     """Write the snapshot to `path`. Atomic, so the UI never reads half a file."""
     payload = build_payload(
         snapshot, source=source, equity_history=equity_history,
@@ -145,6 +187,38 @@ def publish_from_engine(engine, path: Path = DEFAULT_OUTPUT) -> Path:
 # Demo data
 # ---------------------------------------------------------------------------
 
+def _demo_candidate(symbol, rank, approved, action, conviction, shares, notional,
+                    entry, stop, trend, price_vs_ema50, atr_pct, ret20, strategy,
+                    modifications=None, rejection_reason=None, reason="approved unmodified",
+                    held=False, held_quantity=0.0) -> dict[str, Any]:
+    """One demo candidate, matching `core.candidates.Candidate` field for field.
+
+    Written out longhand rather than generated so the demo shows the full range
+    of outcomes the real scan produces: approved, approved-but-shrunk, held, and
+    three different rejection reasons. A demo where everything is approved would
+    hide the half of the interface that matters.
+    """
+    stop_distance = abs(entry - stop) / entry if entry else 0.0
+    risk_dollars = shares * abs(entry - stop)
+    return {
+        "symbol": symbol, "rank": rank, "approved": approved, "action": action,
+        "conviction": conviction, "shares": shares, "notional": notional,
+        "entry_price": entry, "stop_loss": stop,
+        "stop_distance_pct": round(stop_distance, 6),
+        "stop_atr_mult": round(stop_distance / atr_pct, 3) if atr_pct else 0.0,
+        "risk_dollars": round(risk_dollars, 2),
+        "risk_pct_of_equity": round(risk_dollars / 125_652, 6),
+        "trend": trend, "price_vs_ema50": price_vs_ema50, "atr_pct": atr_pct,
+        "return_20d": ret20, "strategy": strategy,
+        "regime": "strong_bull", "regime_confidence": 0.72, "volatility_rank": "low",
+        "held": held, "held_quantity": held_quantity,
+        "rejection_reason": rejection_reason, "reason": reason,
+        "modifications": modifications or [],
+        "reasoning": f"{strategy}: regime strong_bull at 72% confidence, "
+                     f"{'above' if trend == 'above' else 'below'} the 50 EMA",
+    }
+
+
 def demo_snapshot(seed: int = 7) -> dict[str, Any]:
     """A plausible but explicitly fake snapshot, for a fresh clone.
 
@@ -152,7 +226,7 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
     are shaped like real ones so the layout can be judged, and are not real.
     """
     rng = random.Random(seed)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     equity, peak = 100_000.0, 100_000.0
     history, regimes = [], []
@@ -208,8 +282,33 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
         ]
     ]
 
+    candidates = [
+        _demo_candidate("SPY", 1, True, "buy", 0.86, 62, 31880.40, 514.20, 508.00,
+                        "above", 0.021, 0.0112, 0.043, "LowVolBullStrategy",
+                        modifications=[]),
+        _demo_candidate("MSFT", 2, True, "buy", 0.79, 74, 30_618.00, 413.75, 405.10,
+                        "above", 0.016, 0.0098, 0.031, "LowVolBullStrategy",
+                        modifications=["gap cap: 3x stop gap-through kept under 2% of portfolio"]),
+        _demo_candidate("QQQ", 3, True, "hold", 0.68, 41, 18_113.80, 441.80, 429.60,
+                        "above", 0.009, 0.0141, 0.018, "LowVolBullStrategy",
+                        modifications=[], held=True, held_quantity=41),
+        _demo_candidate("NVDA", 4, False, "blocked", 0.61, 0, 0.0, 178.40, 168.90,
+                        "above", 0.034, 0.0295, 0.112, "LowVolBullStrategy",
+                        rejection_reason="correlation_too_high",
+                        reason="correlation 0.89 with SPY, above the 0.85 reject threshold"),
+        _demo_candidate("AAPL", 5, False, "blocked", 0.47, 0, 0.0, 228.15, 221.30,
+                        "below", -0.008, 0.0121, -0.014, "LowVolBullStrategy",
+                        rejection_reason="sector_limit",
+                        reason="technology already at 31% of equity, cap is 30%"),
+        _demo_candidate("TSLA", 6, False, "blocked", 0.29, 0, 0.0, 242.60, 228.40,
+                        "below", -0.041, 0.0384, -0.087, "LowVolBullStrategy",
+                        rejection_reason="below_minimum_size",
+                        reason="$92 is below the $100 minimum after all reductions"),
+    ]
+
     return {
         "timestamp": now.isoformat(),
+        "candidates": candidates,
         "regime": {
             "regime": "strong_bull", "confidence": 0.72, "confirmed": True,
             "consecutive_bars": 14, "flicker_rate": 1, "flicker_window": 20,

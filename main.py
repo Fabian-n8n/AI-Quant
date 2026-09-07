@@ -40,10 +40,11 @@ import sys
 import threading
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 
@@ -110,14 +111,14 @@ class SessionState:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "SessionState":
+    def from_dict(cls, payload: dict[str, Any]) -> SessionState:
         known = {f for f in cls.__dataclass_fields__}
         return cls(**{k: v for k, v in payload.items() if k in known})
 
     def save(self, path: Path) -> Path:
         """Atomic write. A snapshot truncated by a crash mid-write would be
         worse than no snapshot: it would restore a peak_equity of zero."""
-        self.saved_at = datetime.now(timezone.utc).isoformat()
+        self.saved_at = datetime.now(UTC).isoformat()
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix(path.suffix + ".tmp")
@@ -127,7 +128,7 @@ class SessionState:
         return path
 
     @classmethod
-    def load(cls, path: Path) -> Optional["SessionState"]:
+    def load(cls, path: Path) -> SessionState | None:
         path = Path(path)
         if not path.exists():
             return None
@@ -142,7 +143,7 @@ class SessionState:
 @dataclass
 class BarOutcome:
     """What one pass of the main loop did. Returned so it can be asserted on."""
-    timestamp: Optional[Any] = None
+    timestamp: Any | None = None
     regime: str = "unknown"
     confidence: float = 0.0
     confirmed: bool = False
@@ -155,6 +156,8 @@ class BarOutcome:
     rejected: int = 0
     submitted: int = 0
     stops_updated: int = 0
+    candidates: int = 0
+    top_pick: str = ""
     breaker_state: str = "normal"
     halted: bool = False
     skipped: str = ""
@@ -213,17 +216,17 @@ class TradingEngine:
         settings: dict[str, Any],
         *,
         dry_run: bool = False,
-        symbols: Optional[list[str]] = None,
-        timeframe: Optional[str] = None,
+        symbols: list[str] | None = None,
+        timeframe: str | None = None,
         client=None,
         market_data=None,
         trading_logger=None,
         alerts=None,
-        snapshot_path: Optional[Path] = None,
-        lock_file: Optional[Path] = None,
-        model_path: Optional[Path] = None,
+        snapshot_path: Path | None = None,
+        lock_file: Path | None = None,
+        model_path: Path | None = None,
         allow_live: bool = False,
-        publish_path: Optional[Path] = None,
+        publish_path: Path | None = None,
     ) -> None:
         self.settings = settings
         self.dry_run = dry_run
@@ -263,17 +266,18 @@ class TradingEngine:
         self.account = None
         self.portfolio = None
         self.regime_state = None
-        self.previous_regime: Optional[str] = None
+        self.candidates: list = []
+        self.previous_regime: str | None = None
         self.bars: dict[str, Any] = {}
         self.features = None
 
-        self.started_at: Optional[datetime] = None
+        self.started_at: datetime | None = None
         self.bars_processed = 0
-        self.market_open: Optional[bool] = None
-        self.next_open: Optional[datetime] = None
+        self.market_open: bool | None = None
+        self.next_open: datetime | None = None
         self.data_feed_healthy = True
-        self.api_latency_ms: Optional[float] = None
-        self.target_allocation: Optional[float] = None
+        self.api_latency_ms: float | None = None
+        self.target_allocation: float | None = None
         self.consecutive_errors = 0
         self.is_paper = True
         self.orders_submitted = 0
@@ -306,7 +310,7 @@ class TradingEngine:
 
         attempts = max(1, int(self.orch.get("broker_retry_attempts", 3)))
         delay = float(self.orch.get("broker_retry_base_delay", 2.0))
-        last: Optional[BaseException] = None
+        last: BaseException | None = None
 
         for attempt in range(1, attempts + 1):
             try:
@@ -336,13 +340,13 @@ class TradingEngine:
     # STARTUP
     # =======================================================================
 
-    def startup(self) -> "TradingEngine":
+    def startup(self) -> TradingEngine:
         """The eight startup steps, in the spec's order.
 
         Any failure here raises. A half-started engine that trades with, say, an
         unsynced position tracker is more dangerous than one that never ran.
         """
-        self.started_at = datetime.now(timezone.utc)
+        self.started_at = datetime.now(UTC)
         self._setup_logging()
 
         self._connect_broker()          # 1
@@ -422,7 +426,7 @@ class TradingEngine:
 
     # -- 3. model -----------------------------------------------------------
 
-    def model_age_days(self, engine=_UNSET) -> Optional[float]:
+    def model_age_days(self, engine=_UNSET) -> float | None:
         """Age of the fitted model in days, or None if it never trained."""
         engine = self.hmm if engine is _UNSET else engine
         metadata = getattr(engine, "metadata", None)
@@ -430,8 +434,8 @@ class TradingEngine:
         if trained is None:
             return None
         if trained.tzinfo is None:
-            trained = trained.replace(tzinfo=timezone.utc)
-        return (datetime.now(timezone.utc) - trained).total_seconds() / 86400.0
+            trained = trained.replace(tzinfo=UTC)
+        return (datetime.now(UTC) - trained).total_seconds() / 86400.0
 
     def needs_retrain(self, engine=_UNSET) -> tuple[bool, str]:
         """Spec: retrain if the model is missing or more than 7 days old.
@@ -479,7 +483,7 @@ class TradingEngine:
         self.hmm = engine
         self._init_orchestrator()
 
-    def train_model(self, save_to: Optional[Path] = None, symbol: Optional[str] = None):
+    def train_model(self, save_to: Path | None = None, symbol: str | None = None):
         """Fit the HMM on a fresh training window and save it.
 
         Trains on `hmm.training_symbol` if set, else the first configured symbol.
@@ -906,7 +910,7 @@ class TradingEngine:
         if _is_daily(self.timeframe):
             return float(self.orch.get("poll_seconds", 60)) * 5
         minutes = _timeframe_minutes(self.timeframe)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         elapsed = (now.minute % minutes) * 60 + now.second
         return max(5.0, minutes * 60 - elapsed)
 
@@ -1037,6 +1041,16 @@ class TradingEngine:
         outcome.target_allocation = target
         outcome.current_allocation = current
         self.target_allocation = target
+
+        # ---- 6b. watchlist scan -------------------------------------------
+        # Deliberately BEFORE step 7 trades. Run after, every name the system had
+        # just bought came back rejected as a duplicate order, which is true and
+        # useless: the watchlist must show the decision being made, not its
+        # aftermath. Also runs on bars where nothing is traded, because "what
+        # would it buy" still has an answer then and that is what this is for.
+        self.candidates = self.scan_candidates(regime_state)
+        outcome.candidates = len(self.candidates)
+        outcome.top_pick = self.candidates[0].symbol if self.candidates else ""
 
         # ---- 7. validate and act ------------------------------------------
         if not self.data_feed_healthy:
@@ -1187,6 +1201,23 @@ class TradingEngine:
                        daily_pnl=daily_pnl, daily_pnl_pct=daily_pct)
             self.alerts.alert_large_pnl(daily_pnl, daily_pct, self.portfolio.equity)
 
+    def scan_candidates(self, regime_state) -> list:
+        """Rank the whole universe by what the risk layer would let you buy.
+
+        Side-effect free: `validate_signal(record=False)` means asking the
+        question cannot change the answer by tripping the duplicate window.
+        """
+        from core.candidates import scan
+
+        try:
+            return scan(
+                self.orchestrator, self.risk_manager, self.symbols, self.bars,
+                regime_state, self.portfolio, self.settings["strategy"],
+            )
+        except Exception as exc:
+            logger.warning("candidate scan failed: %s", exc)
+            return []
+
     def _price_context(self, bars) -> tuple[float, float]:
         from data.feature_engineering import ema
 
@@ -1216,12 +1247,12 @@ class TradingEngine:
         signals = self.orchestrator.generate_signals(self.symbols, self.bars, regime_state)
         outcome.signals = len(signals)
 
-        for signal in signals:
-            quote = self._quote(signal.symbol)
+        for candidate_signal in signals:
+            quote = self._quote(candidate_signal.symbol)
             decision = self.risk_manager.validate_signal(
-                signal, self.portfolio, quote=quote, overnight=True
+                candidate_signal, self.portfolio, quote=quote, overnight=True
             )
-            self.log.log_signal(signal, decision)
+            self.log.log_signal(candidate_signal, decision)
 
             if not decision.approved:
                 outcome.rejected += 1
@@ -1232,7 +1263,7 @@ class TradingEngine:
             if self.dry_run:
                 logger.info(
                     "  dry run: would BUY %s x%g ($%s, risk %.3f%% of equity)%s",
-                    signal.symbol, decision.approved_quantity,
+                    candidate_signal.symbol, decision.approved_quantity,
                     f"{decision.approved_notional:,.2f}",
                     decision.modified_signal["risk_pct_of_equity"] * 100,
                     f" [{'; '.join(decision.modifications)}]" if decision.modifications else "",
@@ -1241,18 +1272,18 @@ class TradingEngine:
                 continue
 
             try:
-                trade = self.order_executor.submit_order(signal, decision)
+                trade = self.order_executor.submit_order(candidate_signal, decision)
                 outcome.submitted += 1
                 self.orders_submitted += 1
                 self.session.daily_trades += 1
                 self.log.log_order(trade, EventType.ORDER_SUBMITTED,
                                    trade_id=trade.trade_id, regime=outcome.regime)
-                self._attach_stop(signal, decision, trade)
+                self._attach_stop(candidate_signal, decision, trade)
             except Exception as exc:
-                outcome.errors.append(f"{signal.symbol}: {exc}")
+                outcome.errors.append(f"{candidate_signal.symbol}: {exc}")
                 self._emit(EventType.ORDER_REJECTED,
-                           f"{signal.symbol}: order failed, {exc}",
-                           symbol=signal.symbol, error=str(exc))
+                           f"{candidate_signal.symbol}: order failed, {exc}",
+                           symbol=candidate_signal.symbol, error=str(exc))
 
     def _attach_stop(self, signal, decision, trade) -> None:
         """Record the stop, and place the resting order once shares actually exist.
@@ -1341,7 +1372,8 @@ class TradingEngine:
         that leaves the system over-allocated through a regime it wanted out of
         is worse than the spread.
         """
-        from alpaca.trading.enums import OrderSide as AlpacaSide, TimeInForce
+        from alpaca.trading.enums import OrderSide as AlpacaSide
+        from alpaca.trading.enums import TimeInForce
         from alpaca.trading.requests import MarketOrderRequest
 
         request = MarketOrderRequest(
@@ -1527,7 +1559,7 @@ class TradingEngine:
                        error=str(exc))
             return False
 
-    def _quote(self, symbol: str) -> Optional[dict[str, float]]:
+    def _quote(self, symbol: str) -> dict[str, float] | None:
         """Live quote for the spread check, or None when there is not one.
 
         None rather than a fabricated quote: the risk manager skips the spread
@@ -1618,12 +1650,12 @@ class TradingEngine:
         if self.orch.get("print_session_summary", True):
             self.print_session_summary(unprotected)
 
-    def print_session_summary(self, unprotected: Optional[list[str]] = None) -> None:
+    def print_session_summary(self, unprotected: list[str] | None = None) -> None:
         from rich.console import Console
 
         console = Console()
-        started = self.started_at or datetime.now(timezone.utc)
-        elapsed = datetime.now(timezone.utc) - started
+        started = self.started_at or datetime.now(UTC)
+        elapsed = datetime.now(UTC) - started
         equity = self.account.equity if self.account else 0.0
         start_equity = self.session.day_start_equity or equity
         change = equity - start_equity
@@ -1673,7 +1705,7 @@ def _AlertLevels():
     return AlertLevel
 
 
-def _fmt_age(days: Optional[float]) -> str:
+def _fmt_age(days: float | None) -> str:
     return "unknown" if days is None else f"{days:.1f}d"
 
 
@@ -1744,6 +1776,13 @@ def run_trading(args) -> int:
             path = engine.publish_snapshot()
             if path:
                 logging.getLogger(__name__).info("Published dashboard data to %s", path)
+            else:
+                logging.getLogger(__name__).error(
+                    "--publish was requested but writing the snapshot failed. "
+                    "See the warning above."
+                )
+                engine.shutdown("publish failed")
+                return 3
         engine.shutdown("single bar requested")
         _print_bar_outcome(outcome)
         return 0
@@ -1786,7 +1825,7 @@ def run_train_only(args) -> int:
     console.print(f"  {hmm.n_states} states selected by BIC "
                   f"({hmm.metadata.n_train_samples} samples, "
                   f"{hmm.metadata.n_parameters} parameters)")
-    console.print(f"  BIC by candidate: "
+    console.print("  BIC by candidate: "
                   + ", ".join(f"{k}:{v:,.0f}" for k, v in sorted(hmm.metadata.all_bic_scores.items())))
     console.print(f"  converged: {hmm.metadata.converged} in {hmm.metadata.n_iterations} iterations\n")
     console.print(hmm.summary().round(3).to_string(index=False))
@@ -1830,7 +1869,7 @@ def run_dashboard(args) -> int:
     console.print(f"  daily trades      {state.daily_trades}")
     console.print(f"  breakers          daily={state.breaker_daily_tripped} "
                   f"weekly={state.breaker_weekly_tripped} peak={state.breaker_peak_tripped}")
-    console.print(f"  stops             "
+    console.print("  stops             "
                   + (", ".join(f"{k} @ {v:.2f}" for k, v in state.stops.items()) or "none"))
 
     lock = ROOT / "trading_halted.lock"
@@ -2096,7 +2135,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 

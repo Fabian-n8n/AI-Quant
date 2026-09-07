@@ -14,23 +14,23 @@ here, because a leaked key is not a bug you can fix by reverting.
 
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from broker.alpaca_client import (
+    LIVE_CONFIRMATION,
+    PAPER_URL,
     Account,
     AlpacaClient,
     BrokerConnectionError,
     LiveTradingNotConfirmed,
-    LIVE_CONFIRMATION,
     Order,
     OrderSide,
     OrderStatus,
     OrderType,
-    PAPER_URL,
     Position,
 )
 from broker.order_executor import OrderExecutionError, OrderExecutor, TradeRecord
@@ -95,7 +95,7 @@ def _fake_raw_order(symbol="NVDA", qty=10.0, side="buy", limit_price=None, statu
     order.limit_price = limit_price
     order.stop_price = None
     order.filled_avg_price = None
-    order.submitted_at = datetime.now(timezone.utc)
+    order.submitted_at = datetime.now(UTC)
     order.filled_at = None
     order.client_order_id = "trade-1"
     order.legs = None
@@ -204,7 +204,7 @@ def test_live_requires_the_exact_confirmation_phrase():
     the live endpoint by accident."""
     for answer in ("yes", "y", "YES I UNDERSTAND", "", "yes i understand the risks"):
         client = AlpacaClient(paper=False, api_key="AKX", secret_key="s",
-                              load_env=False, confirm_live=lambda _: answer)
+                              load_env=False, confirm_live=lambda _, a=answer: a)
         with pytest.raises(LiveTradingNotConfirmed):
             client.connect()
 
@@ -540,7 +540,7 @@ def test_concurrent_fills_are_thread_safe():
 
     def add(n):
         try:
-            for i in range(40):
+            for _ in range(40):
                 tracker.register_fill(f"SYM{n}", 1, 100.0, "buy")
                 tracker.get_open_positions()
         except Exception as exc:
@@ -572,8 +572,8 @@ def test_naive_datetimes_are_coerced_to_utc():
     from data.market_data import _as_utc
 
     naive = datetime(2024, 1, 1, 12, 0)
-    assert _as_utc(naive).tzinfo is timezone.utc
-    aware = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+    assert _as_utc(naive).tzinfo is UTC
+    aware = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
     assert _as_utc(aware) is aware
     assert _as_utc(None) is None
 

@@ -61,12 +61,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from core.hmm_engine import HMMEngine, RegimeState
+from core.hmm_engine import HMMEngine
 from core.regime_strategies import StrategyOrchestrator
 from data.feature_engineering import (
     build_feature_matrix,
@@ -139,9 +139,9 @@ class WalkForwardBacktester:
         slippage_pct: float = 0.0005,
         commission_per_share: float = 0.0,
         rebalance_threshold: float = 0.10,
-        hmm_config: Optional[dict] = None,
-        strategy_config: Optional[dict] = None,
-        hmm_min_train_bars: Optional[int] = None,
+        hmm_config: dict | None = None,
+        strategy_config: dict | None = None,
+        hmm_min_train_bars: int | None = None,
         **_ignored: Any,
     ) -> None:
         self.train_window = train_window
@@ -270,7 +270,7 @@ class WalkForwardBacktester:
         bars: pd.DataFrame,
         returns: pd.Series,
         ema50: pd.Series,
-        state: "_PortfolioState",
+        state: _PortfolioState,
         rows: list[dict],
         trades: list[dict],
         symbol: str,
@@ -296,7 +296,7 @@ class WalkForwardBacktester:
         warmup = features.iloc[max(window.train_start, window.train_end - 60) : window.train_end]
         stream.warm(warmup)
 
-        pending_target: Optional[float] = None
+        pending_target: float | None = None
         pending_context: dict[str, Any] = {}
         start_equity = state.equity_at(float(bars.loc[test_index[0], "open"]))
 
@@ -413,7 +413,7 @@ class _PortfolioState:
 
     def rebalance(
         self, target_allocation: float, price: float, slippage_pct: float, commission: float
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Move to the target allocation at `price`, with slippage.
 
             equity        = cash + shares * price

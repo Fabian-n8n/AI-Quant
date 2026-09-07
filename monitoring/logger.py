@@ -51,11 +51,11 @@ import logging
 import logging.handlers
 import os
 import threading
-import time
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any
 
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 
@@ -259,17 +259,17 @@ class TradingLogger:
     def __init__(self, name: str = "regime-trader", log_dir: Path = LOG_DIR) -> None:
         self.name = name
         self.log_dir = Path(log_dir)
-        self._logger: Optional[logging.Logger] = None
+        self._logger: logging.Logger | None = None
         self._lock = threading.Lock()
         self._handlers: dict[str, logging.Handler] = {}
         self._counts: dict[str, int] = {}
         self._context: dict[str, Any] = {}
         self._recent: list[dict[str, Any]] = []
-        self._event_path: Optional[Path] = None
+        self._event_path: Path | None = None
 
     # -- setup --------------------------------------------------------------
 
-    def setup(self, level: str = "INFO", session_id: Optional[str] = None) -> "TradingLogger":
+    def setup(self, level: str = "INFO", session_id: str | None = None) -> TradingLogger:
         """Configure the four streams and the console. Idempotent."""
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -291,7 +291,7 @@ class TradingLogger:
                 self._handlers[stream] = handler
 
         # The JSONL event file the dashboard and the publisher read.
-        stamp = session_id or datetime.now(timezone.utc).strftime("%Y%m%d")
+        stamp = session_id or datetime.now(UTC).strftime("%Y%m%d")
         self._event_path = self.log_dir / f"events-{stamp}.jsonl"
         return self
 
@@ -344,7 +344,7 @@ class TradingLogger:
             self.setup()
 
         record = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "event": event_type.value,
             "message": message,
             **self.context,
@@ -481,7 +481,7 @@ class TradingLogger:
 
     # -- reading back -------------------------------------------------------
 
-    def read_events(self, path: Optional[Path] = None) -> Iterator[dict[str, Any]]:
+    def read_events(self, path: Path | None = None) -> Iterator[dict[str, Any]]:
         """Stream events back off disk, skipping any line that failed to write."""
         target = Path(path) if path else self.event_path
         if not target.exists():
@@ -496,7 +496,7 @@ class TradingLogger:
                 except json.JSONDecodeError:
                     continue
 
-    def recent(self, limit: int = 50, events: Optional[set[str]] = None) -> list[dict[str, Any]]:
+    def recent(self, limit: int = 50, events: set[str] | None = None) -> list[dict[str, Any]]:
         """In-memory tail. Used by the live dashboard, which refreshes every 5
         seconds and should not re-read a 10MB file to do it."""
         with self._lock:
@@ -505,7 +505,7 @@ class TradingLogger:
             records = [r for r in records if r.get("event") in events]
         return records[-limit:]
 
-    def get_trade_log(self, limit: int = 200, path: Optional[Path] = None) -> list[dict[str, Any]]:
+    def get_trade_log(self, limit: int = 200, path: Path | None = None) -> list[dict[str, Any]]:
         """Signal and order history, newest last. The dashboard's signal feed."""
         wanted = {
             EventType.SIGNAL_GENERATED.value,

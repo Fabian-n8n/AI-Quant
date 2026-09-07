@@ -9,17 +9,20 @@ worse than one that renders nothing, because it looks fine.
 """
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from monitoring.alerts import AlertLevel, AlertManager, AlertTrigger
 from monitoring.dashboard import DashboardState, TerminalDashboard, _held_for, risk_bar
 from monitoring.logger import (
-    MAX_BYTES, STREAM_BY_EVENT, EventType, SizedTimedRotatingHandler, TradingLogger,
+    MAX_BYTES,
+    STREAM_BY_EVENT,
+    EventType,
+    SizedTimedRotatingHandler,
+    TradingLogger,
 )
 from monitoring.publish import SCHEMA_VERSION, build_payload, demo_snapshot, publish, publish_demo
-
 
 # ===========================================================================
 # Logger
@@ -45,7 +48,7 @@ def test_events_are_filed_to_the_right_stream(log, tmp_path):
 
     def lines(name):
         path = tmp_path / f"{name}.log"
-        return [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+        return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
     assert [e["event"] for e in lines("trades")] == ["order_filled"]
     assert [e["event"] for e in lines("regime")] == ["regime_change"]
@@ -143,7 +146,7 @@ def test_default_rotation_bound_matches_the_spec(log):
 
 
 def test_log_never_raises_on_an_unserialisable_field(log):
-    record = log.log_event(EventType.ERROR, "x", blob=object(), when=datetime.now(timezone.utc))
+    record = log.log_event(EventType.ERROR, "x", blob=object(), when=datetime.now(UTC))
     assert isinstance(record["blob"], str)
 
 
@@ -183,7 +186,7 @@ def test_all_seven_spec_triggers_exist():
 ])
 def test_trigger_levels(method, args, level):
     sent = []
-    alerts = AlertManager({}, sink=lambda l, s, b: sent.append(l))
+    alerts = AlertManager({}, sink=lambda level, s, b: sent.append(level))
     getattr(alerts, method)(*args)
     assert sent == [level]
 
@@ -192,7 +195,7 @@ def test_rate_limit_is_per_event_type_not_per_message():
     """Keying the limit on the message would let a value that changes every bar
     defeat it entirely."""
     sent = []
-    alerts = AlertManager({}, rate_limit_minutes=15, sink=lambda l, s, b: sent.append(s))
+    alerts = AlertManager({}, rate_limit_minutes=15, sink=lambda level, s, b: sent.append(s))
     assert alerts.alert_flicker_exceeded(5, 4, 20) is True
     assert alerts.alert_flicker_exceeded(6, 4, 20) is False   # different wording, same type
     assert len(sent) == 1
@@ -200,7 +203,7 @@ def test_rate_limit_is_per_event_type_not_per_message():
 
 def test_different_breakers_are_not_collapsed_together():
     sent = []
-    alerts = AlertManager({}, sink=lambda l, s, b: sent.append(s))
+    alerts = AlertManager({}, sink=lambda level, s, b: sent.append(s))
     alerts.alert_breaker_triggered("daily_reduce", -0.02, 98_000)
     alerts.alert_breaker_triggered("peak_halt", -0.11, 89_000)
     assert len(sent) == 2
@@ -231,7 +234,7 @@ def test_retrain_that_changes_state_count_is_escalated():
     """
     def level_for(n_states, previous):
         sent = []
-        AlertManager({}, sink=lambda l, s, b: sent.append(l)).alert_hmm_retrained(
+        AlertManager({}, sink=lambda level, s, b: sent.append(level)).alert_hmm_retrained(
             n_states, "weekly", previous_states=previous)
         return sent[0]
 
@@ -243,7 +246,7 @@ def test_large_pnl_fires_on_gains_too():
     """Unless the system was meant to make 4% today, a large gain is as much a
     reason to look as a large loss."""
     sent = []
-    alerts = AlertManager({}, sink=lambda l, s, b: sent.append(s))
+    alerts = AlertManager({}, sink=lambda level, s, b: sent.append(s))
     alerts.alert_large_pnl(4200.0, 0.042, 104_200.0)
     assert "gain" in sent[0]
 
@@ -254,7 +257,8 @@ def test_alerts_are_written_to_the_alerts_log(tmp_path):
     alerts.alert_breaker_triggered("peak_halt", -0.11, 89_000)
     log.close()
 
-    events = [json.loads(l) for l in (tmp_path / "alerts.log").read_text().splitlines() if l.strip()]
+    raw = (tmp_path / "alerts.log").read_text().splitlines()
+    events = [json.loads(line) for line in raw if line.strip()]
     assert any(e["event"] == "alert_sent" and e["alert_level"] == "critical" for e in events)
 
 
@@ -306,7 +310,7 @@ def test_risk_bar_handles_a_zero_limit():
     (timedelta(days=2), "2d"),
 ])
 def test_held_for(delta, expected):
-    assert _held_for(datetime.now(timezone.utc) - delta) == expected
+    assert _held_for(datetime.now(UTC) - delta) == expected
 
 
 def test_dashboard_renders_with_nothing_wired():

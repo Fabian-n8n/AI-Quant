@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "regime-trader"
+version = "1.0.0"
+description = "HMM regime detection with volatility-based allocation and an independent risk layer"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+dependencies = [
+  "alpaca-py>=0.42",
+  "hmmlearn>=0.3.3",
+  "numpy>=2.0",
+  "pandas>=2.2",
+  "python-dotenv>=1.0",
+  "pyyaml>=6.0",
+  "rich>=13.7",
+  "scikit-learn>=1.5",
+  "scipy>=1.14",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-timeout>=2.3", "ruff>=0.6"]
+
+[project.scripts]
+regime-trader = "main:main"
+
+[tool.setuptools]
+# Explicit rather than auto-discovered: `dashboard` is a Node project and
+# `docs`/`tests` are not importable, so auto-discovery would either fail or
+# quietly package the wrong things.
+packages = ["backtest", "broker", "config", "core", "data", "monitoring"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = ["alpaca: hits the live Alpaca paper API; skipped without credentials"]
+filterwarnings = [
+  "error::UserWarning",
+  # hmmlearn 0.3.3 sets .shape on a NumPy array, deprecated in NumPy 2.5.
+  # Upstream issue, nothing to fix here, and it fires thousands of times.
+  "ignore:Setting the shape on a NumPy array has been deprecated:DeprecationWarning",
+  "ignore::DeprecationWarning:hmmlearn.*",
+  # alpaca-py 0.44 still imports websockets.legacy internally.
+  "ignore:websockets.legacy is deprecated:DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "dashboard", "models", "logs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+  "E501",    # line length is enforced by the formatter, not the linter
+  "B008",    # FastAPI-style default calls; not applicable here
+  "SIM108",  # ternaries are not always clearer than an if/else
+  # `class Foo(str, Enum)` -> `StrEnum`. Declined deliberately: StrEnum changes
+  # what str() returns, and these enum values are written into JSON logs, the
+  # published dashboard payload and pickled model metadata. A cosmetic upgrade
+  # is not worth a silent change to on-disk formats.
+  "UP042",
+  # try/except/pass -> contextlib.suppress. Every instance is in a shutdown or
+  # cleanup path where the explicit form makes the "this may legitimately fail"
+  # intent more obvious than a context manager does.
+  "SIM105",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]

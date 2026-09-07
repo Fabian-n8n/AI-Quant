@@ -11,7 +11,6 @@ into the repo and every subsequent test, and every subsequent real run, would
 refuse to trade.
 """
 
-from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd

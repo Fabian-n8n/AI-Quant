@@ -68,11 +68,12 @@ from __future__ import annotations
 
 import logging
 import pickle
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -244,9 +245,9 @@ class ModelMetadata:
     bic: float
     log_likelihood: float
     all_bic_scores: dict[int, float] = field(default_factory=dict)
-    training_date: Optional[datetime] = None
-    train_start: Optional[pd.Timestamp] = None
-    train_end: Optional[pd.Timestamp] = None
+    training_date: datetime | None = None
+    train_start: pd.Timestamp | None = None
+    train_end: pd.Timestamp | None = None
     n_train_samples: int = 0
     feature_columns: list[str] = field(default_factory=list)
     labels: dict[int, str] = field(default_factory=dict)
@@ -331,7 +332,7 @@ def check_fittability(
     return counts
 
 
-def resolve_feature_columns(spec: Optional[list[str] | str]) -> list[str]:
+def resolve_feature_columns(spec: list[str] | str | None) -> list[str]:
     """Turn a settings.yaml value into an explicit column list.
 
     Accepts the aliases `all` and `volatility` as well as an explicit list, so
@@ -393,7 +394,7 @@ class ForwardFilter:
         self.reset()
 
     def reset(self) -> None:
-        self.log_alpha: Optional[np.ndarray] = None
+        self.log_alpha: np.ndarray | None = None
         self.log_likelihood: float = 0.0
         self.n_steps: int = 0
 
@@ -545,8 +546,8 @@ class RegimeTracker:
         self.reset()
 
     def reset(self) -> None:
-        self.confirmed: Optional[int] = None
-        self.candidate: Optional[int] = None
+        self.confirmed: int | None = None
+        self.candidate: int | None = None
         self.candidate_bars: int = 0
         self.consecutive_bars: int = 0
         self._raw_history: list[int] = []
@@ -650,7 +651,7 @@ class HMMEngine:
 
     def __init__(
         self,
-        n_candidates: Optional[list[int]] = None,
+        n_candidates: list[int] | None = None,
         n_init: int = 10,
         covariance_type: str = "full",
         min_train_bars: int = 504,
@@ -660,16 +661,16 @@ class HMMEngine:
         min_confidence: float = 0.55,
         transition_size_mult: float = 0.75,
         uncertainty_size_mult: float = 0.50,
-        feature_columns: Optional[list[str] | str] = None,
+        feature_columns: list[str] | str | None = None,
         zscore_lookback: int = 252,
-        zscore_clip: Optional[float] = 5.0,
+        zscore_clip: float | None = 5.0,
         retrain_interval_bars: int = 21,
         random_state: int = 42,
         covars_prior: float = 0.01,
         min_covar: float = 1e-3,
         n_iter: int = 200,
         strict_fittability: bool = True,
-        model_path: Optional[Path] = None,
+        model_path: Path | None = None,
         **_ignored: Any,
     ) -> None:
         self.n_candidates = list(n_candidates or [3, 4, 5, 6, 7])
@@ -694,10 +695,10 @@ class HMMEngine:
         self.model_path = Path(model_path) if model_path else MODEL_DIR / "hmm_model.pkl"
 
         self.model = None
-        self.n_states: Optional[int] = None
+        self.n_states: int | None = None
         self.state_labels: dict[int, Regime] = {}
         self.regime_info: dict[int, RegimeInfo] = {}
-        self.metadata: Optional[ModelMetadata] = None
+        self.metadata: ModelMetadata | None = None
         self.tracker = self._new_tracker()
         self._bars_since_fit: int = 0
 
@@ -716,7 +717,7 @@ class HMMEngine:
 
     # -- fitting ------------------------------------------------------------
 
-    def fit(self, features: pd.DataFrame, returns: Optional[pd.Series] = None) -> "HMMEngine":
+    def fit(self, features: pd.DataFrame, returns: pd.Series | None = None) -> HMMEngine:
         """Fit with automatic state-count selection by BIC.
 
         For each candidate in `n_candidates`, run `n_init` random restarts and
@@ -807,7 +808,7 @@ class HMMEngine:
             bic=best["bic"],
             log_likelihood=best["log_likelihood"],
             all_bic_scores=all_bic,
-            training_date=datetime.now(timezone.utc),
+            training_date=datetime.now(UTC),
             train_start=features.index[0],
             train_end=features.index[-1],
             n_train_samples=n_samples,
@@ -824,7 +825,7 @@ class HMMEngine:
         self._bars_since_fit = 0
         return self
 
-    def _fit_candidate(self, GaussianHMM, X: np.ndarray, n_states: int) -> Optional[dict]:
+    def _fit_candidate(self, GaussianHMM, X: np.ndarray, n_states: int) -> dict | None:
         """Run `n_init` restarts for one state count, keep the best log-likelihood."""
         best = None
         for i in range(self.n_init):
@@ -856,7 +857,7 @@ class HMMEngine:
         return best
 
     def _label_states(
-        self, X: np.ndarray, index: pd.Index, returns: Optional[pd.Series]
+        self, X: np.ndarray, index: pd.Index, returns: pd.Series | None
     ) -> None:
         """Assign labels by sorting states on mean return, ascending.
 
@@ -1009,7 +1010,7 @@ class HMMEngine:
             )
         return pd.DataFrame(rows).set_index("timestamp")
 
-    def classify(self, features: pd.DataFrame, as_of: Optional[pd.Timestamp] = None) -> RegimeState:
+    def classify(self, features: pd.DataFrame, as_of: pd.Timestamp | None = None) -> RegimeState:
         """Classify a single bar, for the live loop.
 
         `features` must contain history up to `as_of` inclusive; anything after
@@ -1066,7 +1067,7 @@ class HMMEngine:
             meets_confidence=probability >= self.min_confidence,
         )
 
-    def stream(self) -> "RegimeStream":
+    def stream(self) -> RegimeStream:
         """A stateful bar-at-a-time classifier for the live loop and backtester.
 
         `classify()` re-runs the forward pass over the whole prefix every call,
@@ -1178,7 +1179,7 @@ class HMMEngine:
         """
         return (not self.is_fitted) or self._bars_since_fit >= self.retrain_interval_bars
 
-    def save(self, path: Optional[Path] = None) -> Path:
+    def save(self, path: Path | None = None) -> Path:
         """Pickle the model with its metadata.
 
         The feature column list is stored alongside. `load` refuses to predict
@@ -1206,7 +1207,7 @@ class HMMEngine:
         return target
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "HMMEngine":
+    def load(cls, path: Path | None = None) -> HMMEngine:
         """Restore a saved model. Tracker state is not persisted and restarts."""
         target = Path(path) if path else MODEL_DIR / "hmm_model.pkl"
         with open(target, "rb") as fh:
@@ -1325,7 +1326,7 @@ class RegimeStream:
     `startprob_` on the first bar that matters.
     """
 
-    def __init__(self, engine: "HMMEngine") -> None:
+    def __init__(self, engine: HMMEngine) -> None:
         self.engine = engine
         self.filter = engine._forward_filter()
         self.tracker = engine._new_tracker()

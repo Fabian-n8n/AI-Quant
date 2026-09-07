@@ -62,13 +62,12 @@ specified; retuning them is a decision to make against backtest output, and
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field, replace
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from core.regime_strategies import Direction, Signal
@@ -168,7 +167,7 @@ class PortfolioState:
     day_start_equity: float = 0.0
     week_start_equity: float = 0.0
     daily_trades: int = 0
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
     # Logging and leverage eligibility only. Never read by a circuit breaker.
     regime: str = "unknown"
@@ -225,7 +224,7 @@ class PortfolioState:
     def n_positions(self) -> int:
         return len(self.positions)
 
-    def sector_exposure(self, sector_map: Optional[dict[str, str]] = None) -> dict[str, float]:
+    def sector_exposure(self, sector_map: dict[str, str] | None = None) -> dict[str, float]:
         """Exposure grouped by sector, as a fraction of equity.
 
         Five positions in NVDA, AMD, META, GOOGL and MSFT is not five positions,
@@ -279,7 +278,7 @@ class CircuitBreaker:
     restart or a scheduled job.
     """
 
-    def __init__(self, config: dict[str, Any], lock_file: Optional[Path] = None) -> None:
+    def __init__(self, config: dict[str, Any], lock_file: Path | None = None) -> None:
         self.config = dict(config)
         self.lock_file = Path(lock_file) if lock_file else DEFAULT_LOCK_FILE
 
@@ -366,7 +365,7 @@ class CircuitBreaker:
         }.get(triggered, 0.0)
 
         trigger = BreakerTrigger(
-            timestamp=state.timestamp or datetime.now(timezone.utc),
+            timestamp=state.timestamp or datetime.now(UTC),
             breaker=triggered,
             action=BREAKER_ACTION[triggered],
             drawdown=drawdown,
@@ -387,13 +386,13 @@ class CircuitBreaker:
 
     # -- lock file ----------------------------------------------------------
 
-    def halt(self, reason: str, state: Optional[PortfolioState] = None) -> Path:
+    def halt(self, reason: str, state: PortfolioState | None = None) -> Path:
         """Write `trading_halted.lock`. Requires manual deletion to resume."""
         self.peak_tripped = True
         self.lock_file.parent.mkdir(parents=True, exist_ok=True)
         lines = [
             "TRADING HALTED",
-            f"time:   {datetime.now(timezone.utc).isoformat()}",
+            f"time:   {datetime.now(UTC).isoformat()}",
             f"reason: {reason}",
         ]
         if state is not None:
@@ -486,7 +485,7 @@ class RiskDecision:
     approved: bool
     action: RiskAction = RiskAction.REJECT
     modified_signal: dict[str, Any] = field(default_factory=dict)
-    rejection_reason: Optional[RejectionReason] = None
+    rejection_reason: RejectionReason | None = None
     reason: str = ""
     modifications: list[str] = field(default_factory=list)
 
@@ -496,7 +495,7 @@ class RiskDecision:
     size_multiplier: float = 1.0
 
     @classmethod
-    def reject(cls, reason: RejectionReason, detail: str) -> "RiskDecision":
+    def reject(cls, reason: RejectionReason, detail: str) -> RiskDecision:
         return cls(approved=False, action=RiskAction.REJECT,
                    rejection_reason=reason, reason=detail)
 
@@ -519,9 +518,9 @@ class RiskManager:
     def __init__(
         self,
         config: dict[str, Any],
-        lock_file: Optional[Path] = None,
-        sector_map: Optional[dict[str, str]] = None,
-        price_history: Optional[pd.DataFrame] = None,
+        lock_file: Path | None = None,
+        sector_map: dict[str, str] | None = None,
+        price_history: pd.DataFrame | None = None,
     ) -> None:
         self.config = dict(config)
         self.breaker = CircuitBreaker(self.config, lock_file)
@@ -553,14 +552,20 @@ class RiskManager:
         self,
         signal: Signal,
         portfolio_state: PortfolioState,
-        quote: Optional[dict[str, float]] = None,
+        quote: dict[str, float] | None = None,
         overnight: bool = True,
+        record: bool = True,
     ) -> RiskDecision:
         """Approve, shrink or reject. This is the veto.
 
         `overnight` defaults to True because this is a swing system: every
         position is held overnight, so the gap cap applies by default rather
         than as an exception.
+
+        `record=False` runs the identical cascade without registering the signal
+        for duplicate detection. That is what the watchlist scan uses: asking
+        "what would happen if I traded this" must not make the real answer
+        different a second later by tripping the duplicate window.
         """
         modifications: list[str] = []
 
@@ -711,7 +716,8 @@ class RiskManager:
                 f"${self.min_position_usd:,.0f} minimum after all reductions",
             )
 
-        self._record_order(signal)
+        if record:
+            self._record_order(signal)
         risk_dollars = shares * stop_distance
         return RiskDecision(
             approved=True,
@@ -809,7 +815,7 @@ class RiskManager:
     # -- correlation and sector --------------------------------------------
 
     def check_correlation(
-        self, symbol: str, state: PortfolioState, returns: Optional[pd.DataFrame] = None
+        self, symbol: str, state: PortfolioState, returns: pd.DataFrame | None = None
     ) -> tuple[float, str]:
         """Rolling correlation against open positions.
 
@@ -879,7 +885,7 @@ class RiskManager:
         notional: float,
         state: PortfolioState,
         quote: dict[str, float],
-    ) -> tuple[bool, Optional[RejectionReason], str]:
+    ) -> tuple[bool, RejectionReason | None, str]:
         """Buying power, tradeable status and bid-ask spread."""
         if not quote.get("tradeable", True):
             return False, RejectionReason.NOT_TRADEABLE, f"{signal.symbol} is not tradeable"
@@ -905,7 +911,7 @@ class RiskManager:
         Guards against a retry loop or a double-invoked scheduler placing the
         same order twice, which on a broker API is silent and expensive.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cutoff = now - timedelta(seconds=self.duplicate_window_seconds)
         self._recent_orders = [o for o in self._recent_orders if o[2] > cutoff]
         return any(
@@ -915,7 +921,7 @@ class RiskManager:
 
     def _record_order(self, signal: Signal) -> None:
         self._recent_orders.append(
-            (signal.symbol, signal.direction.value, datetime.now(timezone.utc))
+            (signal.symbol, signal.direction.value, datetime.now(UTC))
         )
 
     # -- state --------------------------------------------------------------
@@ -927,7 +933,7 @@ class RiskManager:
     def is_halted(self) -> bool:
         return self.breaker.is_halted()
 
-    def halt(self, reason: str, state: Optional[PortfolioState] = None) -> Path:
+    def halt(self, reason: str, state: PortfolioState | None = None) -> Path:
         return self.breaker.halt(reason, state)
 
     def reset_daily(self) -> None:

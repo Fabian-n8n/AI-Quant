@@ -39,8 +39,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
 
 from broker.alpaca_client import AlpacaClient, Order, OrderSide, OrderStatus, OrderType
 from core.regime_strategies import Direction, Signal
@@ -68,13 +67,13 @@ class TradeRecord:
     risk_modifications: list[str]
     regime: str
     regime_confidence: float
-    stop_loss: Optional[float]
-    take_profit: Optional[float]
-    order_id: Optional[str] = None
-    stop_order_id: Optional[str] = None
-    submitted_at: Optional[datetime] = None
-    filled_at: Optional[datetime] = None
-    fill_price: Optional[float] = None
+    stop_loss: float | None
+    take_profit: float | None
+    order_id: str | None = None
+    stop_order_id: str | None = None
+    submitted_at: datetime | None = None
+    filled_at: datetime | None = None
+    fill_price: float | None = None
     filled_qty: float = 0.0
     status: OrderStatus = OrderStatus.PENDING
     notes: list[str] = field(default_factory=list)
@@ -105,7 +104,7 @@ class OrderExecutor:
         signal: Signal,
         decision: RiskDecision,
         order_type: OrderType = OrderType.LIMIT,
-        reference_price: Optional[float] = None,
+        reference_price: float | None = None,
         wait_for_fill: bool = False,
         retry_at_market: bool = False,
     ) -> TradeRecord:
@@ -150,7 +149,7 @@ class OrderExecutor:
 
         order = self.client.to_order(raw)
         trade.order_id = order.order_id
-        trade.submitted_at = order.submitted_at or datetime.now(timezone.utc)
+        trade.submitted_at = order.submitted_at or datetime.now(UTC)
         trade.status = order.status
         self.trades[trade.trade_id] = trade
 
@@ -169,7 +168,7 @@ class OrderExecutor:
         self,
         signal: Signal,
         decision: RiskDecision,
-        reference_price: Optional[float] = None,
+        reference_price: float | None = None,
     ) -> TradeRecord:
         """Entry, stop and take-profit as one Alpaca bracket.
 
@@ -192,12 +191,12 @@ class OrderExecutor:
             )
 
         from alpaca.trading.enums import OrderClass, TimeInForce
+        from alpaca.trading.enums import OrderSide as AlpacaSide
         from alpaca.trading.requests import (
             LimitOrderRequest,
             StopLossRequest,
             TakeProfitRequest,
         )
-        from alpaca.trading.enums import OrderSide as AlpacaSide
 
         quantity = float(decision.modified_signal.get("shares", 0))
         side = OrderSide.BUY if signal.direction is Direction.LONG else OrderSide.SELL
@@ -226,7 +225,7 @@ class OrderExecutor:
 
         order = self.client.to_order(raw)
         trade.order_id = order.order_id
-        trade.submitted_at = order.submitted_at or datetime.now(timezone.utc)
+        trade.submitted_at = order.submitted_at or datetime.now(UTC)
         trade.status = order.status
         trade.notes.append(f"bracket: stop {signal.stop_loss:.2f}, target {signal.take_profit:.2f}")
         self.trades[trade.trade_id] = trade
@@ -234,7 +233,7 @@ class OrderExecutor:
         return trade
 
     def place_stop(self, symbol: str, quantity: float, stop_price: float,
-                   trade_id: Optional[str] = None) -> Order:
+                   trade_id: str | None = None) -> Order:
         """Attach a protective stop to a filled position.
 
         Placed immediately after the entry fills. A position that exists without
@@ -244,7 +243,8 @@ class OrderExecutor:
         partial fill with a full-size stop leaves the excess as a naked short
         the moment it triggers.
         """
-        from alpaca.trading.enums import OrderSide as AlpacaSide, TimeInForce
+        from alpaca.trading.enums import OrderSide as AlpacaSide
+        from alpaca.trading.enums import TimeInForce
         from alpaca.trading.requests import StopOrderRequest
 
         request = StopOrderRequest(
@@ -260,7 +260,7 @@ class OrderExecutor:
 
     # -- modification -------------------------------------------------------
 
-    def modify_stop(self, symbol: str, new_stop: float) -> Optional[Order]:
+    def modify_stop(self, symbol: str, new_stop: float) -> Order | None:
         """Move a stop, tightening only.
 
         A stop that can move away from price is not a stop, it is a hope. This
@@ -299,7 +299,7 @@ class OrderExecutor:
         self.client.trading_client.cancel_orders()
         logger.info("Cancelled all open orders")
 
-    def close_position(self, symbol: str) -> Optional[Order]:
+    def close_position(self, symbol: str) -> Order | None:
         try:
             raw = self.client.trading_client.close_position(symbol)
         except Exception as exc:
@@ -376,7 +376,8 @@ class OrderExecutor:
 
     def _submit_market_retry(self, trade: TradeRecord, signal: Signal,
                              side: OrderSide, quantity: float) -> None:
-        from alpaca.trading.enums import OrderSide as AlpacaSide, TimeInForce
+        from alpaca.trading.enums import OrderSide as AlpacaSide
+        from alpaca.trading.enums import TimeInForce
         from alpaca.trading.requests import MarketOrderRequest
 
         request = MarketOrderRequest(
@@ -431,7 +432,8 @@ class OrderExecutor:
 
     def _build_request(self, symbol: str, quantity: float, side: OrderSide,
                        order_type: OrderType, price: float):
-        from alpaca.trading.enums import OrderSide as AlpacaSide, TimeInForce
+        from alpaca.trading.enums import OrderSide as AlpacaSide
+        from alpaca.trading.enums import TimeInForce
         from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest
 
         alpaca_side = AlpacaSide.BUY if side is OrderSide.BUY else AlpacaSide.SELL
@@ -464,5 +466,5 @@ class OrderExecutor:
             logger.debug("%s: quote unavailable (%s), using signal entry price", signal.symbol, exc)
         return signal.entry_price
 
-    def get_trade(self, trade_id: str) -> Optional[TradeRecord]:
+    def get_trade(self, trade_id: str) -> TradeRecord | None:
         return self.trades.get(trade_id)

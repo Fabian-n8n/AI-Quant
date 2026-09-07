@@ -25,9 +25,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -57,7 +57,7 @@ def utc_now() -> datetime:
     The failure mode is worse on the paid tier, where it would not error at all
     and would just return a slightly wrong window.
     """
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
 
@@ -112,8 +112,8 @@ def synthetic_bars(
 
 def load_bars(
     symbol: str,
-    start: Optional[str] = None,
-    end: Optional[str] = None,
+    start: str | None = None,
+    end: str | None = None,
     allow_synthetic: bool = True,
 ) -> tuple[pd.DataFrame, bool]:
     """Load daily bars for one symbol. Returns (bars, is_synthetic).
@@ -147,7 +147,7 @@ def load_bars(
     return bars, True
 
 
-def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+def _as_utc(value: datetime | None) -> datetime | None:
     """Attach UTC to a naive datetime rather than letting Alpaca assume it.
 
     A caller passing `datetime(2024, 1, 1)` means midnight, and on a UTC+8
@@ -155,7 +155,7 @@ def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
     """
     if value is None:
         return None
-    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 class MarketDataClient:
@@ -204,8 +204,8 @@ class MarketDataClient:
         self,
         symbols: str | list[str],
         timeframe: str = "1Day",
-        start: Optional[datetime] = None,
-        end: Optional[datetime] = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
         adjusted: bool = True,
         use_cache: bool = True,
     ) -> pd.DataFrame:
@@ -442,7 +442,7 @@ class MarketDataClient:
         digest = hashlib.sha1(key.encode()).hexdigest()[:12]
         return self.cache_dir / f"{digest}.parquet"
 
-    def _read_cache(self, symbols, timeframe, start, end, adjusted) -> Optional[pd.DataFrame]:
+    def _read_cache(self, symbols, timeframe, start, end, adjusted) -> pd.DataFrame | None:
         path = self._cache_path(symbols, timeframe, start, end, adjusted)
         if not path.exists():
             return None

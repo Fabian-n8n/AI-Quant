@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import {
-  Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, CircleDot,
-  Gauge, Info, Layers, ShieldCheck, Signal, Wifi, WifiOff,
+  Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, ChevronDown,
+  CircleDot, Gauge, Info, Layers, ShieldCheck, Signal, Wifi, WifiOff,
 } from "lucide-react";
 import { AllocationBar, ConfidenceGauge, EquityChart, RegimeMix, Sparkline } from "@/components/charts";
 import { Badge } from "@/components/ui/badge";
@@ -355,7 +355,9 @@ export function PositionsCard({ positions }: { positions: Snapshot["positions"] 
 /* ----------------------------------------------------------- signals -- */
 
 export function SignalsCard({ signals }: { signals: Snapshot["signals"] }) {
+  const [open, setOpen] = React.useState<number | null>(null);
   const rows = [...signals].reverse().slice(0, 10);
+
   return (
     <Card span="2">
       <CardHeader>
@@ -369,26 +371,61 @@ export function SignalsCard({ signals }: { signals: Snapshot["signals"] }) {
           <ul className="space-y-0.5">
             {rows.map((s, i) => {
               const rejected = s.event === "signal_rejected";
+              const isOpen = open === i;
               return (
-                <li
-                  key={`${s.timestamp}-${s.symbol}-${i}`}
-                  className="flex items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors hover:bg-muted/40"
-                >
-                  {rejected
-                    ? <Ban className="h-3.5 w-3.5 shrink-0 text-negative" aria-hidden />
-                    : <CircleDot className="h-3.5 w-3.5 shrink-0 text-positive" aria-hidden />}
-                  <span className="tnum w-11 shrink-0 text-xs text-muted-foreground">
-                    {clockTime(s.timestamp)}
-                  </span>
-                  <span className="w-14 shrink-0 font-semibold">{s.symbol ?? "—"}</span>
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground" title={s.message}>
+                <li key={`${s.timestamp}-${s.symbol}-${i}`}>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(isOpen ? null : i)}
+                    aria-expanded={isOpen}
+                    className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted/40"
+                  >
                     {rejected
-                      ? humanise(s.rejection_reason ?? "rejected")
-                      : `${s.shares ?? 0} shares · ${money(s.notional ?? 0)}`}
-                  </span>
-                  <Badge variant={rejected ? "negative" : "positive"}>
-                    {rejected ? "Rejected" : "Approved"}
-                  </Badge>
+                      ? <Ban className="h-3.5 w-3.5 shrink-0 text-negative" aria-hidden />
+                      : <CircleDot className="h-3.5 w-3.5 shrink-0 text-positive" aria-hidden />}
+                    <span className="tnum w-11 shrink-0 text-xs text-muted-foreground">
+                      {clockTime(s.timestamp)}
+                    </span>
+                    <span className="w-14 shrink-0 font-semibold">{s.symbol ?? "—"}</span>
+                    <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                      {rejected
+                        ? humanise(s.rejection_reason ?? "rejected")
+                        : `${s.shares ?? 0} shares · ${money(s.notional ?? 0)}`}
+                    </span>
+                    <Badge variant={rejected ? "negative" : "positive"}>
+                      {rejected ? "Rejected" : "Approved"}
+                    </Badge>
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                        isOpen && "rotate-180",
+                      )}
+                      aria-hidden
+                    />
+                  </button>
+
+                  {isOpen && (
+                    <dl className="mb-1 ml-8 space-y-1.5 rounded-md bg-muted/25 p-3 text-xs">
+                      {[
+                        ["Verdict", rejected
+                          ? `Rejected — ${humanise(s.rejection_reason ?? "")}`
+                          : "Approved by the risk cascade"],
+                        ["Regime at signal", humanise(s.signal_regime ?? "unknown")],
+                        ["Size", rejected ? "none" : `${s.shares ?? 0} shares · ${money(s.notional ?? 0)}`],
+                        ["Logged", new Date(s.timestamp).toUTCString().slice(5, 22) + " UTC"],
+                      ].map(([label, value]) => (
+                        <div key={label} className="flex justify-between gap-4">
+                          <dt className="text-muted-foreground">{label}</dt>
+                          <dd className="text-right">{value}</dd>
+                        </div>
+                      ))}
+                      {s.message && (
+                        <p className="border-t border-border/60 pt-2 leading-relaxed text-muted-foreground">
+                          {s.message}
+                        </p>
+                      )}
+                    </dl>
+                  )}
                 </li>
               );
             })}
@@ -398,6 +435,59 @@ export function SignalsCard({ signals }: { signals: Snapshot["signals"] }) {
       <CardFooter>
         Rejections appear as prominently as approvals. A feed of only the trades that
         happened cannot tell you the system stopped trading three weeks ago.
+      </CardFooter>
+    </Card>
+  );
+}
+
+/** How stale the data is. Published so the interface cannot imply live prices.
+ *
+ *  A page that polls every five seconds looks real time. It is not: daily bars,
+ *  a 16-minute feed delay, and a file rewritten once per processed bar. Saying
+ *  so plainly is the difference between a dashboard and a misleading one. */
+export function FreshnessCard({ freshness }: { freshness: Snapshot["freshness"] }) {
+  const age = freshness.bar_age_hours;
+  const stale = age !== null && age > 30;
+
+  return (
+    <Card span="2">
+      <CardHeader>
+        <CardTitle>Data freshness</CardTitle>
+        <Badge variant={stale ? "warning" : "default"} dot={stale}>
+          {freshness.realtime ? "Real time" : "Delayed"}
+        </Badge>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Stat
+            label="Last bar" size="sm"
+            value={freshness.bar_timestamp ? String(freshness.bar_timestamp).slice(0, 10) : "—"}
+            sub={age !== null ? `${age.toFixed(1)}h ago` : undefined}
+            tone={stale ? "warning" : "muted"}
+          />
+          <Stat label="Bar interval" size="sm" value={freshness.timeframe ?? "—"} />
+          <Stat label="Feed delay" size="sm" value={`${freshness.sip_delay_minutes} min`} />
+          <Stat label="Page polls" size="sm" value={`${freshness.poll_seconds}s`} />
+        </div>
+        <ol className="space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+          <li>
+            <strong className="font-medium text-foreground">1. Bar interval.</strong> Daily bars.
+            A bar is only final at the session close, so intraday the newest complete bar is
+            yesterday&apos;s.
+          </li>
+          <li>
+            <strong className="font-medium text-foreground">2. Feed delay.</strong> Alpaca&apos;s
+            free tier will not serve the most recent 15 minutes, so requests stop 16 minutes short.
+          </li>
+          <li>
+            <strong className="font-medium text-foreground">3. Publish cadence.</strong> The engine
+            rewrites this file {freshness.publish_cadence}. Between bars, polling changes nothing.
+          </li>
+        </ol>
+      </CardContent>
+      <CardFooter>
+        Not a live quote screen, and not built to be one. On a days-to-months holding period
+        there is nothing useful to decide intraday.
       </CardFooter>
     </Card>
   );

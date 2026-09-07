@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from backtest import performance
-from backtest.backtester import BacktestResult, WalkForwardBacktester, _PortfolioState
+from backtest.backtester import WalkForwardBacktester, _PortfolioState
 from backtest.stress_test import (
     CRASH_SCENARIOS,
     StressTester,
@@ -37,8 +37,9 @@ def backtester(settings_module):
 
 @pytest.fixture(scope="module")
 def settings_module():
-    import yaml
     from pathlib import Path
+
+    import yaml
 
     root = Path(__file__).resolve().parent.parent
     with open(root / "config" / "settings.yaml") as fh:
@@ -142,7 +143,7 @@ def test_windows_step_forward_contiguously(backtester):
     """With step == test_window the OOS periods join up, so the stitched equity
     curve is continuous rather than a set of disconnected fragments."""
     windows = backtester.build_windows(2000)
-    for earlier, later in zip(windows, windows[1:]):
+    for earlier, later in zip(windows, windows[1:], strict=False):
         assert later.train_start == earlier.train_start + backtester.step_size
         assert later.test_start == earlier.test_end
 
@@ -345,7 +346,6 @@ def test_crash_injection_lowers_prices_permanently(synthetic_bars_module):
 
 
 def test_gap_injection_scales_with_atr(synthetic_bars_module):
-    rng = np.random.default_rng(0)
     small = inject_gaps(synthetic_bars_module, 2.0, 10, np.random.default_rng(0))
     large = inject_gaps(synthetic_bars_module, 5.0, 10, np.random.default_rng(0))
     assert large["close"].iloc[-1] < small["close"].iloc[-1]

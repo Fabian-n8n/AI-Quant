@@ -79,7 +79,7 @@ def returns(synthetic_bars) -> pd.Series:
 @pytest.fixture(scope="session")
 def fitted_engine(features, returns):
     """One fitted engine shared across the suite. Fitting takes seconds."""
-    from core.hmm_engine import HMMEngine, VOLATILITY_FEATURES
+    from core.hmm_engine import VOLATILITY_FEATURES, HMMEngine
 
     return HMMEngine(
         feature_columns=VOLATILITY_FEATURES, n_init=4, random_state=42

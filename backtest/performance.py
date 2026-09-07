@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -99,7 +99,7 @@ def sortino_ratio(returns: pd.Series, risk_free_rate: float = 0.045) -> float:
     return float(excess.mean() / dd * np.sqrt(TRADING_DAYS))
 
 
-def max_drawdown(equity: pd.Series) -> tuple[float, int, Optional[pd.Timestamp]]:
+def max_drawdown(equity: pd.Series) -> tuple[float, int, pd.Timestamp | None]:
     """Return (depth as a negative fraction, duration in bars, trough date).
 
     Duration is measured peak to recovery, not peak to trough. A 12% drawdown
@@ -423,7 +423,7 @@ class PerformanceReport:
     regime_history: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     @property
-    def beats_all_benchmarks(self) -> Optional[bool]:
+    def beats_all_benchmarks(self) -> bool | None:
         """True only if the strategy beats all three on total return.
 
         None when the benchmarks were not run, which is distinct from False and
@@ -558,7 +558,8 @@ def render(report: PerformanceReport, console=None) -> None:
     ))
 
     table = Table(title="Core metrics", header_style="bold")
-    table.add_column("Metric"); table.add_column("Value", justify="right")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
     for label, value, fmt in [
         ("Total return", core.get("total_return", 0), "pct"),
         ("CAGR", core.get("cagr", 0), "pct"),
@@ -574,7 +575,8 @@ def render(report: PerformanceReport, console=None) -> None:
     console.print(table)
 
     table = Table(title="Trade statistics", header_style="bold")
-    table.add_column("Metric"); table.add_column("Value", justify="right")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
     n = trades.get("n_trades", 0)
     table.add_row("Total trades (rebalances)", str(n))
     if not trades.get("significant", False):
@@ -627,7 +629,8 @@ def render(report: PerformanceReport, console=None) -> None:
 
     if report.worst:
         table = Table(title="Worst case", header_style="bold")
-        table.add_column("Metric"); table.add_column("Value", justify="right")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
         for label, key, fmt in [
             ("Worst day", "worst_day", "pct"), ("Worst week", "worst_week", "pct"),
             ("Worst month", "worst_month", "pct"),

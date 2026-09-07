@@ -43,9 +43,10 @@ import os
 import smtplib
 import threading
 import time
+from collections.abc import Callable
 from email.message import EmailMessage
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +85,9 @@ class AlertManager:
 
     def __init__(
         self,
-        settings: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
         rate_limit_minutes: int = 15,
-        sink: Optional[Callable[[AlertLevel, str, str], None]] = None,
+        sink: Callable[[AlertLevel, str, str], None] | None = None,
         clock: Callable[[], float] = time.monotonic,
         trading_logger=None,
     ) -> None:
@@ -109,11 +110,11 @@ class AlertManager:
     # -- configuration ------------------------------------------------------
 
     @property
-    def email_to(self) -> Optional[str]:
+    def email_to(self) -> str | None:
         return self.settings.get("alert_email") or os.getenv("ALERT_EMAIL")
 
     @property
-    def webhook_url(self) -> Optional[str]:
+    def webhook_url(self) -> str | None:
         return self.settings.get("alert_webhook") or os.getenv("ALERT_WEBHOOK_URL")
 
     # -- rate limiting ------------------------------------------------------
@@ -138,8 +139,8 @@ class AlertManager:
         level: AlertLevel,
         subject: str,
         body: str,
-        dedupe_key: Optional[str] = None,
-        trigger: Optional[AlertTrigger] = None,
+        dedupe_key: str | None = None,
+        trigger: AlertTrigger | None = None,
     ) -> bool:
         """Send an alert. Returns False if suppressed by the rate limit.
 
@@ -303,7 +304,7 @@ class AlertManager:
         )
 
     def alert_hmm_retrained(self, n_states: int, reason: str = "",
-                            previous_states: Optional[int] = None) -> bool:
+                            previous_states: int | None = None) -> bool:
         """INFO, unless the state count changed.
 
         A refit that lands on a different number of regimes has redrawn the map
