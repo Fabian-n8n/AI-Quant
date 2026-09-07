@@ -328,12 +328,28 @@ def test_regime_mix_of_nothing_is_empty_not_a_crash():
 # The committed snapshot is valid and safe
 # ===========================================================================
 
-def test_committed_snapshot_parses_and_is_demo():
-    """What ships in git is what the deployed URL renders on first load."""
+def test_committed_snapshot_parses_and_is_labelled_honestly():
+    """What ships in git is what the deployed URL renders on first load.
+
+    This used to assert the committed snapshot was always demo, on the
+    assumption that real data could only get here by someone running
+    `--publish` locally and committing by accident. That stopped being true
+    when the scheduled job started publishing real state and committing it,
+    which is the intended pipeline rather than a mistake.
+
+    So the invariant is no longer "it is demo". It is that the label matches
+    the contents. Demo data rendered without its banner would be the actual
+    problem, and that is what these two fields together prevent.
+    """
     assert STATE_JSON.exists(), "no snapshot committed for the deployed dashboard"
     payload = json.loads(STATE_JSON.read_text())
-    assert payload["source"] == "demo", \
-        "a real account snapshot is committed. Publish demo data before pushing."
+
+    assert payload["source"] in ("demo", "live")
+    assert payload["is_demo"] == (payload["source"] == "demo"), (
+        f"source is {payload['source']!r} but is_demo is {payload['is_demo']}. "
+        f"The banner is driven by is_demo, so a mismatch either hides the "
+        f"warning over fabricated numbers or shows it over a real account."
+    )
 
 
 def test_committed_snapshot_carries_no_secrets():
