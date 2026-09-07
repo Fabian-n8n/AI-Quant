@@ -201,19 +201,38 @@ which reads local state directly.
 | `python main.py --dashboard` | terminal dashboard from the saved snapshot |
 | `python main.py --publish` | write `dashboard/public/data/state.json` each bar |
 | `python main.py --publish-demo` | write a labelled demo snapshot and exit |
+| `python scripts/preflight.py` | six live-readiness checks. Exit 0 pass, 1 fail |
 | `python main.py --mode backtest --symbols SPY --compare --export` | walk-forward with benchmarks |
 | `python main.py --mode backtest --stress-test --mc-sims 100` | crash, gap and misclassification tests |
 
 Useful flags: `--symbols`, `--timeframe`, `--start`, `--end`, `--log-level`,
 `--i-understand-live`.
 
-**Scheduling.** Daily bar close is 4pm New York, which is 4am or 5am in
-Singapore depending on US daylight saving. A fixed local cron time is wrong for
-half the year.
+**Scheduling.** Handled by GitHub Actions, so the machine here does not have to
+be on. `.github/workflows/trade.yml` fires weekdays at 21:15 UTC.
+
+That time is a compromise cron cannot resolve on its own: 21:15 UTC is 17:15 ET
+in winter and 16:15 ET in summer, and no single expression means "after the US
+close" all year. The job fires on the wider of the two and `core/calendar.py`
+decides inside the run whether the session actually finished. On a holiday it
+exits 0 having done nothing.
+
+`DRY_RUN` is a repository variable, currently `true`. Watch a week of intended
+orders in the run logs, then set it to `false` in **Settings > Secrets and
+variables > Actions > Variables**. That is the go-live switch, and it is not a
+code change.
+
+To run it locally instead:
 
 ```cron
-30 21 * * 1-5  cd ~/Desktop/AI\ Quant\ Trading && .venv/bin/python main.py --once --publish
+15 21 * * 1-5  cd ~/Desktop/AI\ Quant\ Trading && .venv/bin/python main.py --once --publish
 ```
+
+**Cadence.** Entry decisions happen once per session, after the close, on the
+completed daily bar. The loop previously re-evaluated every minute, which
+re-reads the same daily bar and produces the same signal sixty times an hour.
+Position and stop monitoring stay on a five-minute interval: a new entry can
+wait for tomorrow, a stop cannot.
 
 ---
 
@@ -323,14 +342,34 @@ reaches a broker. A display that can act is no longer a display.
 
 ## Validation checklist
 
-None of this is meaningful until the system has run. **Nothing here passes yet.**
+Six of these are now enforced by `python scripts/preflight.py`, and `main.py`
+refuses to run in live mode unless they pass. Paper mode is unaffected.
+
+**It fails today.** That is the correct answer:
+
+| | Total return, out-of-sample |
+|---|---|
+| regime-trader | **+55.0%** |
+| buy-and-hold | +118.3% |
+| random allocation | +84.7% |
+| SMA-200 trend | -0.1% |
+
+It beats only the benchmark that lost money. Losing to random entry means the
+regime signal is adding nothing.
+
+Enforced by preflight:
 
 - [ ] 30 to 50 closed trades minimum
-- [ ] Walk-forward tested, never in-sample
+- [x] Walk-forward tested, never in-sample
 - [ ] Beats buy-and-hold on total return **and** Sharpe, net of slippage
-- [ ] Beats 200-day SMA trend following
+- [x] Beats 200-day SMA trend following
 - [ ] Beats random allocation under identical risk rules
 - [ ] Expectancy per trade is positive
+- [ ] Every open position carries a live stop at the broker
+- [ ] No circuit breaker tripped and no halt lock
+
+Not enforced, still on you:
+
 - [ ] High-confidence trades outperform low-confidence trades
 - [ ] Returns differ meaningfully by regime, or the HMM is not earning its keep
 - [ ] Variants tested are logged in `docs/EXPERIMENT-LOG.md`

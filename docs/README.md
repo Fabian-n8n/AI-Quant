@@ -32,3 +32,4 @@ rather than reasoning about it.
 | 7 | [`phases/07-main-loop.md`](phases/07-main-loop.md) | Why exits skip the risk veto, and why `peak_equity` must survive a restart |
 | 8 | [`phases/08-monitoring-dashboard.md`](phases/08-monitoring-dashboard.md) | A real bug in Python's own log rotation |
 | 9 | [`phases/09-integration-and-docs.md`](phases/09-integration-and-docs.md) | What the integration tests actually prove, and what they cannot |
+| 10 | [`phases/10-scheduling-and-persistence.md`](phases/10-scheduling-and-persistence.md) | Daily cadence, SQLite state, trailing stops, and the live-trading gate. Starts with a bug report that was accurate about every symptom and wrong about the cause |
