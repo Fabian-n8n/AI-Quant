@@ -276,6 +276,16 @@ class TradingEngine:
         self.bars: dict[str, Any] = {}
         self.features = None
 
+        # Cadence. A swing system decides once per session; re-reading the same
+        # daily bar every minute produces the same signal sixty times an hour.
+        from core.calendar import parse_run_after
+
+        schedule = self.orch.get("schedule", {}) or {}
+        self.schedule_mode = str(schedule.get("mode", "daily_close")).lower()
+        self.run_after = parse_run_after(schedule.get("run_after", "16:15"))
+        self.monitor_seconds = float(schedule.get("monitor_seconds", 300))
+        self.calendar = None
+
         self.started_at: datetime | None = None
         self.bars_processed = 0
         self.market_open: bool | None = None
@@ -414,6 +424,16 @@ class TradingEngine:
 
     def _check_market_hours(self) -> None:
         """Check market hours. Logs the next open; the loop handles the waiting."""
+        self._calendar()
+        if self.schedule_mode == "daily_close":
+            session = self._calendar().last_completed_session()
+            due = self._calendar().next_run_time(self.run_after)
+            logger.info(
+                "Daily cadence: last completed session %s, next decision %s",
+                session.day if session else "unknown",
+                due.strftime("%Y-%m-%d %H:%M %Z"),
+            )
+
         try:
             clock = self._broker_retry(self.client.get_clock, what="market clock")
         except BrokerUnavailable:
@@ -960,6 +980,8 @@ class TradingEngine:
     def run(self) -> int:
         """Wait for bars, process them, until stopped."""
         self._install_signal_handlers()
+        if self.schedule_mode == "daily_close":
+            return self._run_daily()
         action = str(self.orch.get("market_closed_action", "wait")).lower()
         poll = float(self.orch.get("poll_seconds", 60))
         max_wait = float(self.orch.get("max_wait_seconds", 86400))
@@ -996,6 +1018,90 @@ class TradingEngine:
         finally:
             self.shutdown("loop exited")
         return 0
+
+    def _run_daily(self) -> int:
+        """Decide once per session after the close; monitor in between.
+
+        The split matters. A new entry can wait for tomorrow, because the signal
+        is computed from a daily bar that will not change. A stop cannot: a
+        position moving against you at 11am needs its stop looked at now, not at
+        16:15. So entries are gated to the daily decision and everything
+        protective keeps running on `monitor_seconds`.
+
+        Reaching the decision twice for one session is harmless. `process_bar`
+        keys on the bar timestamp and returns "bar already processed", so a
+        restart at any hour cannot double-enter.
+        """
+        from core.calendar import now_et
+
+        # `exit` is the under-cron setting: the scheduler owns the waiting, so
+        # a run that arrives before its decision is due should return rather
+        # than sleep for fourteen hours inside a job with a timeout.
+        action = str(self.orch.get("market_closed_action", "wait")).lower()
+
+        logger.info(
+            "Daily cadence. Entries decided once per session after %s ET, "
+            "positions and stops monitored every %.0fs.",
+            self.run_after.strftime("%H:%M"), self.monitor_seconds,
+        )
+
+        try:
+            while self.running:
+                due = self._calendar().next_run_time(self.run_after)
+                wait = (due - now_et()).total_seconds()
+
+                if wait > 0 and action == "exit":
+                    logger.info(
+                        "Next decision is not due until %s and "
+                        "market_closed_action=exit. Nothing to do.",
+                        due.strftime("%Y-%m-%d %H:%M %Z"),
+                    )
+                    break
+
+                if wait <= 0:
+                    outcome = self.process_bar()
+                    if outcome.halted:
+                        logger.error("Halted. The loop stops here until the lock "
+                                     "is cleared.")
+                        break
+                    continue
+
+                logger.info("Next decision %s (%s). Monitoring until then.",
+                            due.strftime("%Y-%m-%d %H:%M %Z"), _fmt_duration(wait))
+
+                while self.running and wait > 0:
+                    slept = min(self.monitor_seconds, wait)
+                    self._bar_event.wait(slept)
+                    self._bar_event.clear()
+                    wait -= slept
+                    if self.running and wait > 0:
+                        self.monitor_positions()
+        except KeyboardInterrupt:      # pragma: no cover - interactive
+            logger.info("Interrupted.")
+        finally:
+            self.shutdown("loop exited")
+        return 0
+
+    def monitor_positions(self) -> None:
+        """The protective half of the loop, run between daily decisions.
+
+        Deliberately cannot open a position. It refreshes the portfolio, checks
+        that every position still has a stop, tightens stops the regime has
+        moved, and evaluates the breakers. No signal generation, no entries.
+
+        Runs only while the market is open. Stops do not trigger overnight, and
+        a breaker computed against a stale equity figure would be noise.
+        """
+        if not self._market_is_open():
+            return
+        try:
+            self.refresh_portfolio()
+            self.audit_stops()
+            if self.regime_state is not None and self.orch.get("update_stops_each_bar", True):
+                self._update_stops(self.regime_state)
+            self._check_breakers(BarOutcome())
+        except Exception as exc:
+            logger.warning("monitor pass failed: %s", exc)
 
     def _market_is_open(self) -> bool:
         try:
@@ -1097,6 +1203,16 @@ class TradingEngine:
         bar_key = f"{primary}@{outcome.timestamp}"
         if self.session.last_bar_timestamp == bar_key:
             outcome.skipped = "bar already processed"
+            return outcome
+
+        if not self._bar_has_closed(outcome.timestamp):
+            # A session still in progress has a bar whose close, high and low
+            # will all change before it is final. Acting on one means acting on
+            # a number that has not happened yet, which is look-ahead bias
+            # arriving through the data feed rather than the feature code.
+            outcome.skipped = "bar has not closed yet"
+            logger.info("%s: bar %s is still forming, not acting on it.",
+                        primary, outcome.timestamp)
             return outcome
 
         # ---- 2. features, rolling window, no future data ------------------
@@ -1323,6 +1439,50 @@ class TradingEngine:
         except Exception as exc:
             logger.warning("candidate scan failed: %s", exc)
             return []
+
+    def _calendar(self):
+        """The trading calendar, built on first use.
+
+        Lazy because `process_bar` can be reached without a full `startup()`,
+        in tests and in the `--once` path, and a calendar that only exists when
+        startup ran would make the bar-completeness check silently skip itself
+        in exactly those cases.
+        """
+        if self.calendar is None:
+            from core.calendar import MarketCalendar
+
+            self.calendar = MarketCalendar(self.client)
+        return self.calendar
+
+    def _bar_has_closed(self, timestamp) -> bool:
+        """Is this bar final, or is its session still running?
+
+        Only meaningful on daily bars in daily_close mode. Intraday timeframes
+        and `continuous` mode keep the old behaviour, where the loop is driven
+        by bar-close events rather than the calendar.
+
+        Fails open. If the calendar cannot say, the bar is treated as closed:
+        Alpaca does not return a bar for a session that has not started, and
+        refusing to trade whenever the calendar endpoint is down would be a
+        larger failure than the one being prevented.
+        """
+        if self.schedule_mode != "daily_close" or not _is_daily(self.timeframe):
+            return True
+        if timestamp is None:
+            return True
+        try:
+            import pandas as pd
+
+            bar_day = pd.Timestamp(timestamp).date()
+            session = self._calendar().session(bar_day)
+            if session is None:
+                return True         # no session that day, so nothing is forming
+            from core.calendar import now_et
+
+            return now_et() >= session.close_at
+        except Exception as exc:
+            logger.debug("could not check whether %s has closed (%s)", timestamp, exc)
+            return True
 
     def _price_context(self, bars) -> tuple[float, float]:
         from data.feature_engineering import ema
@@ -1826,6 +1986,16 @@ def _fmt_age(days: float | None) -> str:
 def _week_start(day: date) -> date:
     """Monday of the week containing `day`. The weekly breaker's boundary."""
     return day - timedelta(days=day.weekday())
+
+
+def _fmt_duration(seconds: float) -> str:
+    """A wait the reader can sanity-check at a glance. "14h 2m", not "50520s"."""
+    seconds = max(0, int(seconds))
+    hours, remainder = divmod(seconds, 3600)
+    minutes = remainder // 60
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m" if minutes else f"{seconds}s"
 
 
 def _is_daily(timeframe: str) -> bool:

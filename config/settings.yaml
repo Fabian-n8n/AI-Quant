@@ -266,6 +266,29 @@ orchestration:
 
   state_snapshot_path: state_snapshot.json
 
+  # -- cadence --------------------------------------------------------------
+  #
+  # This is a swing system. The holding period is days to months, the model is
+  # fitted on daily bars, and the features are daily. Evaluating entries every
+  # minute does not make it faster, it makes it noisier: the same daily bar is
+  # re-read sixty times an hour and produces the same signal each time.
+  #
+  #   daily_close - decide once per session, after the close, on the completed
+  #                 daily bar. The correct mode for this strategy.
+  #   continuous  - the old behaviour, re-evaluating every poll_seconds. Kept
+  #                 for intraday timeframes and for testing.
+  schedule:
+    mode: daily_close            # daily_close | continuous
+    run_after: "16:15"           # US/Eastern, 15 min past a normal close. The
+                                 # padding lets the final bar settle in the
+                                 # data feed before anything reads it.
+    timezone: America/New_York   # never local time. See core/calendar.py.
+
+    # Position and stop monitoring stay on the short interval, because a stop
+    # that needs moving does not wait for tomorrow. Only *new entry decisions*
+    # are once daily.
+    monitor_seconds: 300
+
   # What to do when the market is closed. `wait` sleeps until the next open and
   # is the right choice for a long-running process; `exit` returns 0 immediately
   # and is the right choice under cron.
