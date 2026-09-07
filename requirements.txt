@@ -10,6 +10,11 @@ scipy
 pandas
 numpy
 ta                       # technical analysis indicators
+pyarrow                  # parquet engine for the bar cache. NOT optional in
+                         # practice: pandas raises rather than degrading when
+                         # no engine is installed, and it was only ever present
+                         # here as a transitive dependency, so a clean runner
+                         # did not have it. Found by the first scheduled run.
 
 # --- broker --------------------------------------------------------------
 alpaca-py                # the supported Alpaca SDK

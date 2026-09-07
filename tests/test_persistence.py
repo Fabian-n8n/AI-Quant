@@ -381,6 +381,39 @@ def test_the_returned_frame_keeps_the_timestamp_symbol_index(market_data):
     assert set(frame.index.get_level_values("symbol")) == {"SPY", "QQQ"}
 
 
+def test_an_unwritable_cache_still_returns_the_fetched_bars(market_data, monkeypatch):
+    """The cache is an optimisation and must never be load-bearing.
+
+    This is the exact failure that broke the first scheduled run: pyarrow was
+    absent on the runner, every parquet read and write raised, and because the
+    return path read only from the cache, a successful API call came back as
+    "No bars available". A cache failure should cost speed, not correctness.
+    """
+    md, client = market_data
+
+    # Patched at the pandas level, which is where it actually failed, so the
+    # module's own error handling is exercised rather than replaced.
+    def no_engine(*args, **kwargs):
+        raise ImportError("Unable to find a usable engine; tried using: 'pyarrow'")
+
+    monkeypatch.setattr(pd, "read_parquet", no_engine)
+    monkeypatch.setattr(pd.DataFrame, "to_parquet", no_engine)
+
+    frame = md.get_historical_bars(["SPY"], "1Day", start=datetime(2026, 6, 1, tzinfo=UTC))
+    assert not frame.empty, "a broken cache swallowed a successful fetch"
+    assert len(client.requests) == 1
+
+
+def test_an_unreadable_cache_falls_back_for_every_symbol(market_data, monkeypatch):
+    md, _ = market_data
+    monkeypatch.setattr(pd, "read_parquet",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("disk gone")))
+
+    frame = md.get_historical_bars(["SPY", "QQQ"], "1Day",
+                                   start=datetime(2026, 6, 1, tzinfo=UTC))
+    assert set(frame.index.get_level_values("symbol")) == {"SPY", "QQQ"}
+
+
 def test_use_cache_false_always_fetches(market_data):
     md, client = market_data
     start = datetime(2026, 6, 1, tzinfo=UTC)

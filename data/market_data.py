@@ -271,6 +271,7 @@ class MarketDataClient:
             if gaps:
                 needed[symbol] = gaps
 
+        fresh = pd.DataFrame()
         if needed:
             fetch_start = min(g[0] for gaps in needed.values() for g in gaps)
             fetch_end = max(g[1] for gaps in needed.values() for g in gaps)
@@ -285,8 +286,17 @@ class MarketDataClient:
         frames = {}
         for symbol in symbol_list:
             part = self._cached_slice(symbol, timeframe, start, end, adjusted)
+            if part is None or part.empty:
+                # Fall back to what was just fetched. The cache is an
+                # optimisation and must never be load-bearing: without this,
+                # an unreadable cache turns a successful API call into "no
+                # data", which is how a missing parquet engine took down the
+                # first scheduled run. A cache failure should cost speed, not
+                # correctness.
+                part = _extract_symbol(fresh, symbol)
             if part is not None and not part.empty:
                 frames[symbol] = part
+
         if not frames:
             logger.warning("No bars available for %s", symbol_list)
             return pd.DataFrame()
