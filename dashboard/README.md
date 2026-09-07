@@ -53,3 +53,14 @@ rendered behind a banner. It exists so a fresh clone and the deployed URL show a
 working interface rather than six empty panels. Publishing your own overwrites
 it locally; think before committing a snapshot of a real account to a public
 repository.
+
+## Routing note
+
+`vercel.json` sets `cleanUrls: true`. Next's static export writes a flat
+`activity.html` rather than `activity/index.html`, so without it every route
+except `/` returns 404 on Vercel while working fine under `next dev`. That gap
+between local and deployed is the reason it is written down here.
+
+The snapshot fetch in `lib/useSnapshot.ts` uses an absolute `/data/state.json`
+for the related reason: a relative path resolves against the current route and
+would ask for `/activity/data/state.json`.
