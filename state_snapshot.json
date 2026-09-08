@@ -1,35 +1,43 @@
 {
-  "session_id": "20260908-130314",
-  "started_at": "2026-09-08T13:03:14.016912+00:00",
-  "saved_at": "2026-09-08T13:03:22.125866+00:00",
-  "peak_equity": 100000.0,
-  "day_start_equity": 100000.0,
-  "week_start_equity": 100000.0,
+  "session_id": "20260908-232310",
+  "started_at": "2026-09-08T23:23:10.936636+00:00",
+  "saved_at": "2026-09-08T23:23:24.472294+00:00",
+  "peak_equity": 99919.51,
+  "day_start_equity": 99919.51,
+  "week_start_equity": 99919.51,
   "day_start_date": "2026-09-08",
   "week_start_date": "2026-09-07",
-  "equity_at_save": 100000.0,
-  "sizing_basis": 100000.0,
-  "daily_trades": 6,
-  "bars_processed": 3,
-  "last_bar_timestamp": "SPY@2026-09-04 00:00:00",
-  "last_regime": "strong_bull",
-  "last_regime_confidence": 0.9999999777973552,
-  "stops": {},
+  "equity_at_save": 99919.26,
+  "sizing_basis": 99919.26,
+  "daily_trades": 7,
+  "bars_processed": 4,
+  "last_bar_timestamp": "SPY@2026-09-08 00:00:00",
+  "last_regime": "neutral",
+  "last_regime_confidence": 0.9992634938326961,
+  "stops": {
+    "QQQ": 706.1454954334711,
+    "SPY": 754.881428488999
+  },
   "equity_history": [
     {
       "t": "2026-09-04",
-      "equity": 100000.0,
-      "peak": 100000.0
+      "equity": 99919.51,
+      "peak": 99919.51
     },
     {
       "t": "2026-09-04",
-      "equity": 100000.0,
-      "peak": 100000.0
+      "equity": 99919.51,
+      "peak": 99919.51
     },
     {
       "t": "2026-09-04",
-      "equity": 100000.0,
-      "peak": 100000.0
+      "equity": 99919.51,
+      "peak": 99919.51
+    },
+    {
+      "t": "2026-09-08",
+      "equity": 99919.26,
+      "peak": 99919.51
     }
   ],
   "regime_history": [
@@ -44,6 +52,10 @@
     {
       "t": "2026-09-04",
       "regime": "strong_bull"
+    },
+    {
+      "t": "2026-09-08",
+      "regime": "neutral"
     }
   ],
   "breaker_daily_tripped": "none",
