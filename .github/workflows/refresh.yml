@@ -27,10 +27,15 @@ name: Refresh dashboard
 
 on:
   schedule:
-    # Every 10 minutes, 13:30-21:00 UTC, Mon-Fri. That is 09:30-17:00 ET in
-    # summer and 08:30-16:00 ET in winter, so the window covers the session in
-    # both halves of the year rather than tracking it exactly.
-    - cron: "*/10 13-21 * * 1-5"
+    # Every 15 minutes, 13:00-21:59 UTC, Mon-Fri. That covers 09:00-18:00 ET in
+    # summer and 08:00-17:00 ET in winter, so the window contains the whole
+    # session in both halves of the year rather than tracking it exactly.
+    #
+    # 15 rather than 10: GitHub's scheduler is best-effort and queues shared
+    # runners, so a 10-minute cron on a free plan commonly delivers 12-20
+    # minutes apart anyway. Asking for less than it can give just produces
+    # skipped runs that look like failures.
+    - cron: "*/15 13-21 * * 1-5"
   workflow_dispatch:
 
 permissions:

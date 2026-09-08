@@ -33,6 +33,8 @@ export default function Page() {
     <main className="container py-6 sm:py-8">
       <Masthead snap={snap} demo={demo} />
 
+      <MarketStatus snap={snap} />
+
       {demo && (
         <Notice tone="warning">
           <strong className="font-semibold text-foreground">Demo data, not a real account.</strong>{" "}
@@ -141,6 +143,43 @@ function LastRun({ snap }: { snap: Snapshot }) {
            title={failedSince ? "A more recent run did not complete" : undefined}>
       Last run {relativeTime(run.finished_at ?? run.started_at)}
     </Badge>
+  );
+}
+
+/** Is the market open, and if not, when does it open.
+ *
+ *  An order resting unfilled looks identical to a broken system unless the
+ *  page says the market has not opened yet. Nothing else on the dashboard
+ *  answers "why has nothing happened", and it is the first question worth
+ *  answering, because most of the time the answer is "it is 4am in New York". */
+function MarketStatus({ snap }: { snap: Snapshot }) {
+  const session = snap.timing?.session_state;
+  if (!session) return null;
+
+  const open = session.state === "open";
+  const tone = open
+    ? "border-positive/30 bg-positive/[0.07]"
+    : session.state === "unknown"
+      ? "border-warning/30 bg-warning/[0.07]"
+      : "border-border bg-muted/20";
+
+  return (
+    <div className={`mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border
+                     px-4 py-2.5 text-sm ${tone}`}>
+      <span className="flex items-center gap-2 font-medium text-foreground">
+        <span aria-hidden
+              className={`h-2 w-2 rounded-full ${
+                open ? "animate-pulse-dot bg-positive"
+                     : session.state === "unknown" ? "bg-warning" : "bg-muted-foreground"}`} />
+        {session.label}
+      </span>
+      <span className="text-muted-foreground">{session.detail}</span>
+      {!open && (
+        <span className="ml-auto text-xs text-muted-foreground">
+          Refreshes pause outside market hours.
+        </span>
+      )}
+    </div>
   );
 }
 

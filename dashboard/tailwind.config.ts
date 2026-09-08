@@ -7,12 +7,24 @@ const config: Config = {
   darkMode: ["class"],
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
-    // No 2xl cap. The 1440px default centred the content inside the space left
-    // of the sidebar, so on a wide screen the sidebar sat flush against the
-    // edge while the panels floated in the middle with gutters on both sides.
-    // A data-dense dashboard should use the width it has; capping it wastes
-    // exactly the space the extra columns were for.
-    container: { center: true, padding: { DEFAULT: "1rem", sm: "1.5rem", xl: "2rem" } },
+    // Every breakpoint is 100%, explicitly.
+    //
+    // Deleting the `screens` override does NOT make the container full width:
+    // Tailwind falls back to the default breakpoint scale, so it stays capped
+    // at 1536px. That is why the first attempt at this looked unchanged. The
+    // cap has to be overridden at every breakpoint, not removed.
+    //
+    // Full width matters here because the sidebar is fixed to the left edge.
+    // A centred, capped container inside the remaining space puts a gutter on
+    // both sides of the panels while the sidebar has none, which reads as the
+    // whole page being misaligned rather than as a max-width.
+    container: {
+      center: true,
+      padding: { DEFAULT: "1rem", sm: "1.5rem", xl: "2rem" },
+      screens: {
+        sm: "100%", md: "100%", lg: "100%", xl: "100%", "2xl": "100%",
+      },
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",

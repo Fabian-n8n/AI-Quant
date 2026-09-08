@@ -1004,7 +1004,10 @@ def test_a_wide_quote_is_discarded_for_the_bar_close(signal, approved):
     fake = FakeTradingClient()
     # 10% spread, mid 6% below the signal's 100.0 close.
     client = FakeAlpacaClient(fake, quote={"bid": 89.0, "ask": 99.0, "tradeable": True})
-    executor = OrderExecutor(client, max_quote_spread=0.01, limit_offset=0.0)
+    # Both offsets zeroed: this test is about WHICH reference is chosen, not
+    # about how far through the touch the limit is placed.
+    executor = OrderExecutor(client, max_quote_spread=0.01,
+                             limit_offset=0.0, stale_limit_offset=0.0)
 
     executor.submit_order(signal, approved)
     assert float(fake.submitted[0].limit_price) == pytest.approx(100.0, abs=0.01), \
@@ -1052,3 +1055,60 @@ def test_a_normal_order_is_unaffected_by_the_stop_check(signal, approved):
     executor = OrderExecutor(FakeAlpacaClient(fake))
     executor.submit_order(signal, approved, reference_price=100.0)
     assert len(fake.submitted) == 1
+
+
+def test_a_stale_reference_gets_a_wider_limit(signal, approved):
+    """0.1% of Friday's close does not survive a weekend gap.
+
+    The decision is made after one session's close and submitted before the
+    next one opens. A limit 0.1% above a stale close sits below the market all
+    day and expires unfilled, which looks exactly like a broken system while
+    being a correctly placed order that simply never traded.
+    """
+    fake = FakeTradingClient()
+    # No usable quote, so the executor falls back to the signal's bar close.
+    client = FakeAlpacaClient(fake, quote={"bid": 0.0, "ask": 0.0, "tradeable": True})
+    executor = OrderExecutor(client, limit_offset=0.001, stale_limit_offset=0.005)
+
+    executor.submit_order(signal, approved)
+    limit = float(fake.submitted[0].limit_price)
+    assert limit == pytest.approx(100.0 * 1.005, abs=0.01), \
+        f"stale reference priced at the live-quote offset: {limit}"
+
+
+def test_a_live_quote_keeps_the_tight_offset(signal, approved):
+    """The wider band is for stale references only. Paying 0.5% through the
+    touch on a current price is giving away money for nothing."""
+    fake = FakeTradingClient()
+    client = FakeAlpacaClient(fake, quote={"bid": 99.99, "ask": 100.01, "tradeable": True})
+    executor = OrderExecutor(client, limit_offset=0.001, stale_limit_offset=0.005)
+
+    executor.submit_order(signal, approved)
+    assert float(fake.submitted[0].limit_price) == pytest.approx(100.10, abs=0.01)
+
+
+def test_an_explicit_reference_price_is_never_treated_as_stale(signal, approved):
+    """A caller passing a price has already decided what it means."""
+    fake = FakeTradingClient()
+    executor = OrderExecutor(FakeAlpacaClient(fake), limit_offset=0.001,
+                             stale_limit_offset=0.005)
+    executor.submit_order(signal, approved, reference_price=100.0)
+    assert float(fake.submitted[0].limit_price) == pytest.approx(100.10, abs=0.01)
+
+
+def test_the_price_checked_is_the_price_submitted(signal, approved):
+    """_build_request used to recompute the limit itself.
+
+    Once the offset depended on whether the reference was stale, the two
+    computations diverged: every guard checked a limit 0.5% through the touch
+    while the order that reached the broker was priced 0.1% through it. The
+    recorded price and the submitted price were different numbers, which makes
+    every guard above them decorative.
+    """
+    fake = FakeTradingClient()
+    client = FakeAlpacaClient(fake, quote={"bid": 0.0, "ask": 0.0, "tradeable": True})
+    executor = OrderExecutor(client, limit_offset=0.001, stale_limit_offset=0.005)
+
+    trade = executor.submit_order(signal, approved)
+    assert float(fake.submitted[0].limit_price) == trade.submitted_price, \
+        "the broker got a different price from the one that was checked"

@@ -299,6 +299,7 @@ class TradingEngine:
         self.bars_processed = 0
         self.market_open: bool | None = None
         self.next_open: datetime | None = None
+        self.next_close: datetime | None = None
         self.data_feed_healthy = True
         self.api_latency_ms: float | None = None
         self.target_allocation: float | None = None
@@ -510,11 +511,13 @@ class TradingEngine:
         except BrokerUnavailable:
             self.market_open = None
             self.next_open = None
+            self.next_close = None
             logger.warning("Market clock unavailable. Assuming closed and polling.")
             return
 
         self.market_open = clock["is_open"]
         self.next_open = clock.get("next_open")
+        self.next_close = clock.get("next_close")
         if self.market_open:
             logger.info("Market is OPEN, next close %s", clock.get("next_close"))
         else:
@@ -1215,6 +1218,7 @@ class TradingEngine:
             return False
         self.market_open = clock["is_open"]
         self.next_open = clock.get("next_open")
+        self.next_close = clock.get("next_close")
         return self.market_open
 
     def _seconds_to_next_bar(self) -> float:
@@ -1610,7 +1614,7 @@ class TradingEngine:
             price, ema50 = self._price_context(self.bars[primary])
             outcome.target_allocation = self.orchestrator.target_allocation(
                 regime_state, price, ema50)
-            outcome.current_allocation = self.portfolio.allocation
+            outcome.current_allocation = self.portfolio.gross_exposure
             self.target_allocation = outcome.target_allocation
             self._update_log_context(regime_state)
         except Exception as exc:

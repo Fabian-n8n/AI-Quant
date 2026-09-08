@@ -63,9 +63,18 @@ export interface Freshness {
   sip_delay_minutes: number; publish_cadence: string; poll_seconds: number; realtime: boolean;
 }
 
+export interface SessionState {
+  state: "open" | "closed" | "unknown";
+  label: string;
+  detail: string;
+  hours_until_change: number | null;
+}
+
 export interface Timing {
-  market_open: boolean | null; next_open: string | null; timeframe: string | null;
-  acts_on: string; order_type: string; limit_offset_pct: number; session_close_et: string;
+  market_open: boolean | null; next_open: string | null; next_close: string | null;
+  timeframe: string | null; acts_on: string; order_type: string;
+  limit_offset_pct: number; session_close_et: string;
+  session_state: SessionState;
 }
 
 /* Activity: what the system actually did, read from state.db.

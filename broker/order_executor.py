@@ -82,7 +82,10 @@ from core.risk_manager import RiskDecision
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LIMIT_OFFSET = 0.001      # 0.1% through the touch
+DEFAULT_LIMIT_OFFSET = 0.001      # 0.1% through the touch, against a live quote
+DEFAULT_STALE_OFFSET = 0.005      # 0.5% when pricing off a bar close. A weekend
+                                  # gap eats 0.1% and leaves the order resting
+                                  # below the market until it expires.
 DEFAULT_FILL_TIMEOUT = 30.0       # seconds before an unfilled limit is cancelled
 DEFAULT_MAX_DEVIATION = 0.05      # reject a limit more than 5% off the market
 DEFAULT_ORDER_PREFIX = "rt-"      # every real order. Tests override it, so the
@@ -159,6 +162,7 @@ class OrderExecutor:
         self,
         client: AlpacaClient,
         limit_offset: float = DEFAULT_LIMIT_OFFSET,
+        stale_limit_offset: float = DEFAULT_STALE_OFFSET,
         fill_timeout: float = DEFAULT_FILL_TIMEOUT,
         max_price_deviation: float = DEFAULT_MAX_DEVIATION,
         order_id_prefix: str = DEFAULT_ORDER_PREFIX,
@@ -168,6 +172,7 @@ class OrderExecutor:
     ) -> None:
         self.client = client
         self.limit_offset = limit_offset
+        self.stale_limit_offset = stale_limit_offset
         self.fill_timeout = fill_timeout
         self.max_price_deviation = max_price_deviation
         self.order_id_prefix = order_id_prefix
@@ -221,8 +226,11 @@ class OrderExecutor:
         side = OrderSide.BUY if signal.direction is Direction.LONG else OrderSide.SELL
         trade = self._new_trade_record(signal, decision, side, quantity)
 
-        price = reference_price if reference_price is not None else self._reference_price(signal)
-        limit = round(self._limit_price(price, side), 2)
+        if reference_price is not None:
+            price, stale = reference_price, False
+        else:
+            price, stale = self._reference_price(signal)
+        limit = round(self._limit_price(price, side, stale), 2)
         # Stop check first. It is the more fundamental invariant: a limit that
         # is merely far from the market rests unfilled, but a long below its
         # own stop fills and loses immediately.
@@ -244,7 +252,7 @@ class OrderExecutor:
         trade.client_order_id = client_order_id
         trade.submitted_price = limit if order_type is OrderType.LIMIT else None
         request = self._build_request(
-            signal.symbol, quantity, side, order_type, price,
+            signal.symbol, quantity, side, order_type, limit,
             client_order_id=client_order_id,
         )
 
@@ -320,9 +328,13 @@ class OrderExecutor:
         side = OrderSide.BUY if signal.direction is Direction.LONG else OrderSide.SELL
         trade = self._new_trade_record(signal, decision, side, quantity)
         trade.client_order_id = self._client_order_id(trade, signal)
-        price = reference_price if reference_price is not None else self._reference_price(signal)
-        limit = round(self._limit_price(price, side), 2)
+        if reference_price is not None:
+            price, stale = reference_price, False
+        else:
+            price, stale = self._reference_price(signal)
+        limit = round(self._limit_price(price, side, stale), 2)
         trade.submitted_price = limit
+        self._assert_stop_survives(signal, limit, side)
         self._assert_price_sane(signal.symbol, limit, side)
 
         existing = self._equivalent_open_order(signal.symbol, side, limit)
@@ -681,10 +693,26 @@ class OrderExecutor:
             take_profit=signal.take_profit,
         )
 
-    def _limit_price(self, price: float, side: OrderSide) -> float:
-        """Price 0.1% through the touch, so a resting limit can actually fill."""
-        offset = 1 + self.limit_offset if side is OrderSide.BUY else 1 - self.limit_offset
-        return price * offset
+    def _limit_price(self, price: float, side: OrderSide, stale: bool = False) -> float:
+        """Price through the touch, so a resting limit can actually fill.
+
+        0.1% against a live quote is plenty: the price is current and the order
+        only has to cross a spread.
+
+        Against a stale reference it is not nearly enough. A decision made
+        after Friday's close is submitted before Tuesday's open, and 0.1% of
+        Friday's close does not survive a weekend gap: the order sits below the
+        market all day and expires unfilled, which looks exactly like a broken
+        system while being a correctly placed order that simply never traded.
+
+        `stale_limit_offset` is the wider band used when the reference is a bar
+        close rather than a live quote. It buys fills at the cost of a slightly
+        worse average price, which on a swing system held for weeks is the
+        right side of that trade.
+        """
+        offset = self.stale_limit_offset if stale else self.limit_offset
+        multiplier = 1 + offset if side is OrderSide.BUY else 1 - offset
+        return price * multiplier
 
     def _assert_stop_survives(self, signal: Signal, limit: float, side: OrderSide) -> None:
         """The stop must still be a stop at the price we are actually paying.
@@ -842,8 +870,19 @@ class OrderExecutor:
         return trade
 
     def _build_request(self, symbol: str, quantity: float, side: OrderSide,
-                       order_type: OrderType, price: float,
+                       order_type: OrderType, limit: float,
                        client_order_id: str | None = None):
+        """Build the broker request from an ALREADY COMPUTED limit price.
+
+        Takes the final limit rather than the reference price, because it used
+        to recompute `_limit_price` itself and the two calls could disagree.
+        Once the offset depended on whether the reference was stale, they did:
+        every guard checked a limit 0.5% through the touch while the order that
+        actually went to the broker was priced 0.1% through it. The recorded
+        price and the submitted price were different numbers.
+
+        One computation, one number, checked and sent.
+        """
         from alpaca.trading.enums import OrderSide as AlpacaSide
         from alpaca.trading.enums import TimeInForce
         from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest
@@ -856,11 +895,11 @@ class OrderExecutor:
             )
         return LimitOrderRequest(
             symbol=symbol, qty=quantity, side=alpaca_side, time_in_force=TimeInForce.DAY,
-            limit_price=round(self._limit_price(price, side), 2),
+            limit_price=limit,
             client_order_id=client_order_id,
         )
 
-    def _reference_price(self, signal: Signal) -> float:
+    def _reference_price(self, signal: Signal) -> tuple[float, bool]:
         """Price to build the limit around.
 
         A zero quote is not the only unusable one. Outside market hours the IEX
@@ -882,23 +921,23 @@ class OrderExecutor:
                 mid = (bid + ask) / 2
                 spread = (ask - bid) / mid
                 if spread <= self.max_quote_spread:
-                    return mid
+                    return mid, False
                 logger.info(
                     "%s: quote spread %.2f%% exceeds %.2f%%, pricing off the bar "
                     "close %.2f instead of the mid %.2f.",
                     signal.symbol, spread * 100, self.max_quote_spread * 100,
                     signal.entry_price, mid,
                 )
-                return signal.entry_price
+                return signal.entry_price, True
 
             # One side only. Usable for a rough level, but not trustworthy
             # enough to price against when a real close is available.
             if (ask or bid) > 0 and not signal.entry_price:
-                return ask or bid
+                return (ask or bid), False
         except Exception as exc:
             logger.debug("%s: quote unavailable (%s), using signal entry price",
                          signal.symbol, exc)
-        return signal.entry_price
+        return signal.entry_price, True
 
     def get_trade(self, trade_id: str) -> TradeRecord | None:
         return self.trades.get(trade_id)

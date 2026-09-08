@@ -132,6 +132,46 @@ def freshness(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _session_state(market_open, next_open, next_close) -> dict[str, Any]:
+    """Market status in words, with how long until it changes.
+
+    An order resting unfilled at 08:51 looks identical to a broken system
+    unless the page says the market opens at 09:30. This is the difference
+    between "nothing is happening" and "nothing is happening yet".
+    """
+    def hours_until(when) -> float | None:
+        if not when:
+            return None
+        try:
+            stamp = datetime.fromisoformat(str(when).replace("Z", "+00:00"))
+            if stamp.tzinfo is None:
+                stamp = stamp.replace(tzinfo=UTC)
+            return round((stamp - datetime.now(UTC)).total_seconds() / 3600, 2)
+        except ValueError:
+            return None
+
+    if market_open:
+        return {"state": "open", "label": "Market open",
+                "detail": "Resting orders can fill now.",
+                "hours_until_change": hours_until(next_close)}
+    if market_open is None:
+        return {"state": "unknown", "label": "Market status unknown",
+                "detail": "The broker clock could not be read.",
+                "hours_until_change": None}
+
+    hours = hours_until(next_open)
+    if hours is None:
+        detail = "Orders rest until the next session opens."
+    elif hours < 1:
+        detail = f"Opens in {int(hours * 60)} minutes. Orders rest until then."
+    elif hours < 24:
+        detail = f"Opens in {hours:.1f} hours. Orders rest until then."
+    else:
+        detail = f"Opens in {hours / 24:.1f} days. Orders rest until then."
+    return {"state": "closed", "label": "Market closed", "detail": detail,
+            "hours_until_change": hours}
+
+
 def timing(snapshot: dict[str, Any], engine=None) -> dict[str, Any]:
     """When a signal would actually be acted on.
 
@@ -141,9 +181,17 @@ def timing(snapshot: dict[str, Any], engine=None) -> dict[str, Any]:
     until the next session opens.
     """
     system = snapshot.get("system", {}) or {}
+    next_open = getattr(engine, "next_open", None) if engine else None
+    next_close = getattr(engine, "next_close", None) if engine else None
     return {
         "market_open": system.get("market_open"),
-        "next_open": getattr(engine, "next_open", None) if engine else None,
+        "next_open": next_open,
+        "next_close": next_close,
+        # Spelled out rather than left for the UI to infer from a boolean.
+        # "Closed" and "closed, opens in 39 minutes" are different messages,
+        # and the second is the one that stops you wondering whether the
+        # system is broken while it is simply waiting.
+        "session_state": _session_state(system.get("market_open"), next_open, next_close),
         "timeframe": system.get("timeframe"),
         "acts_on": "the next session open",
         "order_type": "limit",
@@ -459,6 +507,10 @@ def demo_snapshot(seed: int = 7) -> dict[str, Any]:
         "timing": {
             "market_open": True,
             "next_open": (now + timedelta(hours=17)).isoformat(),
+            "next_close": (now + timedelta(hours=4)).isoformat(),
+            "session_state": {"state": "open", "label": "Market open",
+                              "detail": "Resting orders can fill now.",
+                              "hours_until_change": 4.0},
             "timeframe": "1Day", "acts_on": "the next session open",
             "order_type": "limit", "limit_offset_pct": 0.001,
             "session_close_et": "16:00",
