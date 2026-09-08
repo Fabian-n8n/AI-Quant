@@ -1,0 +1,13 @@
+# Generated runtime state, written by the scheduled jobs and committed back.
+#
+# Marked binary so git does not attempt a line-by-line merge. Two jobs writing
+# these concurrently produced conflict markers inside a JSON file and inside a
+# SQLite database, neither of which is meaningfully mergeable: a half-merged
+# state.json is a broken dashboard and a half-merged state.db is a corrupt one.
+#
+# On a conflict, take one side whole. The scheduled run is the system of
+# record, so that is normally the remote.
+data/state.db                     binary
+dashboard/public/data/state.json  binary -diff
+state_snapshot.json               binary -diff
+data/cache/bars/*.parquet         binary
