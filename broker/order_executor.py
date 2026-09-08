@@ -88,6 +88,10 @@ DEFAULT_MAX_DEVIATION = 0.05      # reject a limit more than 5% off the market
 DEFAULT_ORDER_PREFIX = "rt-"      # every real order. Tests override it, so the
                                   # broker's order book distinguishes the two.
 DEFAULT_PRICE_TOLERANCE = 0.005   # "roughly the same price" for dedupe: 0.5%
+DEFAULT_MAX_QUOTE_SPREAD = 0.01   # discard a quote wider than this and use the
+                                  # bar close. Closed-market quotes routinely
+                                  # show 10% spreads with a mid 6% off the last
+                                  # real trade.
 
 
 @dataclass
@@ -110,6 +114,7 @@ class TradeRecord:
     take_profit: float | None
     order_id: str | None = None
     client_order_id: str | None = None   # the idempotency key, as sent
+    submitted_price: float | None = None # the limit we asked for, vs fill_price
     stop_order_id: str | None = None
     submitted_at: datetime | None = None
     filled_at: datetime | None = None
@@ -159,6 +164,7 @@ class OrderExecutor:
         order_id_prefix: str = DEFAULT_ORDER_PREFIX,
         deterministic_ids: bool = True,
         price_tolerance: float = DEFAULT_PRICE_TOLERANCE,
+        max_quote_spread: float = DEFAULT_MAX_QUOTE_SPREAD,
     ) -> None:
         self.client = client
         self.limit_offset = limit_offset
@@ -167,6 +173,7 @@ class OrderExecutor:
         self.order_id_prefix = order_id_prefix
         self.deterministic_ids = deterministic_ids
         self.price_tolerance = price_tolerance
+        self.max_quote_spread = max_quote_spread
         self.trades: dict[str, TradeRecord] = {}
         self.skipped: list[str] = []
 
@@ -216,6 +223,10 @@ class OrderExecutor:
 
         price = reference_price if reference_price is not None else self._reference_price(signal)
         limit = round(self._limit_price(price, side), 2)
+        # Stop check first. It is the more fundamental invariant: a limit that
+        # is merely far from the market rests unfilled, but a long below its
+        # own stop fills and loses immediately.
+        self._assert_stop_survives(signal, limit, side)
         if order_type is OrderType.LIMIT and not allow_price_deviation:
             self._assert_price_sane(signal.symbol, limit, side)
 
@@ -231,6 +242,7 @@ class OrderExecutor:
 
         client_order_id = self._client_order_id(trade, signal)
         trade.client_order_id = client_order_id
+        trade.submitted_price = limit if order_type is OrderType.LIMIT else None
         request = self._build_request(
             signal.symbol, quantity, side, order_type, price,
             client_order_id=client_order_id,
@@ -310,6 +322,7 @@ class OrderExecutor:
         trade.client_order_id = self._client_order_id(trade, signal)
         price = reference_price if reference_price is not None else self._reference_price(signal)
         limit = round(self._limit_price(price, side), 2)
+        trade.submitted_price = limit
         self._assert_price_sane(signal.symbol, limit, side)
 
         existing = self._equivalent_open_order(signal.symbol, side, limit)
@@ -673,6 +686,31 @@ class OrderExecutor:
         offset = 1 + self.limit_offset if side is OrderSide.BUY else 1 - self.limit_offset
         return price * offset
 
+    def _assert_stop_survives(self, signal: Signal, limit: float, side: OrderSide) -> None:
+        """The stop must still be a stop at the price we are actually paying.
+
+        `Signal.__post_init__` checks the stop is below the entry, but that is
+        the *bar close*. The order prices off a live quote, and if price has
+        moved down in between, a stop that was valid against the close can sit
+        above the limit. A long entered above its own stop is a guaranteed
+        loss: it fills and stops out immediately.
+
+        This happened. AMD was signalled off a 477.57 close with a stop at
+        466.32, then priced from a stale closed-market quote at 447.83. The
+        limit was 4% below its own stop and nothing objected, because every
+        existing check compared the limit to the quote it came from.
+        """
+        if signal.stop_loss is None or side is not OrderSide.BUY:
+            return
+        if signal.stop_loss < limit:
+            return
+        raise OrderExecutionError(
+            f"{signal.symbol}: stop {signal.stop_loss:.2f} is at or above the "
+            f"limit price {limit:.2f}. The stop was computed from the bar close "
+            f"{signal.entry_price:.2f}, and price has moved far enough since "
+            f"that this order would fill straight into its own stop. Refusing."
+        )
+
     def _assert_price_sane(self, symbol: str, limit: float, side: OrderSide) -> None:
         """Refuse a limit price too far from the market to ever fill.
 
@@ -698,6 +736,15 @@ class OrderExecutor:
         market = (bid + ask) / 2 if bid > 0 and ask > 0 else (ask or bid)
         if not market or market <= 0:
             logger.debug("%s: quote has no usable price, skipping the guard", symbol)
+            return
+
+        # A quote too wide to price against is too wide to validate against.
+        # Without this, deliberately pricing off the bar close because the
+        # quote was unusable gets rejected for deviating from that same
+        # unusable quote, and nothing can be submitted at all.
+        if bid > 0 and ask > 0 and (ask - bid) / market > self.max_quote_spread:
+            logger.debug("%s: quote spread %.2f%% is too wide to validate against, "
+                         "skipping the guard", symbol, (ask - bid) / market * 100)
             return
 
         deviation = (limit - market) / market
@@ -816,21 +863,41 @@ class OrderExecutor:
     def _reference_price(self, signal: Signal) -> float:
         """Price to build the limit around.
 
-        Falls back to the signal's entry price when the quote is unusable.
-        Outside market hours Alpaca's IEX feed returns a zero ask, and pricing a
-        limit off zero would submit a nonsense order at a fraction of a cent.
+        A zero quote is not the only unusable one. Outside market hours the IEX
+        feed also returns quotes with enormous spreads: measured on a closed
+        market, ten of fourteen symbols showed a 10% spread, and AMD's mid sat
+        6.2% below its actual last close. Pricing a limit off that submits an
+        order 6% below the market that either never fills or fills at a price
+        the stop was not computed against.
+
+        So a quote wider than `max_quote_spread` is discarded in favour of the
+        bar close, which is stale but correct. Stale-and-correct beats
+        fresh-and-wrong: the bar close is a price that actually traded.
         """
         try:
             quote = self.client.get_latest_quote(signal.symbol)
-            bid, ask = quote.get("bid", 0.0), quote.get("ask", 0.0)
+            bid, ask = quote.get("bid", 0.0) or 0.0, quote.get("ask", 0.0) or 0.0
+
             if bid > 0 and ask > 0:
-                return (bid + ask) / 2
-            if ask > 0:
-                return ask
-            if bid > 0:
-                return bid
+                mid = (bid + ask) / 2
+                spread = (ask - bid) / mid
+                if spread <= self.max_quote_spread:
+                    return mid
+                logger.info(
+                    "%s: quote spread %.2f%% exceeds %.2f%%, pricing off the bar "
+                    "close %.2f instead of the mid %.2f.",
+                    signal.symbol, spread * 100, self.max_quote_spread * 100,
+                    signal.entry_price, mid,
+                )
+                return signal.entry_price
+
+            # One side only. Usable for a rough level, but not trustworthy
+            # enough to price against when a real close is available.
+            if (ask or bid) > 0 and not signal.entry_price:
+                return ask or bid
         except Exception as exc:
-            logger.debug("%s: quote unavailable (%s), using signal entry price", signal.symbol, exc)
+            logger.debug("%s: quote unavailable (%s), using signal entry price",
+                         signal.symbol, exc)
         return signal.entry_price
 
     def get_trade(self, trade_id: str) -> TradeRecord | None:

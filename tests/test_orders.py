@@ -990,3 +990,65 @@ def test_live_adjusted_and_raw_prices_differ():
     adjusted = data.get_historical("NVDA", lookback_days=1200, adjusted=True)
     raw = data.get_historical("NVDA", lookback_days=1200, adjusted=False)
     assert raw["close"].max() > adjusted["close"].max() * 2
+
+
+# -- stale and wide quotes --------------------------------------------------
+#
+# All three of these come from one live incident. With the market closed, ten
+# of fourteen symbols quoted a 10% spread. AMD's mid sat 6.2% below its last
+# real close, the limit was priced off that mid, and the resulting order was
+# 4% BELOW its own stop: it would have filled and stopped out instantly.
+
+def test_a_wide_quote_is_discarded_for_the_bar_close(signal, approved):
+    """Stale-and-correct beats fresh-and-wrong. The close actually traded."""
+    fake = FakeTradingClient()
+    # 10% spread, mid 6% below the signal's 100.0 close.
+    client = FakeAlpacaClient(fake, quote={"bid": 89.0, "ask": 99.0, "tradeable": True})
+    executor = OrderExecutor(client, max_quote_spread=0.01, limit_offset=0.0)
+
+    executor.submit_order(signal, approved)
+    assert float(fake.submitted[0].limit_price) == pytest.approx(100.0, abs=0.01), \
+        "priced off a 10% spread instead of the bar close"
+
+
+def test_a_tight_quote_is_still_preferred(signal, approved):
+    """The fix must not throw away good quotes. A live mid is better than a
+    close that is hours old."""
+    fake = FakeTradingClient()
+    client = FakeAlpacaClient(fake, quote={"bid": 104.95, "ask": 105.05, "tradeable": True})
+    executor = OrderExecutor(client, max_quote_spread=0.01, limit_offset=0.0)
+
+    executor.submit_order(signal, approved)
+    assert float(fake.submitted[0].limit_price) == pytest.approx(105.0, abs=0.01)
+
+
+def test_an_order_below_its_own_stop_is_refused(signal, approved):
+    """The AMD case. Signal.__post_init__ checks the stop against the BAR
+    CLOSE; the order prices off a quote, and in between the two the stop can
+    end up above the limit. A long entered above its own stop is a guaranteed
+    loss, not a risk."""
+    fake = FakeTradingClient()
+    # signal has entry 100.0, stop 95.0. Price 6% lower puts the limit under it.
+    client = FakeAlpacaClient(fake, quote={"bid": 93.99, "ask": 94.01, "tradeable": True})
+    executor = OrderExecutor(client, max_quote_spread=0.01)
+
+    with pytest.raises(OrderExecutionError, match="at or above the limit"):
+        executor.submit_order(signal, approved, reference_price=94.0)
+    assert fake.submitted == [], "the order went out anyway"
+
+
+def test_the_refusal_explains_which_two_prices_disagree(signal, approved):
+    executor = OrderExecutor(FakeAlpacaClient())
+    with pytest.raises(OrderExecutionError) as exc:
+        executor.submit_order(signal, approved, reference_price=94.0)
+
+    message = str(exc.value)
+    assert "95.00" in message, message      # the stop
+    assert "100.00" in message, message     # the bar close it came from
+
+
+def test_a_normal_order_is_unaffected_by_the_stop_check(signal, approved):
+    fake = FakeTradingClient()
+    executor = OrderExecutor(FakeAlpacaClient(fake))
+    executor.submit_order(signal, approved, reference_price=100.0)
+    assert len(fake.submitted) == 1
