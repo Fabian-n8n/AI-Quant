@@ -461,3 +461,69 @@ def test_sizing_is_affordable_for_the_configured_account(payload):
         if candidate["approved"]:
             assert candidate["notional"] <= equity, \
                 f"{candidate['symbol']} costs more than the whole account"
+
+
+# ===========================================================================
+# A blank snapshot must not overwrite a good one
+# ===========================================================================
+
+def test_a_skipped_bar_does_not_blank_the_dashboard(tmp_path):
+    """The bug that emptied every panel.
+
+    A scheduled run hit "bar already processed", returned an empty outcome,
+    published it, and replaced a good snapshot with regime `unknown` and no
+    candidates. The run succeeded and the dashboard went blank.
+    """
+    from monitoring.publish import _write, demo_payload, is_blank, publish
+
+    path = tmp_path / "state.json"
+    good = demo_payload()
+    _write(good, path)
+    assert not is_blank(good)
+
+    blank_snapshot = {
+        "regime": {"regime": "unknown", "confidence": 0.0, "timestamp": None},
+        "portfolio": {}, "positions": [], "signals": [], "candidates": [],
+        "risk": {}, "system": {}, "timestamp": None,
+    }
+    publish(blank_snapshot, path, source="live")
+
+    after = json.loads(path.read_text())
+    assert after["regime"]["regime"] == good["regime"]["regime"], \
+        "an empty cycle overwrote a good snapshot"
+    assert after["candidates"], "candidates were lost"
+
+
+def test_activity_still_moves_forward_on_a_skipped_bar(tmp_path):
+    """Run history is real even on a cycle that computed no regime, so it is
+    merged forward rather than being frozen with the rest."""
+    from monitoring.publish import _write, demo_payload, publish
+
+    path = tmp_path / "state.json"
+    _write(demo_payload(), path)
+
+    blank = {"regime": {"regime": "unknown"}, "portfolio": {}, "positions": [],
+             "signals": [], "candidates": [], "risk": {}, "system": {}}
+    fresh_runs = {"orders": [], "open_positions": [], "closed_positions": [],
+                  "runs": [{"id": 99, "status": "ok"}],
+                  "expectancy": {"trades": 0, "expectancy": 0.0, "win_rate": 0.0,
+                                 "avg_win": 0.0, "avg_loss": 0.0}}
+    publish(blank, path, source="live", activity=fresh_runs)
+
+    after = json.loads(path.read_text())
+    assert after["activity"]["runs"][0]["id"] == 99, "run history did not move forward"
+    assert after["regime"]["regime"] != "unknown", "regime was blanked anyway"
+
+
+def test_a_good_snapshot_replaces_a_blank_one(tmp_path):
+    """The guard is one-directional. Real data must always win."""
+    from monitoring.publish import _write, demo_payload, publish
+
+    path = tmp_path / "state.json"
+    _write({"regime": {"regime": "unknown"}, "candidates": [], "positions": [],
+            "activity": {}}, path)
+
+    good = demo_payload()
+    publish(good, path, source="demo",
+            equity_history=[], regime_history=[])
+    assert json.loads(path.read_text())["regime"]["regime"] != "unknown"

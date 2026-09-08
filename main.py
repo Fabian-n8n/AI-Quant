@@ -1560,6 +1560,64 @@ class TradingEngine:
             self.calendar = MarketCalendar(self.client)
         return self.calendar
 
+    def refresh(self) -> BarOutcome:
+        """Recompute the view without trading. What the 10-minute job runs.
+
+        Everything `process_bar` does up to and including the watchlist scan,
+        and nothing after it. No signals are acted on, no orders are placed, no
+        stops move, no breaker is evaluated, and the bar-dedupe key is not
+        touched, so the daily decision still sees the bar as untraded.
+
+        This exists because the dashboard was going blank. A scheduled run that
+        hit "bar already processed" returned an empty outcome, published it, and
+        overwrote a good snapshot with `regime: unknown` and no candidates. The
+        answer is not to publish less often, it is to have something real to
+        publish: prices move all day even though the decision does not.
+        """
+        outcome = BarOutcome()
+        try:
+            self.refresh_portfolio()
+            self.bars = self._fetch_bars()
+
+            primary = self.symbols[0]
+            if primary not in self.bars or self.bars[primary].empty:
+                outcome.skipped = "no bars"
+                return outcome
+            outcome.timestamp = self.bars[primary].index[-1]
+
+            from data.feature_engineering import build_feature_matrix
+
+            self.features = build_feature_matrix(self.bars[primary])
+            if self.features.empty:
+                outcome.skipped = "not enough history for features"
+                return outcome
+
+            regime_state = self._classify(outcome)
+            if regime_state is None:
+                outcome.skipped = "no regime"
+                return outcome
+
+            outcome.regime = regime_state.label.value
+            outcome.confidence = regime_state.probability
+            outcome.confirmed = regime_state.is_confirmed
+            outcome.uncertain = self.orchestrator.is_uncertain(regime_state)
+            self.previous_regime = outcome.regime
+
+            self.candidates = self.scan_candidates(regime_state)
+            outcome.candidates = len(self.candidates)
+            outcome.top_pick = self.candidates[0].symbol if self.candidates else ""
+
+            price, ema50 = self._price_context(self.bars[primary])
+            outcome.target_allocation = self.orchestrator.target_allocation(
+                regime_state, price, ema50)
+            outcome.current_allocation = self.portfolio.allocation
+            self.target_allocation = outcome.target_allocation
+            self._update_log_context(regime_state)
+        except Exception as exc:
+            outcome.errors.append(str(exc))
+            logger.warning("refresh failed: %s", exc)
+        return outcome
+
     def _bar_has_closed(self, timestamp) -> bool:
         """Is this bar final, or is its session still running?
 
@@ -1765,6 +1823,7 @@ class TradingEngine:
                 signal.symbol, filled,
                 trail_percent=self._trail_percent(signal),
                 stop_price=signal.stop_loss,
+                take_profit=signal.take_profit,
                 trade_id=trade.trade_id,
             )
         except Exception as exc:
@@ -2336,6 +2395,16 @@ def run_trading(args) -> int:
             traceback.print_exc()
         return 2
 
+    if args.refresh:
+        outcome = engine.refresh()
+        path = engine.publish_snapshot()
+        engine.shutdown("refresh")
+        _print_bar_outcome(outcome)
+        if path is None:
+            logging.getLogger(__name__).error("refresh could not publish")
+            return 3
+        return 0
+
     if args.once:
         outcome = engine.process_bar()
         if args.publish:
@@ -2668,6 +2737,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="show the dashboard for a running instance")
     parser.add_argument("--status", action="store_true",
                         help="build status only, touches nothing")
+    parser.add_argument("--refresh", action="store_true",
+                        help="recompute regime and watchlist, publish, place no "
+                             "orders. The 10-minute job.")
     parser.add_argument("--once", action="store_true",
                         help="process a single bar and exit, for cron")
     parser.add_argument("--publish", action="store_true",

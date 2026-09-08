@@ -157,6 +157,20 @@ strategy:
   min_stop_pct: 0.005              # and >= this fraction of price, for when ATR
                                    # collapses in a very quiet stretch
 
+  # Take profit, as a multiple of the risk being taken. 2.0 means the target is
+  # twice as far from entry as the stop, so the trade only needs to work one
+  # time in three to break even.
+  #
+  # Expressed as a ratio rather than a percentage on purpose: the stop is
+  # already ATR-scaled, so the target inherits that and means the same thing on
+  # SPY as on COIN. A flat "+8%" would be a third of an ATR on one and four on
+  # the other.
+  #
+  # Set to null to run without a target and let the trailing stop decide every
+  # exit. That is the more trend-following choice and it is a real option: a
+  # fixed target caps the winners that pay for the losers.
+  reward_risk_ratio: 2.0
+
 # ---------------------------------------------------------------------------
 # risk - independent veto layer, overrides everything above
 # ---------------------------------------------------------------------------

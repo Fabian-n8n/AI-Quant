@@ -418,17 +418,69 @@ class OrderExecutor:
                     symbol, quantity, trail_percent)
         return order
 
+    def place_oco_exit(self, symbol: str, quantity: float, take_profit: float,
+                       stop_price: float, trade_id: str | None = None) -> Order:
+        """Take profit and stop loss as one linked pair. Either fills, the other
+        cancels.
+
+        This is what gives a position both an upside exit and a downside one
+        without the two fighting over the same shares. Two independent sell
+        orders for the full quantity would be rejected, or worse, both fill and
+        leave a short.
+
+        A trailing stop cannot be an OCO leg, which is Alpaca's constraint and
+        the reason `exit_style` is a choice rather than a combination. The
+        trailing behaviour is recovered by `modify_stop`, which ratchets the
+        stop leg up as price rises and refuses to widen it.
+        """
+        from alpaca.trading.enums import OrderClass, TimeInForce
+        from alpaca.trading.enums import OrderSide as AlpacaSide
+        from alpaca.trading.requests import (
+            LimitOrderRequest,
+            StopLossRequest,
+            TakeProfitRequest,
+        )
+
+        request = LimitOrderRequest(
+            symbol=symbol, qty=quantity, side=AlpacaSide.SELL,
+            time_in_force=TimeInForce.GTC,      # an exit that expires is not one
+            order_class=OrderClass.OCO,
+            limit_price=round(take_profit, 2),
+            take_profit=TakeProfitRequest(limit_price=round(take_profit, 2)),
+            stop_loss=StopLossRequest(stop_price=round(stop_price, 2)),
+        )
+        raw = self.client.trading_client.submit_order(request)
+        order = self.client.to_order(raw)
+        if trade_id and trade_id in self.trades:
+            self.trades[trade_id].stop_order_id = order.order_id
+        logger.info("Placed OCO exit for %s x%g: target %.2f, stop %.2f",
+                    symbol, quantity, take_profit, stop_price)
+        return order
+
     def protect_position(self, symbol: str, quantity: float, *,
                          trail_percent: float | None = None,
                          stop_price: float | None = None,
+                         take_profit: float | None = None,
                          trade_id: str | None = None) -> Order:
         """Attach protection to a filled position, whatever it takes.
 
-        Tries the trailing stop, falls back to a plain stop, and raises only if
-        both fail. The fallback is the point: a filled position must never sit
-        without a stop, and "the trailing stop request errored" is not a reason
-        to leave one naked while somebody investigates.
+        Three routes, in descending order of preference, each falling back to
+        the next. The fallback chain is the point: a filled position must never
+        sit without a stop, and "the preferred order type was rejected" is not
+        a reason to leave one naked while somebody investigates.
+
+        1. OCO, when there is a take-profit. Both exits rest at the broker and
+           either one cancels the other.
+        2. Trailing stop, when there is no target. Rides a trend up.
+        3. A plain stop. Always available, always the floor.
         """
+        if take_profit is not None and stop_price is not None:
+            try:
+                return self.place_oco_exit(symbol, quantity, take_profit,
+                                           stop_price, trade_id=trade_id)
+            except Exception as exc:
+                logger.error("%s: OCO exit failed (%s). Falling back.", symbol, exc)
+
         if trail_percent is not None:
             try:
                 return self.place_trailing_stop(symbol, quantity, trail_percent,

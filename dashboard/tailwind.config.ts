@@ -7,7 +7,12 @@ const config: Config = {
   darkMode: ["class"],
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
-    container: { center: true, padding: "1.5rem", screens: { "2xl": "1440px" } },
+    // No 2xl cap. The 1440px default centred the content inside the space left
+    // of the sidebar, so on a wide screen the sidebar sat flush against the
+    // edge while the panels floated in the middle with gutters on both sides.
+    // A data-dense dashboard should use the width it has; capping it wastes
+    // exactly the space the extra columns were for.
+    container: { center: true, padding: { DEFAULT: "1rem", sm: "1.5rem", xl: "2rem" } },
     extend: {
       colors: {
         border: "hsl(var(--border))",

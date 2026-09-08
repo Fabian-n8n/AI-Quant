@@ -159,6 +159,7 @@ class BaseStrategy(ABC):
         ema_span: int = 50,
         min_stop_atr_mult: float = 0.5,
         min_stop_pct: float = 0.005,
+        reward_risk_ratio: float | None = 2.0,
     ) -> None:
         self.allocation = allocation
         self.leverage = leverage
@@ -166,6 +167,7 @@ class BaseStrategy(ABC):
         self.ema_span = ema_span
         self.min_stop_atr_mult = min_stop_atr_mult
         self.min_stop_pct = min_stop_pct
+        self.reward_risk_ratio = reward_risk_ratio
 
     @abstractmethod
     def compute_allocation(self, bars: pd.DataFrame) -> tuple[float, float, str]:
@@ -174,6 +176,25 @@ class BaseStrategy(ABC):
     @abstractmethod
     def compute_raw_stop(self, price: float, ema50: float, atr_value: float) -> float:
         """The spec's stop formula, before clamping."""
+
+    def compute_take_profit(self, price: float, stop: float) -> float | None:
+        """Target at `reward_risk_ratio` times the risk being taken.
+
+        Derived from the stop rather than set as a flat percentage, so it
+        inherits the stop's ATR scaling and means the same thing on every
+        symbol. At 2.0 the trade needs to work one time in three to break even
+        before costs.
+
+        None when the ratio is unset, which is a real configuration: a fixed
+        target caps the winners that pay for the losers, and letting the
+        trailing stop decide every exit is the more trend-following choice.
+        """
+        if not self.reward_risk_ratio:
+            return None
+        risk = abs(price - stop)
+        if risk <= 0:
+            return None
+        return price + self.reward_risk_ratio * risk
 
     def generate_signal(
         self, symbol: str, bars: pd.DataFrame, regime_state: RegimeState
@@ -200,7 +221,7 @@ class BaseStrategy(ABC):
             confidence=regime_state.probability,
             entry_price=price,
             stop_loss=stop,
-            take_profit=None,
+            take_profit=self.compute_take_profit(price, stop),
             position_size_pct=allocation,
             leverage=leverage,
             regime_id=regime_state.state_id,
@@ -446,6 +467,7 @@ class StrategyOrchestrator:
             "ema_span": self.config.get("ema_span", 50),
             "min_stop_atr_mult": self.config.get("min_stop_atr_mult", 0.5),
             "min_stop_pct": self.config.get("min_stop_pct", 0.005),
+            "reward_risk_ratio": self.config.get("reward_risk_ratio", 2.0),
         }
 
         self.regime_infos: dict[int, RegimeInfo] = {}

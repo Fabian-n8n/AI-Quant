@@ -227,7 +227,40 @@ def publish(snapshot: dict[str, Any], path: Path = DEFAULT_OUTPUT, *,
         snapshot, source=source, equity_history=equity_history,
         regime_history=regime_history, notes=notes, activity=activity, engine=engine,
     )
+
+    # Refuse to replace a snapshot that says something with one that says
+    # nothing. The activity block is still merged forward, because run history
+    # is real even on a cycle that computed no regime.
+    path = Path(path)
+    if is_blank(payload) and path.exists():
+        try:
+            previous = json.loads(path.read_text())
+        except Exception:
+            previous = None
+        if previous and not is_blank(previous):
+            logger.info("skipping publish: this cycle produced no regime and the "
+                        "existing snapshot has one. Keeping it.")
+            previous["activity"] = payload["activity"]
+            previous["published_at"] = payload["published_at"]
+            return _write(previous, path)
+
     return _write(payload, path)
+
+
+def is_blank(payload: dict[str, Any]) -> bool:
+    """Does this snapshot say nothing?
+
+    A bar that was skipped produces `regime: unknown`, zero candidates and no
+    positions. That is not a state worth showing, and publishing it over a good
+    snapshot is how the dashboard went blank: the run succeeded, the file was
+    rewritten, and every panel lost its contents.
+    """
+    regime = payload.get("regime", {}) or {}
+    return (
+        regime.get("regime") in (None, "unknown")
+        and not payload.get("candidates")
+        and not payload.get("positions")
+    )
 
 
 def _write(payload: dict[str, Any], path: Path) -> Path:

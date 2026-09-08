@@ -138,14 +138,16 @@ class FakeMarketData:
 class RecordingExecutor:
     """Order executor that records rather than submitting."""
 
-    def __init__(self, fail_trailing=False):
+    def __init__(self, fail_trailing=False, fail_oco=False):
         self.orders = []
         self.stops = []
         self.trailing = []
+        self.oco = []
         self.modified = []
         self.closed = []
         self.closed_all = []
         self.fail_trailing = fail_trailing
+        self.fail_oco = fail_oco
 
     def submit_order(self, signal, decision, **kwargs):
         from broker.order_executor import TradeRecord
@@ -182,9 +184,27 @@ class RecordingExecutor:
             average_fill_price=None, submitted_at=None, filled_at=None,
         )
 
+    def place_oco_exit(self, symbol, quantity, take_profit, stop_price, trade_id=None):
+        if self.fail_oco:
+            raise RuntimeError("OCO rejected by the broker")
+        self.oco.append((symbol, quantity, take_profit, stop_price))
+        return Order(
+            order_id=f"oco-{symbol}", symbol=symbol, side=OrderSide.SELL,
+            quantity=quantity, filled_quantity=0.0, status=OrderStatus.OPEN,
+            order_type=OrderType.LIMIT, limit_price=take_profit,
+            stop_price=stop_price, average_fill_price=None,
+            submitted_at=None, filled_at=None,
+        )
+
     def protect_position(self, symbol, quantity, *, trail_percent=None,
-                         stop_price=None, trade_id=None):
-        """Mirrors the real fallback: trailing first, fixed stop if it fails."""
+                         stop_price=None, take_profit=None, trade_id=None):
+        """Mirrors the real fallback chain: OCO, then trailing, then a stop."""
+        if take_profit is not None and stop_price is not None:
+            try:
+                return self.place_oco_exit(symbol, quantity, take_profit,
+                                           stop_price, trade_id=trade_id)
+            except Exception:
+                pass
         if trail_percent is not None:
             try:
                 return self.place_trailing_stop(symbol, quantity, trail_percent,
@@ -675,7 +695,8 @@ def test_approved_signal_is_submitted_with_a_stop(built_engine, monkeypatch):
         # Every filled entry gets protection in the same cycle. Which kind is
         # config; that there is one is the rule.
         executor = engine.order_executor
-        assert executor.stops or executor.trailing, "a filled entry got no stop"
+        assert executor.stops or executor.trailing or executor.oco, \
+            "a filled entry got no protective exit"
         if executor.stops:
             symbol, _qty, stop = executor.stops[0]
             assert stop < engine.bars[symbol]["close"].iloc[-1]
@@ -683,6 +704,8 @@ def test_approved_signal_is_submitted_with_a_stop(built_engine, monkeypatch):
 
 def test_a_filled_entry_gets_a_trailing_stop_when_enabled(built_engine, monkeypatch):
     engine = built_engine
+    # No target, so the OCO route is not taken and the trailing stop is.
+    engine.order_executor.fail_oco = True
     monkeypatch.setattr(engine.orchestrator, "needs_rebalance", lambda t, c: True)
     monkeypatch.setattr(engine.orchestrator, "target_allocation", lambda *a, **k: 0.95)
 
@@ -700,6 +723,7 @@ def test_a_rejected_trailing_stop_falls_back_to_a_fixed_one(built_engine, monkey
     request errored" is not a reason to leave one naked."""
     engine = built_engine
     engine.order_executor.fail_trailing = True
+    engine.order_executor.fail_oco = True
     monkeypatch.setattr(engine.orchestrator, "needs_rebalance", lambda t, c: True)
     monkeypatch.setattr(engine.orchestrator, "target_allocation", lambda *a, **k: 0.95)
 

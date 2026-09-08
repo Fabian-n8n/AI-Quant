@@ -1,0 +1,77 @@
+# Dashboard refresh. Recomputes the view; never trades.
+#
+# WHY THIS IS SEPARATE FROM trade.yml
+# -----------------------------------
+# Two different questions on two different clocks. "What is the regime and what
+# would I buy" changes as prices move and is worth asking often. "Should I open
+# a position" is answered once per session on a closed daily bar, because the
+# bar the decision reads does not change intraday.
+#
+# `main.py --refresh` has no path to an order. It is not a flag on the trading
+# job, it is a different entry point, so a misconfigured schedule here cannot
+# place a trade.
+#
+# ON THE 10-MINUTE CADENCE
+# ------------------------
+# GitHub's scheduler is best-effort. Cron here means "no earlier than", and
+# under load runs are commonly 5-15 minutes late and occasionally dropped
+# entirely. Treat this as "roughly every 10-20 minutes", not a guarantee. The
+# dashboard's freshness panel reports the real age of the data, which is the
+# honest answer regardless of what the schedule intended.
+#
+# Restricted to US market hours on weekdays. Outside them the last bar is
+# already final, so re-running would spend Actions minutes rewriting an
+# identical file.
+
+name: Refresh dashboard
+
+on:
+  schedule:
+    # Every 10 minutes, 13:30-21:00 UTC, Mon-Fri. That is 09:30-17:00 ET in
+    # summer and 08:30-16:00 ET in winter, so the window covers the session in
+    # both halves of the year rather than tracking it exactly.
+    - cron: "*/10 13-21 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dashboard-refresh
+  cancel-in-progress: true      # a queued refresh is stale; drop it
+
+jobs:
+  refresh:
+    name: Recompute and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Refresh
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_PAPER: "true"
+        run: python main.py --refresh --log-level WARNING
+
+      - name: Commit the snapshot
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f dashboard/public/data/state.json data/state.db data/cache/bars
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+            exit 0
+          fi
+          git commit -m "Refresh dashboard $(date -u +'%Y-%m-%d %H:%M UTC')"
+          # The trading job commits to the same branch. Rebase rather than
+          # fail: losing a refresh is fine, losing a trade record is not.
+          git pull --rebase --autostash || true
+          git push
