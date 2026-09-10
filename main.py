@@ -2681,8 +2681,91 @@ def _configure_console_logging(level: str = "INFO") -> None:
         logging.getLogger(noisy).setLevel(logging.ERROR)
 
 
+def run_portfolio_backtest(args) -> int:
+    """Multi-symbol walk-forward through the live risk layer.
+
+    The single-asset backtest rebalances SPY to the target allocation and
+    averages about 80% invested. The live system trades a universe through
+    `core.risk_manager`, which caps each position and the count, and was
+    observed at 14%. This measures the second one.
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    from backtest.portfolio_backtester import PortfolioBacktester
+    from config import load_settings, strategy_config
+    from data.market_data import load_bars
+
+    logging.basicConfig(level=logging.WARNING, format="  %(levelname)-7s %(message)s")
+    for noisy in ("hmmlearn", "hmmlearn.base", "core.hmm_engine", "core.regime_strategies"):
+        logging.getLogger(noisy).setLevel(logging.ERROR)
+
+    console = Console()
+    settings = load_settings()
+    symbols = args.symbols or settings["broker"]["symbols"]
+
+    bars, synthetic = {}, False
+    for symbol in symbols:
+        frame, is_synthetic = load_bars(symbol, args.start, args.end)
+        synthetic |= is_synthetic
+        bars[symbol] = frame
+    if synthetic:
+        console.print("[yellow]SYNTHETIC data.[/yellow] [dim]Plumbing check only.[/dim]")
+
+    backtester = PortfolioBacktester(
+        symbols=symbols, primary=symbols[0],
+        train_window=settings["backtest"]["train_window"],
+        test_window=settings["backtest"]["test_window"],
+        step_size=settings["backtest"]["step_size"],
+        initial_capital=settings["backtest"]["initial_capital"],
+        slippage_pct=settings["backtest"]["slippage_pct"],
+        hmm_config=dict(settings["hmm"]),
+        strategy_config=strategy_config(settings),
+        risk_config=dict(settings["risk"]),
+        reward_risk_ratio=settings["risk"].get("reward_risk_ratio", 2.0),
+    )
+    result = backtester.run(bars)
+    equity = result.equity_curve
+    if equity.empty:
+        console.print("[red]No out-of-sample bars produced.[/red]")
+        return 1
+
+    import numpy as np
+
+    total = equity.iloc[-1] / result.initial_capital - 1
+    drawdown = float((equity / equity.cummax() - 1).min())
+    daily = equity.pct_change().dropna()
+    sharpe = float(daily.mean() / daily.std() * np.sqrt(252)) if daily.std() else 0.0
+
+    bench = bars[symbols[0]].loc[equity.index, "close"]
+    bench_return = float(bench.iloc[-1] / bench.iloc[0] - 1)
+    bench_dd = float((bench / bench.cummax() - 1).min())
+
+    table = Table(title="Portfolio walk-forward (live risk layer, out-of-sample)")
+    for column in ("", "Return", "Max DD", "Sharpe", "Avg exposure", "Trades"):
+        table.add_column(column, justify="right" if column else "left")
+    table.add_row("regime-trader", f"{total:+.2%}", f"{drawdown:+.2%}", f"{sharpe:.2f}",
+                  f"{result.avg_exposure:.1%}", str(result.n_trades))
+    table.add_row(f"{symbols[0]} buy and hold", f"{bench_return:+.2%}", f"{bench_dd:+.2%}",
+                  "-", "100.0%", "1")
+    console.print(table)
+
+    console.print(
+        f"  Position cap {result.config['max_single_position']:.0%} x "
+        f"{result.config['max_concurrent']} concurrent = "
+        f"{result.config['max_single_position'] * result.config['max_concurrent']:.0%} "
+        f"reachable, and it averaged {result.avg_exposure:.1%}."
+    )
+    if not result.is_significant:
+        console.print("  [yellow]Under 30 trades. Report this as 'not enough data', "
+                      "not as a number.[/yellow]")
+    return 0
+
+
 def run_backtest(args) -> int:
     """Walk-forward backtest, optionally with benchmarks and stress tests."""
+    if getattr(args, "portfolio", False):
+        return run_portfolio_backtest(args)
     from rich.console import Console
 
     from backtest import performance
@@ -2916,6 +2999,9 @@ def build_parser() -> argparse.ArgumentParser:
                           help="Monte Carlo simulations per scenario")
     backtest.add_argument("--misclassification", action="store_true",
                           help="include the regime misclassification test")
+    backtest.add_argument("--portfolio", action="store_true",
+                          help="multi-symbol backtest through the real risk layer "
+                               "(what the live system actually does)")
     backtest.add_argument("--random-seeds", type=int, default=100,
                           help="seeds for the random allocation benchmark")
     return parser
