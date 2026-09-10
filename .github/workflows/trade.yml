@@ -107,7 +107,37 @@ jobs:
           MODE=$([ "${{ steps.mode.outputs.dry_run }}" = "true" ] && echo "dry-run" || echo "live")
           git commit -m "Scheduled run ($MODE) $(date -u +%Y-%m-%d)" \
                      -m "Automated. State and bar cache updated by the daily job."
-          git push
+
+          # Push, and win any race against the refresh loop.
+          #
+          # The refresh job commits the same generated files every fifteen
+          # minutes, so a plain push here loses to it perhaps one run in ten.
+          # Losing a refresh costs nothing; losing THIS commit loses the record
+          # of a real order, which is not reconstructible from a later run.
+          #
+          # On conflict the trading run's version of a generated file wins.
+          # Note the inversion: during a rebase `--theirs` means the commit
+          # being replayed, which is ours. Getting this backwards silently
+          # keeps the refresh job's copy and discards the trade record.
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "Pushed on attempt $attempt."
+              exit 0
+            fi
+            echo "::notice::Push rejected, rebasing onto the remote (attempt $attempt)."
+            git fetch -q origin main
+            if ! git rebase -q origin/main; then
+              for f in data/state.db state_snapshot.json \
+                       dashboard/public/data/state.json; do
+                git checkout --theirs -- "$f" 2>/dev/null || true
+                git add -f -- "$f" 2>/dev/null || true
+              done
+              git -c core.editor=true rebase --continue \
+                || { git rebase --abort || true; }
+            fi
+          done
+          echo "::error::Could not push the trading run after three attempts."
+          exit 1
 
       - name: Upload logs
         if: always()

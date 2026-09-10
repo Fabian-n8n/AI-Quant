@@ -133,6 +133,8 @@ class PortfolioBacktester:
         risk_config: dict | None = None,
         reward_risk_ratio: float = 2.0,
         hmm_min_train_bars: int | None = None,
+        regime_mode: str = "hmm",
+        regime_seed: int = 0,
         **_ignored: Any,
     ) -> None:
         self.symbols = list(symbols)
@@ -149,6 +151,22 @@ class PortfolioBacktester:
         self.strategy_config = dict(strategy_config or {})
         self.risk_config = dict(risk_config or {})
         self.reward_risk_ratio = reward_risk_ratio
+
+        # How the regime is decided each bar. The point of the switch is to
+        # answer "does the HMM earn its complexity" by holding everything else
+        # constant -- same universe, same sizing, same stops, same costs.
+        #
+        #   hmm      the real classifier
+        #   fixed    always the most common label; the regime layer contributes
+        #            nothing, so this is the "delete the HMM" baseline
+        #   shuffled real labels in a random order, which keeps the mix of
+        #            regimes identical and destroys only the timing. If the HMM
+        #            has skill it must beat this, because beating `fixed` can
+        #            be done by a label distribution alone.
+        if regime_mode not in ("hmm", "fixed", "shuffled"):
+            raise ValueError(f"regime_mode must be hmm|fixed|shuffled, got {regime_mode}")
+        self.regime_mode = regime_mode
+        self.regime_seed = regime_seed
 
         floor = hmm_min_train_bars if hmm_min_train_bars is not None else train_window
         self.hmm_config["min_train_bars"] = floor
@@ -272,6 +290,7 @@ class PortfolioBacktester:
         stream.warm(warmup)
 
         pending: list[dict] = []
+        fold_regimes = self._precompute_regimes(engine, features, test_index)
         week_key: tuple | None = None
         week_start = self._equity(cash, holdings, bars, test_index[0], "open")
         start_equity = week_start
@@ -341,7 +360,7 @@ class PortfolioBacktester:
             exposure = invested / equity if equity > 0 else 0.0
 
             # 4. Decide, on data up to this close only.
-            regime = stream.step(features.loc[timestamp])
+            regime = self._regime_for(stream, features, timestamp, fold_regimes)
             sliced = self._slice(bars, timestamp)
             # Daily and weekly baselines have to be real, or the breakers that
             # read them can never fire and the backtest is more permissive than
@@ -405,6 +424,35 @@ class PortfolioBacktester:
             "start_equity": start_equity, "end_equity": end_equity,
             "return_pct": (end_equity / start_equity - 1) if start_equity else 0.0,
         }
+
+    def _precompute_regimes(self, engine, features, test_index):
+        """For the ablation modes, the whole fold's labels are needed up front.
+
+        `shuffled` has to permute the fold's own sequence, which means knowing
+        it before the walk starts. This is not look-ahead in the trading sense:
+        the shuffled arm is a null model, deliberately given no timing skill,
+        and it exists only to be beaten.
+        """
+        if self.regime_mode == "hmm":
+            return None
+
+        stream = engine.stream()
+        labels = [stream.step(features.loc[t]) for t in test_index]
+        if self.regime_mode == "fixed":
+            from collections import Counter
+
+            most_common = Counter(r.label for r in labels).most_common(1)[0][0]
+            held = next(r for r in labels if r.label is most_common)
+            return {t: held for t in test_index}
+
+        rng = __import__("numpy").random.default_rng(self.regime_seed)
+        order = rng.permutation(len(labels))
+        return {t: labels[order[i]] for i, t in enumerate(test_index)}
+
+    def _regime_for(self, stream, features, timestamp, fold_regimes):
+        if fold_regimes is None:
+            return stream.step(features.loc[timestamp])
+        return fold_regimes[timestamp]
 
     # -- helpers ------------------------------------------------------------
 

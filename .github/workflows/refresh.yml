@@ -73,6 +73,24 @@ jobs:
 
           while :; do
             echo "::group::refresh $(date -u +'%H:%M:%S') UTC"
+
+            # Start every cycle from the remote, discarding anything local.
+            #
+            # This used to be `git pull --rebase --autostash || true` AFTER the
+            # commit. When the daily job or a human pushed mid-loop, the rebase
+            # hit a conflict on the binary state.db, `|| true` swallowed it, and
+            # the tree was left with unmerged files. The next iteration then
+            # died on "Committing is not possible because you have unmerged
+            # files" and took the whole three-hour loop with it.
+            #
+            # Rebasing generated binaries was never going to work. Everything
+            # this job writes is rebuilt from the broker on the next cycle, so
+            # there is nothing local worth preserving and a hard reset is both
+            # simpler and correct.
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            rm -f data/.material-change
+
             # A single bad cycle must not kill the loop. The next one is 15
             # minutes away and the failure is visible in the log group.
             python main.py --refresh --log-level WARNING || echo "::warning::refresh cycle failed"
@@ -89,10 +107,10 @@ jobs:
               echo "Nothing changed."
             else
               git commit -q -m "Refresh dashboard $(date -u +'%Y-%m-%d %H:%M UTC')"
-              # The daily trading job commits to this branch too. Rebase rather
-              # than fail: losing a refresh is fine, losing a trade record is not.
-              git pull --rebase --autostash -q || true
-              git push -q || echo "::warning::push failed, next cycle will carry it"
+              # Best effort. A rejected push is not an error: the next cycle
+              # resets to the remote and re-derives the same state from the
+              # broker, so the only cost is a fifteen-minute delay.
+              git push -q || echo "::warning::push rejected; next cycle rebuilds from remote"
             fi
             echo "::endgroup::"
 

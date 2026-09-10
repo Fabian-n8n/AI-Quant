@@ -66,3 +66,8 @@ dashboard/next-env.d.ts
 # Sentinel dropped by --refresh when a fill settled or a position changed.
 # Consumed by .github/workflows/refresh.yml; never committed.
 data/.material-change
+
+# Trial registry. Append-only record of every backtest configuration tested.
+# Committed on purpose: the trial count is what the deflated Sharpe corrects
+# for, and a count that resets is a count that understates the search.
+!data/trials.db
