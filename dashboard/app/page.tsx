@@ -137,7 +137,18 @@ function LastRun({ snap }: { snap: Snapshot }) {
   if (!run) {
     return <Badge variant="outline">Published {relativeTime(snap.published_at)}</Badge>;
   }
-  const failedSince = (snap.activity?.runs ?? []).findIndex((r) => r.status === "ok") > 0;
+  // A run still in flight is not a failed one.
+  //
+  // The publisher writes the snapshot from inside the run, so the newest row is
+  // always 'running' when the file is written. Testing "is index 0 the last ok
+  // run" therefore raised the warning on every single page load, which is how a
+  // warning colour stops meaning anything.
+  const runs = snap.activity?.runs ?? [];
+  const okAt = runs.findIndex((r) => r.status === "ok");
+  const failedSince = runs
+    .slice(0, okAt === -1 ? runs.length : okAt)
+    .some((r) => r.status === "failed" || r.status === "halted");
+
   return (
     <Badge variant={failedSince ? "warning" : "outline"}
            title={failedSince ? "A more recent run did not complete" : undefined}>

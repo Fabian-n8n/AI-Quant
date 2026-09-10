@@ -62,3 +62,7 @@ dashboard/.vercel
 dashboard/next-env.d.ts
 .vercel
 .ruff_cache/
+
+# Sentinel dropped by --refresh when a fill settled or a position changed.
+# Consumed by .github/workflows/refresh.yml; never committed.
+data/.material-change

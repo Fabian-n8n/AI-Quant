@@ -1392,3 +1392,69 @@ class TestAccountSizeOverride:
         portfolio = engine.refresh_portfolio()
         assert portfolio.drawdown_from_peak == pytest.approx(-0.5), \
             "the rebase erased a real 50% drawdown"
+
+
+def test_adopted_position_with_a_broker_stop_is_protected(built_engine):
+    """The regression that made the dashboard read "updated 37h ago".
+
+    A position adopted from the broker comes back with no stop_loss attached,
+    because Alpaca does not store one on the position. If the audit trusts only
+    local memory, every restart reports every position as naked. The broker
+    check used to be able to add to that list but never to clear it, so a real
+    resting stop could not clear the flag, every scheduled run was stamped
+    'failed', and the dashboard fell back to the last genuinely clean run.
+    """
+    engine = built_engine
+    engine.client._positions = [make_position("SPY", 100, 100.0)]
+    engine.position_tracker.sync()
+    assert engine.position_tracker.positions["SPY"].stop_loss is None, "adopted flat"
+
+    engine.client._open_orders = [
+        Order(order_id="s1", symbol="SPY", side=OrderSide.SELL, quantity=100,
+              filled_quantity=0, status=OrderStatus.OPEN, order_type=OrderType.STOP,
+              limit_price=None, stop_price=95.0, average_fill_price=None,
+              submitted_at=None, filled_at=None)
+    ]
+
+    assert engine.audit_stops(alert=False) == []
+    # ...and the level is adopted too, not merely the fact that one exists.
+    assert engine.position_tracker.positions["SPY"].stop_loss == 95.0
+
+
+def test_unprotected_positions_do_not_fail_the_run(built_engine, tmp_path):
+    """A naked position is a risk finding, not a broken job.
+
+    Conflating the two is what made the dashboard treat a healthy run as stale.
+    """
+    from data.repository import open_repository
+
+    engine = built_engine
+    engine.repo = open_repository(tmp_path / "runs.db")
+    engine.repo.migrate()
+    engine.run_id = engine.repo.start_run(mode="paper", trigger="test")
+
+    engine._close_run("refresh", unprotected=["SPY", "QQQ"])
+
+    row = engine.repo.conn.execute(
+        "SELECT status, error FROM runs WHERE id = ?", (engine.run_id,)).fetchone()
+    assert row["status"] == "ok"
+    # 'refresh' is how the loop exited, not a fault. It must not be logged as one.
+    assert row["error"] is None
+
+
+def test_a_real_error_still_fails_the_run(built_engine, tmp_path):
+    from data.repository import open_repository
+
+    engine = built_engine
+    engine.repo = open_repository(tmp_path / "runs2.db")
+    engine.repo.migrate()
+    engine.run_id = engine.repo.start_run(mode="paper", trigger="test")
+    engine.consecutive_errors = 3
+    engine.last_error = "data feed unreachable"
+
+    engine._close_run("shutdown", unprotected=[])
+
+    row = engine.repo.conn.execute(
+        "SELECT status, error FROM runs WHERE id = ?", (engine.run_id,)).fetchone()
+    assert row["status"] == "failed"
+    assert row["error"] == "data feed unreachable"

@@ -304,6 +304,12 @@ class TradingEngine:
         self.api_latency_ms: float | None = None
         self.target_allocation: float | None = None
         self.consecutive_errors = 0
+        self.last_error: str | None = None
+        # Did this cycle change anything a human would want kept? Refreshes
+        # run every 15 minutes and almost always change nothing but prices;
+        # committing a 120KB binary database that often would add about a
+        # gigabyte a year to the repository for no recoverable information.
+        self.material_change = False
         self.is_paper = True
         self.orders_submitted = 0
         self.signals_rejected = 0
@@ -1056,19 +1062,42 @@ class TradingEngine:
                 # trailing-stopped position as naked, and an alert that cries
                 # wolf on healthy positions is one that gets muted.
                 resting = {
-                    o.symbol for o in open_orders
+                    o.symbol: o for o in open_orders
                     if o.order_type in (OrderType.STOP, OrderType.STOP_LIMIT,
                                         OrderType.TRAILING_STOP)
                 }
-                missing_at_broker = [
-                    s for s in positions if s not in resting and s not in unprotected
-                ]
+
+                # The broker is the authority, in both directions.
+                #
+                # This block used only ever to ADD to `unprotected`, never to
+                # clear it. A fresh process therefore reported every position
+                # as naked: positions adopted from the broker come back with
+                # no stop_loss attached, so the local check flags all of them,
+                # and a real resting stop order could not clear the flag. Every
+                # scheduled run was then stamped 'failed', and the dashboard
+                # fell back to the last genuinely clean run -- "updated 37h
+                # ago" while the job had in fact run four times since.
+                #
+                # A stop resting at the broker protects the position whether or
+                # not this process remembers placing it. Adopt its price too,
+                # so the rest of the system knows the level and not just that
+                # one exists.
+                for symbol in list(unprotected):
+                    order = resting.get(symbol)
+                    if order is None:
+                        continue
+                    unprotected.remove(symbol)
+                    price = getattr(order, "stop_price", None)
+                    if price is not None:
+                        self.position_tracker.update_stop(symbol, float(price))
+
+                missing_at_broker = [s for s in positions if s not in resting]
                 if missing_at_broker:
                     logger.warning(
-                        "%s: stop is recorded locally but no resting stop order exists "
-                        "at the broker.", ", ".join(missing_at_broker),
+                        "%s: no resting stop order exists at the broker.",
+                        ", ".join(missing_at_broker),
                     )
-                    unprotected = sorted(set(unprotected) | set(missing_at_broker))
+                unprotected = sorted(set(unprotected) | set(missing_at_broker))
 
         if unprotected and repair:
             unprotected = self._repair_stops(unprotected, positions)
@@ -1250,11 +1279,13 @@ class TradingEngine:
             # orders rest at the broker and are untouched by this path.
             outcome.skipped = "broker unavailable"
             outcome.errors.append(str(exc))
+            self.last_error = str(exc)
             self.consecutive_errors += 1
             self._check_error_budget()
             return outcome
         except Exception as exc:
             outcome.errors.append(str(exc))
+            self.last_error = str(exc)
             self.consecutive_errors += 1
             self._emit(_EventTypes().ERROR, f"Bar processing failed: {exc}",
                        error=str(exc), traceback=traceback.format_exc())
@@ -1425,6 +1456,7 @@ class TradingEngine:
         self.session.last_regime = outcome.regime
         self.session.last_regime_confidence = outcome.confidence
         self.position_tracker.increment_holding_periods()
+        self._reconcile_orders()
         self._capture_stops()
         self._append_history(outcome)
         self._record_bar_state(outcome)
@@ -1617,6 +1649,22 @@ class TradingEngine:
             outcome.current_allocation = self.portfolio.gross_exposure
             self.target_allocation = outcome.target_allocation
             self._update_log_context(regime_state)
+
+            # Reconcile, then record. Fills land while nothing is running: the
+            # daily job submits limit orders after the close and they execute
+            # at the next open, hours later. This job is the only thing awake
+            # in between, so if it does not look, state.db keeps reporting
+            # "not filled" over five open positions -- which is exactly what
+            # the dashboard was showing.
+            #
+            # Recomputing a view is not the same as knowing what happened.
+            settled = self._reconcile_orders()
+            if settled:
+                logger.info("settled %d order(s) against the broker", settled)
+            self.audit_stops(alert=False)   # backfills stops adopted from the broker
+            self._capture_stops()             # ...so snapshot after it, not before
+            self._record_bar_state(outcome)
+            self._flag_material_change()
         except Exception as exc:
             outcome.errors.append(str(exc))
             logger.warning("refresh failed: %s", exc)
@@ -1986,7 +2034,74 @@ class TradingEngine:
             )
             self._reconcile_positions_table(outcome)
         except Exception as exc:
-            logger.debug("bar state write failed: %s", exc)
+            logger.warning("bar state write failed: %s", exc, exc_info=True)
+
+    def _flag_material_change(self) -> None:
+        """Leave a marker when this cycle changed more than prices.
+
+        The scheduled refresh commits its published JSON every time, because
+        that is what the dashboard reads and prices move all day. The SQLite
+        database is different: it is a 120KB binary that git cannot delta, and
+        committing it every fifteen minutes would grow the repository by
+        roughly a gigabyte a year to record nothing but a new equity row.
+
+        So the database is committed only when a fill settled or a position
+        opened or closed. Those are the events whose history cannot be
+        rebuilt from the broker later, and they happen a few times a day.
+        """
+        marker = Path("data/.material-change")
+        try:
+            if self.material_change:
+                marker.touch()
+        except OSError as exc:
+            logger.debug("could not write the material-change marker: %s", exc)
+
+    def _reconcile_orders(self) -> int:
+        """Ask the broker what became of every order we have not seen finish.
+
+        Orders are recorded at submission. A limit order submitted after the
+        close rests until the next open, which is hours after the process that
+        placed it exited, so the submitting run can never learn the outcome.
+        Something has to go back and look, and this is it.
+
+        Returns the number of rows updated, for the log line.
+        """
+        if self.repo is None or self.dry_run:
+            return 0
+        try:
+            pending = self.repo.unsettled_orders()
+        except Exception as exc:
+            logger.debug("could not list unsettled orders: %s", exc)
+            return 0
+
+        settled = 0
+        for row in pending:
+            try:
+                order = self.client.get_order(row["order_id"])
+            except Exception as exc:
+                # A cancelled order can age out of the broker's history. Do not
+                # let one unreadable row stop the rest from settling.
+                logger.debug("could not read order %s (%s): %s",
+                             row["symbol"], row["order_id"], exc)
+                continue
+
+            status = getattr(order.status, "value", str(order.status))
+            if status == row["status"]:
+                continue
+            self.repo.settle_order(
+                row["order_id"], status=status,
+                fill_price=order.average_fill_price,
+                filled_qty=order.filled_quantity,
+                filled_at=order.filled_at,
+            )
+            settled += 1
+            self.material_change = True
+            if order.average_fill_price:
+                logger.info("%s: %s %.0f @ %.4f", row["symbol"], status,
+                            order.filled_quantity or 0, order.average_fill_price)
+            else:
+                logger.info("%s: %s", row["symbol"], status)
+        return settled
 
     def _reconcile_positions_table(self, outcome: BarOutcome) -> None:
         """Make the positions table match what the broker actually holds."""
@@ -1995,17 +2110,18 @@ class TradingEngine:
 
         for symbol, position in held.items():
             if symbol not in recorded:
+                self.material_change = True
                 self.repo.open_position(
-                    symbol, position.qty, position.avg_entry_price,
-                    stop_price=self.session.stops.get(symbol),
-                    regime=outcome.regime,
+                    symbol, position.quantity, position.entry_price,
+                    stop_price=self.session.stops.get(symbol) or position.stop_loss,
+                    regime=position.regime_at_entry or outcome.regime,
                 )
             else:
                 self.repo.update_open_position(
                     symbol,
                     current_price=position.current_price,
-                    stop_price=self.session.stops.get(symbol),
-                    unrealised_pnl=position.market_value - position.cost_basis,
+                    stop_price=self.session.stops.get(symbol) or position.stop_loss,
+                    unrealised_pnl=position.unrealised_pnl,
                     holding_days=getattr(position, "holding_periods", None),
                 )
 
@@ -2019,6 +2135,7 @@ class TradingEngine:
             last = row["current_price"] or row["entry_price"]
             stop = row["stop_price"]
             reason = "stop" if stop and last and last <= stop * 1.01 else "closed"
+            self.material_change = True
             self.repo.close_position(symbol, float(last), reason)
 
     def _append_history(self, outcome: BarOutcome) -> None:
@@ -2218,8 +2335,8 @@ class TradingEngine:
         unprotected: list[str] = []
         if self.position_tracker is not None:
             try:
-                self._capture_stops()
                 unprotected = self.audit_stops(alert=True)
+                self._capture_stops()
             except Exception as exc:
                 logger.warning("stop audit at shutdown failed: %s", exc)
 
@@ -2250,15 +2367,26 @@ class TradingEngine:
         """
         if self.repo is None or self.run_id is None:
             return
+        # `reason` is how the loop exited ("refresh", "single bar requested"),
+        # not a fault. Writing it into the error column made every ordinary
+        # shutdown read as a failure with a nonsense message attached.
+        #
+        # An unprotected position does not fail the run either. It is a real
+        # risk finding, already emitted as an ERROR event and alerted on by
+        # audit_stops, but the run itself did what it was asked to do. Marking
+        # it failed conflates "the job broke" with "look at this position",
+        # and the dashboard reads run status to decide what is stale.
         status = "ok"
+        error: str | None = None
         if self.risk_manager is not None and self.risk_manager.is_halted():
             status = "halted"
-        elif self.consecutive_errors > 0 or unprotected:
+        elif self.consecutive_errors > 0:
             status = "failed"
+            error = self.last_error or f"{self.consecutive_errors} failed cycles"
         try:
             self.repo.finish_run(
                 self.run_id, status,
-                error=reason if status == "failed" else None,
+                error=error,
                 bars_processed=self.bars_processed,
                 orders_submitted=self.orders_submitted,
                 regime=self.session.last_regime,

@@ -1,40 +1,40 @@
-# Dashboard refresh. Recomputes the view; never trades.
+# Dashboard refresh. Recomputes the view and reconciles with the broker; never trades.
 #
-# WHY THIS IS SEPARATE FROM trade.yml
-# -----------------------------------
-# Two different questions on two different clocks. "What is the regime and what
-# would I buy" changes as prices move and is worth asking often. "Should I open
-# a position" is answered once per session on a closed daily bar, because the
-# bar the decision reads does not change intraday.
+# WHY THIS LOOPS INSTEAD OF RELYING ON CRON
+# -----------------------------------------
+# It used to be `cron: */15`, and GitHub simply did not honour it. Measured over
+# the first two days, GitHub started SEVEN runs in total, roughly every two and
+# a half hours, all of them successful. Nothing was failing; the schedule was
+# being dropped. GitHub documents scheduled workflows as best-effort and
+# deprioritises high-frequency crons on shared runners, so asking for every 15
+# minutes and getting three a day is the system working as designed.
 #
-# `main.py --refresh` has no path to an order. It is not a flag on the trading
-# job, it is a different entry point, so a misconfigured schedule here cannot
-# place a trade.
+# So cron is now only the ignition. Each triggered run loops internally for up
+# to three hours, refreshing every 15 minutes, which is a cadence we control
+# rather than one we request. Public repositories get unlimited Actions minutes
+# on standard runners, so the wall-clock time is free.
 #
-# ON THE 10-MINUTE CADENCE
-# ------------------------
-# GitHub's scheduler is best-effort. Cron here means "no earlier than", and
-# under load runs are commonly 5-15 minutes late and occasionally dropped
-# entirely. Treat this as "roughly every 10-20 minutes", not a guarantee. The
-# dashboard's freshness panel reports the real age of the data, which is the
-# honest answer regardless of what the schedule intended.
+# `cancel-in-progress` makes overlap self-healing: whenever GitHub does fire the
+# schedule again, the new run replaces the old loop rather than doubling it.
 #
-# Restricted to US market hours on weekdays. Outside them the last bar is
-# already final, so re-running would spend Actions minutes rewriting an
-# identical file.
+# WHAT GETS COMMITTED, AND WHY NOT EVERYTHING
+# -------------------------------------------
+# The published JSON is committed every cycle: it is what the dashboard reads,
+# it is 36KB of text, and prices move all day.
+#
+# `data/state.db` is committed only when `main.py` leaves the material-change
+# marker, meaning a fill settled or a position opened or closed. It is a 120KB
+# binary that git cannot delta; committing it every 15 minutes would add about
+# a gigabyte a year to record nothing but a new equity row. Everything a
+# refresh learns about orders and positions is re-derived from the broker on
+# the next run, so dropping the intermediate writes loses nothing -- except
+# those two events, which is exactly what the marker catches.
 
 name: Refresh dashboard
 
 on:
   schedule:
-    # Every 15 minutes, 13:00-21:59 UTC, Mon-Fri. That covers 09:00-18:00 ET in
-    # summer and 08:00-17:00 ET in winter, so the window contains the whole
-    # session in both halves of the year rather than tracking it exactly.
-    #
-    # 15 rather than 10: GitHub's scheduler is best-effort and queues shared
-    # runners, so a 10-minute cron on a free plan commonly delivers 12-20
-    # minutes apart anyway. Asking for less than it can give just produces
-    # skipped runs that look like failures.
+    # Ignition only. The job loops once it starts; see the note above.
     - cron: "*/15 13-21 * * 1-5"
   workflow_dispatch:
 
@@ -43,13 +43,13 @@ permissions:
 
 concurrency:
   group: dashboard-refresh
-  cancel-in-progress: true      # a queued refresh is stale; drop it
+  cancel-in-progress: true      # newest loop wins; a queued refresh is stale
 
 jobs:
   refresh:
     name: Recompute and publish
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 200         # the loop stops itself at 180
 
     steps:
       - uses: actions/checkout@v4
@@ -59,24 +59,46 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
 
-      - name: Refresh
+      - name: Refresh every 15 minutes until the session ends
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
           ALPACA_PAPER: "true"
-        run: python main.py --refresh --log-level WARNING
-
-      - name: Commit the snapshot
         run: |
+          set -u
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f dashboard/public/data/state.json data/state.db data/cache/bars
-          if git diff --cached --quiet; then
-            echo "Nothing changed."
-            exit 0
-          fi
-          git commit -m "Refresh dashboard $(date -u +'%Y-%m-%d %H:%M UTC')"
-          # The trading job commits to the same branch. Rebase rather than
-          # fail: losing a refresh is fine, losing a trade record is not.
-          git pull --rebase --autostash || true
-          git push
+
+          DEADLINE=$(( $(date -u +%s) + 180*60 ))
+
+          while :; do
+            echo "::group::refresh $(date -u +'%H:%M:%S') UTC"
+            # A single bad cycle must not kill the loop. The next one is 15
+            # minutes away and the failure is visible in the log group.
+            python main.py --refresh --log-level WARNING || echo "::warning::refresh cycle failed"
+
+            FILES="dashboard/public/data/state.json"
+            if [ -f data/.material-change ]; then
+              echo "A fill settled or a position changed: committing the database too."
+              FILES="$FILES data/state.db data/cache/bars"
+              rm -f data/.material-change
+            fi
+
+            git add -f $FILES
+            if git diff --cached --quiet; then
+              echo "Nothing changed."
+            else
+              git commit -q -m "Refresh dashboard $(date -u +'%Y-%m-%d %H:%M UTC')"
+              # The daily trading job commits to this branch too. Rebase rather
+              # than fail: losing a refresh is fine, losing a trade record is not.
+              git pull --rebase --autostash -q || true
+              git push -q || echo "::warning::push failed, next cycle will carry it"
+            fi
+            echo "::endgroup::"
+
+            # Stop at the deadline, or once the US session is over for the day.
+            NOW=$(date -u +%s)
+            [ "$NOW" -ge "$DEADLINE" ] && { echo "Deadline reached."; break; }
+            [ "$(date -u +%H)" -ge 21 ] && { echo "Session over."; break; }
+            sleep 900
+          done

@@ -421,3 +421,48 @@ def test_use_cache_false_always_fetches(market_data):
     before = len(client.requests)
     md.get_historical_bars(["SPY"], "1Day", start=start, use_cache=False)
     assert len(client.requests) == before + 1
+
+
+# ---------------------------------------------------------------------------
+# Reconciliation: the dashboard showed five held positions as "not filled" and
+# every scheduled run as failed. Four separate bugs, one regression test each.
+# ---------------------------------------------------------------------------
+
+class TestOrderSettlement:
+    """Orders are recorded at submission and finish hours later, unattended."""
+
+    def test_settle_order_writes_the_fill_back(self, tmp_path):
+        from data.repository import open_repository
+
+        repo = open_repository(tmp_path / "s.db")
+        repo.migrate()
+        with repo.tx() as conn:
+            conn.execute(
+                "INSERT INTO orders (order_id, client_order_id, symbol, side, "
+                " order_type, quantity, status, submitted_at) "
+                "VALUES ('oid-1','rt-X','X','buy','limit',10,'open','2026-01-01T00:00:00+00:00')")
+
+        assert [r["symbol"] for r in repo.unsettled_orders()] == ["X"]
+
+        repo.settle_order("oid-1", status="filled", fill_price=12.5,
+                          filled_qty=10, filled_at="2026-01-02T14:30:00+00:00")
+
+        row = repo.conn.execute("SELECT * FROM orders WHERE order_id='oid-1'").fetchone()
+        assert row["status"] == "filled"
+        assert row["fill_price"] == 12.5
+        assert row["filled_qty"] == 10
+        # ...and it drops out of the unsettled list, so it is not re-polled forever.
+        assert repo.unsettled_orders() == []
+
+    def test_terminal_orders_are_never_polled(self, tmp_path):
+        from data.repository import open_repository
+
+        repo = open_repository(tmp_path / "t.db")
+        repo.migrate()
+        with repo.tx() as conn:
+            for i, status in enumerate(("filled", "cancelled", "rejected", "expired")):
+                conn.execute(
+                    "INSERT INTO orders (order_id, client_order_id, symbol, side, "
+                    " order_type, quantity, status, submitted_at) "
+                    f"VALUES ('o{i}','c{i}','X','buy','limit',1,'{status}','2026-01-01T00:00:00+00:00')")
+        assert repo.unsettled_orders() == []

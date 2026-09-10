@@ -299,11 +299,28 @@ class TestAlpacaPaperRoundTrip:
         executor = OrderExecutor(client, order_id_prefix="itest-", deterministic_ids=False)
         before = {o.order_id for o in client.get_open_orders()}
 
+        # Probe a symbol the account is flat in.
+        #
+        # This used to hardcode SPY, which was fine while the account never
+        # held anything. Once the strategy actually opened positions, SPY had a
+        # resting sell stop against it and Alpaca refused the buy probe:
+        #   "potential wash trade detected ... opposite side market/stop order
+        #   exists".
+        # That is the broker behaving correctly and the test asking for
+        # something incoherent, so pick a symbol where the question makes sense
+        # rather than teaching the test to ignore the answer.
+        held = {p.symbol for p in client.get_positions()}
+        encumbered = held | {o.symbol for o in client.get_open_orders()}
+        probe = next((s for s in ("SPY", "IWM", "DIA", "EFA", "VTI", "XLF")
+                      if s not in encumbered), None)
+        if probe is None:
+            pytest.skip(f"no unencumbered probe symbol; account holds {sorted(encumbered)}")
+
         # Far below the market so it rests rather than filling.
-        quote = client.get_latest_quote("SPY")
+        quote = client.get_latest_quote(probe)
         reference = quote.get("bid") or quote.get("ask") or 400.0
         entry = round(reference * 0.80, 2)
-        signal = make_signal(symbol="SPY", entry=entry, stop=round(entry * 0.95, 2))
+        signal = make_signal(symbol=probe, entry=entry, stop=round(entry * 0.95, 2))
         decision = RiskDecision(
             approved=True, modified_signal={"shares": 1, "notional": entry},
             approved_quantity=1, approved_notional=entry,
@@ -328,7 +345,7 @@ class TestAlpacaPaperRoundTrip:
             created.append(trade.order_id)
 
             order = client.get_order(trade.order_id)
-            assert order.symbol == "SPY"
+            assert order.symbol == probe
             assert order.is_open
 
             executor.cancel_order(trade.order_id)

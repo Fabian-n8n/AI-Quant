@@ -260,6 +260,37 @@ class Repository:
             )
         return int(cursor.lastrowid)
 
+    def unsettled_orders(self) -> list[sqlite3.Row]:
+        """Orders we recorded but never saw the end of.
+
+        An order is written when it is submitted, and a limit order submitted
+        after the close does not fill until the next session opens -- long
+        after the process that placed it has exited. Nothing else ever revisits
+        the row, so without this the table says 'not filled' forever while the
+        broker holds a filled position. That is precisely what made the
+        dashboard show eight resting orders and no trades.
+        """
+        return self.conn.execute(
+            "SELECT id, order_id, client_order_id, symbol, status FROM orders "
+            "WHERE order_id IS NOT NULL "
+            "  AND status NOT IN ('filled','cancelled','rejected','expired') "
+            "ORDER BY submitted_at DESC"
+        ).fetchall()
+
+    def settle_order(self, order_id: str, *, status: str,
+                     fill_price: float | None = None, filled_qty: float | None = None,
+                     filled_at: Any = None) -> None:
+        """Write back what the broker says became of an order."""
+        with self.tx() as conn:
+            conn.execute(
+                "UPDATE orders SET status = ?, "
+                "  fill_price = COALESCE(?, fill_price), "
+                "  filled_qty = COALESCE(?, filled_qty), "
+                "  filled_at  = COALESCE(?, filled_at) "
+                "WHERE order_id = ?",
+                (status, fill_price, filled_qty, _iso(filled_at), order_id),
+            )
+
     def recent_orders(self, limit: int = 100, status: str | None = None,
                       since: str | None = None) -> list[sqlite3.Row]:
         sql = "SELECT * FROM orders WHERE 1=1"
