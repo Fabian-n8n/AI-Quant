@@ -64,6 +64,47 @@ to the eight risk arms gives a hurdle of 0.64 rather than 0.63, because those
 arms have a wider spread that offsets the smaller count. There is no scoping
 choice that rescues it.
 
+### The regime classifier is not timing anything
+
+The first ablation ran at the shipped breakers and showed the HMM scoring
+*below* a random permutation of its own labels. That was an artifact: at those
+settings every arm sits near 6% exposure, so it measured a system that barely
+trades rather than the classifier.
+
+Retested at the swing breakers, where the system holds ~32% and takes ~2800
+trades:
+
+| arm | return | maxDD | Sharpe | exposure | trades |
+|---|---:|---:|---:|---:|---:|
+| HMM regime (shipped) | +93.29% | -21.10% | 0.93 | 31.7% | 2859 |
+| fixed regime, no HMM at all | +87.33% | -22.05% | 0.89 | 31.4% | 2988 |
+| shuffled regime, 5 seeds | +94.27% | -21.28% | 0.94 | 31.4% | 2704 |
+
+HMM minus shuffled mean is **-0.014 Sharpe against a shuffle spread of 0.025**.
+Seeds ran 0.91 to 0.98 and the HMM landed at 0.93, in the middle of them.
+
+Shuffling destroys the timing and keeps the mix of labels. Scoring the same
+either way means the classifier contributes the *distribution* of its labels
+and no timing. Deleting it entirely (`fixed`) costs 0.04 Sharpe, which is
+inside the same noise.
+
+The HMM is the centrepiece of this project and, measured this way, it is not
+earning its complexity. Whatever the strategy does earn comes from the entry
+screen, the stop placement and the position sizing.
+
+### Against the benchmark, honestly
+
+Over the full out-of-sample span, 2018-10 to 2026-09:
+
+| | return | maxDD | Sharpe |
+|---|---:|---:|---:|
+| strategy, swing breakers | +93.29% | -21.10% | **0.93** |
+| SPY buy and hold | +203.74% | -33.79% | 0.83 |
+
+Higher Sharpe, roughly a third less drawdown, and less than half the return,
+because it holds about 32% and cash earns nothing here. Scaled to comparable
+risk the two are close to a wash, and it still does not clear the correction.
+
 ## Standing rule
 
 Nothing in `config/settings.yaml` changes on the strength of a sweep. A setting
