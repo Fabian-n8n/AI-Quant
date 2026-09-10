@@ -2724,8 +2724,24 @@ def run_backtest(args) -> int:
         performance.render(report, console)
 
         if args.export:
-            written = performance.export(report, Path("backtest/results") / symbol)
-            console.print(f"\n  Exported: {', '.join(p.name for p in written.values())}")
+            # Never let synthetic numbers land where preflight reads them.
+            #
+            # load_bars used to return a random walk whenever it could not
+            # reach Alpaca, and the export wrote it to backtest/results/ with
+            # no marking. preflight then compared those figures to buy-and-hold
+            # and reported a verdict on the strategy. Every stored result this
+            # project had was measured on data that never existed.
+            if synthetic:
+                console.print(
+                    "\n  [red]Refusing to export a synthetic backtest.[/red] "
+                    "[dim]preflight reads these files and would report the result "
+                    "as evidence about the strategy. Fix the data source and "
+                    "re-run.[/dim]"
+                )
+                exit_code = 1
+            else:
+                written = performance.export(report, Path("backtest/results") / symbol)
+                console.print(f"\n  Exported: {', '.join(p.name for p in written.values())}")
 
         if args.stress_test:
             console.print("\n[bold]Running stress tests, this takes a few minutes.[/bold]")

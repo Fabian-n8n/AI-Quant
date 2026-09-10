@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def synthetic_bars(
@@ -122,22 +124,60 @@ def load_bars(
     can label their output: a backtest on synthetic data that is reported as if
     it were SPY is worse than no backtest.
 
-    Alpaca loading lands in Phase 6.
+    Real bars come from the same cached Alpaca path the live engine uses, so a
+    backtest and a live run see identical history.
+
+    This used to raise NotImplementedError whenever credentials were present,
+    and fall through to synthetic data whenever they were not. Nothing called
+    it with credentials loaded, so every backtest this project has ever
+    produced -- including the walk-forward result that preflight compares
+    against buy-and-hold -- was computed on a random walk. The numbers were not
+    evidence that the strategy underperforms. They were not evidence of
+    anything.
     """
     import os
 
+    # The caller is often a script that never loaded .env. Loading it here is
+    # what makes "do I have credentials" mean "can I reach Alpaca" rather than
+    # "did my caller remember".
+    load_dotenv(ROOT / ".env", override=False)
     has_credentials = bool(os.getenv("ALPACA_API_KEY") and os.getenv("ALPACA_SECRET_KEY"))
+
     if has_credentials:
-        raise NotImplementedError(
-            "Phase 6: Alpaca historical bars. Credentials are present but the "
-            "client is not implemented yet."
-        )
+        try:
+            from broker.alpaca_client import AlpacaClient
+
+            # MarketDataClient needs a connected broker client; constructed
+            # bare it has no data client and every fetch returns None.
+            broker = AlpacaClient()
+            broker.connect()
+            client = MarketDataClient(broker)
+            bars = client.get_historical_bars(
+                symbol, "1Day",
+                start=pd.Timestamp(start).to_pydatetime() if start else None,
+                end=pd.Timestamp(end).to_pydatetime() if end else None,
+            )
+            bars = _extract_symbol(bars, symbol)
+            if bars is not None and not bars.empty:
+                return bars, False
+            logger.warning("%s: Alpaca returned no bars for the requested range.", symbol)
+        except Exception as exc:
+            # Falling back silently is how a synthetic backtest gets reported as
+            # if it were SPY. Say so loudly, and refuse entirely when the caller
+            # has said it wants real data or nothing.
+            logger.error("%s: could not load real bars (%s).", symbol, exc)
+            if not allow_synthetic:
+                raise
+
     if not allow_synthetic:
         raise RuntimeError(
-            f"No Alpaca credentials for {symbol}. Set ALPACA_API_KEY and "
+            f"No real bars available for {symbol}. Set ALPACA_API_KEY and "
             f"ALPACA_SECRET_KEY in .env, or allow the synthetic fallback."
         )
 
+    logger.warning(
+        "%s: falling back to SYNTHETIC bars. Any return figure from this run is "
+        "a check that the plumbing works, not evidence about the strategy.", symbol)
     bars = synthetic_bars()
     if start:
         bars = bars.loc[str(start):]

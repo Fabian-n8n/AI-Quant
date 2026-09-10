@@ -427,3 +427,34 @@ def test_no_metric_returns_a_non_finite_value(backtest_result, synthetic_bars_mo
     for key, value in report.trades.items():
         if isinstance(value, float) and key != "profit_factor":
             assert np.isfinite(value), f"trades[{key}] is {value}"
+
+
+def test_load_bars_reports_synthetic_honestly(monkeypatch):
+    """The flag callers rely on must be true exactly when the data is fake.
+
+    load_bars used to raise NotImplementedError whenever credentials were
+    present and silently return a random walk whenever they were not. Nothing
+    called it with credentials loaded, so every stored backtest in this project
+    was measured on data that never existed, exported without a marking, and
+    read back by preflight as a verdict on the strategy.
+    """
+    from data import market_data
+
+    monkeypatch.delenv("ALPACA_API_KEY", raising=False)
+    monkeypatch.delenv("ALPACA_SECRET_KEY", raising=False)
+    monkeypatch.setattr(market_data, "load_dotenv", lambda *a, **k: None, raising=False)
+
+    bars, synthetic = market_data.load_bars("SPY", allow_synthetic=True)
+    assert synthetic is True, "synthetic data must never be reported as real"
+    assert not bars.empty
+
+
+def test_load_bars_refuses_to_invent_data_when_told_not_to(monkeypatch):
+    from data import market_data
+
+    monkeypatch.delenv("ALPACA_API_KEY", raising=False)
+    monkeypatch.delenv("ALPACA_SECRET_KEY", raising=False)
+    monkeypatch.setattr(market_data, "load_dotenv", lambda *a, **k: None, raising=False)
+
+    with pytest.raises(RuntimeError, match="No real bars"):
+        market_data.load_bars("SPY", allow_synthetic=False)

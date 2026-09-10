@@ -209,9 +209,29 @@ def check_beats_benchmarks() -> Check:
         passed=not lost_to,
         detail=(f"strategy {own:+.1%}. Loses to: {', '.join(lost_to)}"
                 if lost_to else f"beats all three, {own:+.1%}"),
-        remedy=("Losing to random entry means the regime signal is adding "
-                "nothing. That is a strategy problem, not a settings problem."),
+        remedy=_benchmark_remedy(lost_to),
     )
+
+
+def _benchmark_remedy(lost_to: list[str]) -> str:
+    """Advice that matches which benchmark was actually lost to.
+
+    This used to say "losing to random entry means the regime signal is adding
+    nothing" no matter what lost. Once the backtest ran on real bars instead of
+    a random walk the strategy started beating random and SMA-200, and the
+    advice was telling the reader to fix a problem the numbers no longer
+    showed.
+    """
+    if any("random" in item for item in lost_to):
+        return ("Losing to random entry means the regime signal is adding nothing. "
+                "That is a strategy problem, not a settings problem.")
+    if any("buy-and-hold" in item for item in lost_to):
+        return ("Beats random and trend but not buy-and-hold. That is a strategy "
+                "that reduces risk rather than one that finds return: check "
+                "drawdown and Sharpe before deciding it has failed, then compare "
+                "the backtest's average allocation against what the live risk "
+                "layer actually deploys.")
+    return "Re-run the comparison and read which benchmark was lost to."
 
 
 def check_every_position_has_a_stop() -> Check:
