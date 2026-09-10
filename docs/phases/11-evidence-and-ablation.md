@@ -105,6 +105,23 @@ Higher Sharpe, roughly a third less drawdown, and less than half the return,
 because it holds about 32% and cash earns nothing here. Scaled to comparable
 risk the two are close to a wash, and it still does not clear the correction.
 
+## What changed, and what deliberately did not
+
+**Changed:** the circuit breakers, to levels that fire on abnormal events. The
+justification is frequency measured on SPY alone, not the return improvement,
+because the sweep that found them scored 0.789 against a 0.95 bar. A breaker
+that halts all trading three times a year is not protecting the strategy, it
+is replacing it.
+
+**Not changed:** `max_single_position`, the HMM, the universe, the entry
+screen. The sweep favoured moving the position cap too and that part did not
+clear the bar, so it stays.
+
+**Kept under review:** the HMM. The ablation says it adds no timing at daily
+frequency on this universe, but one test at one frequency is not grounds for
+deleting the centrepiece. The next thing to try is a different feature set
+before concluding the idea is wrong rather than the inputs.
+
 ## Standing rule
 
 Nothing in `config/settings.yaml` changes on the strength of a sweep. A setting
