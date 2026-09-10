@@ -116,30 +116,37 @@ def row(label, m, width=26):
 # --------------------------------------------------------------------------
 
 
-def study_ablation(registry, settings, bars) -> None:
+SWING_BREAKERS = {
+    "max_dd_from_peak": 0.25, "daily_dd_halt": 0.08, "weekly_dd_halt": 0.15,
+    "daily_dd_reduce": 0.05, "weekly_dd_reduce": 0.10,
+}
+
+
+def study_ablation(registry, settings, bars, risk_overrides=None, suffix="") -> None:
     """Does the HMM regime layer earn its complexity?
 
     Everything else is held constant. If `hmm` cannot beat `shuffled`, the
     classifier is contributing a distribution of labels and no timing, and the
     honest response is to delete several hundred lines of it.
     """
-    print("\nABLATION: is the regime classifier doing anything?\n")
+    note = " (at a configuration that actually trades)" if risk_overrides else ""
+    print(f"\nABLATION: is the regime classifier doing anything?{note}\n")
     header(("", "return", "maxDD", "Sharpe", "expo", "trades"), (26, 9, 9, 8, 8, 8))
 
     results = {}
-    results["hmm"] = run_arm(registry, "ablation", "hmm", settings, bars)
+    results["hmm"] = run_arm(registry, "ablation", f"hmm{suffix}", settings, bars, risk_overrides)
     if results["hmm"]:
         row("HMM regime (shipped)", results["hmm"])
 
-    results["fixed"] = run_arm(registry, "ablation", "fixed", settings, bars,
-                               regime_mode="fixed")
+    results["fixed"] = run_arm(registry, "ablation", f"fixed{suffix}", settings, bars,
+                               risk_overrides, regime_mode="fixed")
     if results["fixed"]:
         row("fixed regime (no HMM)", results["fixed"])
 
     shuffled = []
     for seed in range(5):
-        m = run_arm(registry, "ablation", f"shuffled-{seed}", settings, bars,
-                    regime_mode="shuffled", regime_seed=seed)
+        m = run_arm(registry, "ablation", f"shuffled{suffix}-{seed}", settings, bars,
+                    risk_overrides, regime_mode="shuffled", regime_seed=seed)
         if m:
             shuffled.append(m)
     if shuffled:
@@ -234,6 +241,10 @@ def study_report(registry) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("study", choices=("ablation", "risk", "report", "all"))
+    parser.add_argument("--breakers", choices=("shipped", "swing"), default="shipped",
+                        help="which circuit-breaker levels to run the ablation at. "
+                             "The shipped ones hold exposure near 6%%, which tests a "
+                             "system that barely trades rather than the classifier.")
     parser.add_argument("--db", default=None, help="trial registry path")
     args = parser.parse_args()
 
@@ -256,7 +267,9 @@ def main() -> int:
           f"{bars[primary].index[0].date()} -> {bars[primary].index[-1].date()}")
 
     if args.study in ("ablation", "all"):
-        study_ablation(registry, settings, bars)
+        overrides = SWING_BREAKERS if args.breakers == "swing" else None
+        study_ablation(registry, settings, bars, overrides,
+                       suffix=f"-{args.breakers}")
     if args.study in ("risk", "all"):
         study_risk(registry, settings, bars)
 
