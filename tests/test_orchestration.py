@@ -925,10 +925,24 @@ def test_unhandled_error_is_logged_and_alerted(built_engine, monkeypatch):
 # Circuit breakers and halting
 # ===========================================================================
 
+
+def _below_peak(engine, peak: float) -> float:
+    """Equity far enough below `peak` to trip the peak halt at any setting."""
+    return peak * (1 - engine.risk_config["max_dd_from_peak"] - 0.05)
+
+
+def _below_daily(engine, day_start: float) -> float:
+    """Equity far enough below the day's open to trip the daily halt."""
+    return day_start * (1 - engine.risk_config["daily_dd_halt"] - 0.01)
+
+
 def test_halt_closes_positions(built_engine):
     """A halt is the one path that liquidates. Shutdown is not."""
     engine = built_engine
-    engine.client.equity = 80_000.0            # 20% below the 100k peak
+    # Comfortably past whatever peak threshold is configured. Hardcoding 20%
+    # coupled this to a 10% setting, and re-tuning the policy broke four tests
+    # that are about what a halt DOES, not about where it triggers.
+    engine.client.equity = _below_peak(engine, 100_000.0)
     engine.refresh_portfolio()
 
     outcome = BarOutcome(regime="strong_bear")
@@ -942,7 +956,7 @@ def test_halt_closes_positions(built_engine):
 
 def test_halt_writes_the_lock_file(built_engine):
     engine = built_engine
-    engine.client.equity = 80_000.0
+    engine.client.equity = _below_peak(engine, 100_000.0)
     engine.refresh_portfolio()
     engine._check_breakers(BarOutcome())
 
@@ -951,7 +965,7 @@ def test_halt_writes_the_lock_file(built_engine):
 
 def test_breaker_state_is_persisted(built_engine):
     engine = built_engine
-    engine.client.equity = 97_000.0            # a 3% daily drawdown
+    engine.client.equity = _below_daily(engine, 100_000.0)
     engine.session.day_start_equity = 100_000.0
     engine.refresh_portfolio()
 
@@ -975,7 +989,7 @@ def test_breakers_ignore_the_regime(built_engine):
     """Phase 5's separation, re-checked at the loop level: the breaker reads
     realised P&L and nothing about what the model believes."""
     engine = built_engine
-    engine.client.equity = 80_000.0
+    engine.client.equity = _below_peak(engine, 100_000.0)
     engine.refresh_portfolio()
 
     for _regime in ("strong_bull", "strong_bear", "unknown"):

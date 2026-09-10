@@ -218,16 +218,38 @@ risk:
   max_concurrent: 12
   max_daily_trades: 20
 
-  # Circuit breakers. CONFLICT: CLAUDE.md argues these are day-trading numbers
-  # that will misfire on a days-to-months holding period. A 3% down day is
-  # ordinary noise on a multi-week hold, and SPY draws down 10% in normal years.
-  # Shipped as the tutorial specifies. Swing-horizon alternatives are in
-  # docs/TUTORIAL-CONFLICTS.md, to be chosen against your own backtest.
-  daily_dd_reduce: 0.02        # halve position sizes
-  daily_dd_halt: 0.03          # close everything
-  weekly_dd_reduce: 0.05
-  weekly_dd_halt: 0.07
-  max_dd_from_peak: 0.10       # halt and write trading_halted.lock
+  # Circuit breakers, set to the holding period rather than the tutorial's.
+  #
+  # These were the tutorial's day-trading numbers and they misfired constantly
+  # on a days-to-months hold. Measured on SPY alone, 2015-2026, no strategy
+  # involved, so this argument does not depend on any backtest of ours:
+  #
+  #   threshold        old fires        new fires
+  #   daily reduce     8.7x / year      0.6x / year
+  #   daily halt       3.0x / year      0.1x / year
+  #   weekly reduce    0.9x / year      0.2x / year
+  #   weekly halt      0.5x / year      never in 10.7 years
+  #   peak halt        6 of 11 years    1 of 11 years (2020)
+  #
+  # A breaker that halts all trading three times a year is not a safety
+  # mechanism, it is the strategy. The peak rule was the worst of them: it
+  # halts PERMANENTLY and needs `trading_halted.lock` deleted by hand, and SPY
+  # itself breaches 10% below its running high in six years out of eleven. The
+  # system spent most of a decade halted, held 6% instead of 32%, and took 565
+  # trades where it should have taken 2859.
+  #
+  # The new levels are chosen by how often they fire, NOT by what they return.
+  # A sweep did find that these settings improve the backtest a great deal, but
+  # that sweep scored 0.789 on the deflated Sharpe against a 0.95 bar, so it is
+  # not the justification. The justification is that a circuit breaker should
+  # fire on an abnormal event and 3% down days are not abnormal.
+  #
+  # Paper account only. Revisit every one of these before real capital.
+  daily_dd_reduce: 0.05        # halve position sizes; ~0.6 days a year
+  daily_dd_halt: 0.08          # close everything; ~1 day a decade
+  weekly_dd_reduce: 0.10
+  weekly_dd_halt: 0.15         # not breached at all in the last 10.7 years
+  max_dd_from_peak: 0.25       # halt and write trading_halted.lock
 
   # -- account size ---------------------------------------------------------
   # Size positions as if the account held this much, regardless of what the

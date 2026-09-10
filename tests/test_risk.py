@@ -33,7 +33,21 @@ from core.risk_manager import (
 
 @pytest.fixture
 def risk_config(settings):
-    return dict(settings["risk"])
+    """Shipped risk config, with the breaker thresholds pinned.
+
+    Everything in this file that builds a CircuitBreaker is testing the LOGIC:
+    that the most severe breaker wins, that they latch, that resets clear the
+    right ones. Those tests pick equity numbers to sit either side of a
+    threshold, so inheriting whatever settings.yaml happens to ship coupled
+    them to a risk policy they are not about, and re-tuning the policy broke
+    eight of them at once.
+
+    Pinned to the original reference levels. The shipped values are a separate
+    question and are covered by `test_shipped_breakers_are_rare_events`.
+    """
+    return {**settings["risk"], "daily_dd_reduce": 0.02, "daily_dd_halt": 0.03,
+            "weekly_dd_reduce": 0.05, "weekly_dd_halt": 0.07,
+            "max_dd_from_peak": 0.10}
 
 
 @pytest.fixture(autouse=True)
@@ -707,3 +721,27 @@ def test_breakers_escalate_in_order(settings):
 
 def test_risk_per_trade_is_one_percent(settings):
     assert settings["risk"]["max_risk_per_trade"] == 0.01
+
+
+def test_shipped_breakers_are_rare_events(settings):
+    """A breaker that fires often is not a safety mechanism, it is the strategy.
+
+    Measured on SPY alone, 2015-2026, with no strategy involved: the previous
+    settings halted all trading on a 3% down day, which happens about three
+    times a year, and the peak rule breached in six years out of eleven. That
+    halt is permanent until `trading_halted.lock` is deleted by hand, so the
+    system spent most of a decade stopped, holding 6% instead of 32% and taking
+    565 trades where it should have taken 2859.
+
+    Asserted as thresholds so this needs no market data, but the numbers behind
+    them come from that measurement. See docs/phases/11-evidence-and-ablation.md.
+    """
+    risk = settings["risk"]
+    assert risk["daily_dd_halt"] >= 0.05, (
+        "SPY falls 3% in a day about three times a year")
+    assert risk["weekly_dd_halt"] >= 0.10
+    assert risk["max_dd_from_peak"] >= 0.20, (
+        "SPY itself sits more than 10% below its running high in six years of "
+        "eleven, and this halt is permanent")
+    assert risk["daily_dd_reduce"] < risk["daily_dd_halt"]
+    assert risk["weekly_dd_reduce"] < risk["weekly_dd_halt"]
