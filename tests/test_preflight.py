@@ -293,3 +293,34 @@ def test_the_check_timestamp_is_recorded(tmp_path):
     result = run_preflight(tmp_path / "state.db")
     stamp = datetime.fromisoformat(result.as_dict()["checked_at"])
     assert datetime.now(UTC) - stamp < timedelta(seconds=30)
+
+
+def test_allocation_reachability_flags_the_settings_conflict():
+    """3% a position x 12 positions cannot hold a 95% target.
+
+    The live system was observed at 14% invested while the engine reported a
+    target of 119%, and the backtest that says +29.5% averaged 80% invested.
+    A backtest of a strategy the risk layer cannot run is not evidence about
+    the strategy that is running.
+    """
+    from scripts.preflight import check_live_can_reach_the_backtested_allocation
+
+    check = check_live_can_reach_the_backtested_allocation()
+    assert check.passed is False
+    assert "36%" in check.detail and "95%" in check.detail
+
+
+def test_allocation_reachability_passes_when_the_numbers_agree(monkeypatch):
+    import scripts.preflight as pf
+
+    monkeypatch.setattr(pf, "load_settings", lambda: {
+        "risk": {"max_single_position": 0.10, "max_concurrent": 12},
+        "strategy": {"low_vol_allocation": 0.95, "high_vol_allocation": 0.60},
+    }, raising=False)
+    import config
+    monkeypatch.setattr(config, "load_settings", lambda: {
+        "risk": {"max_single_position": 0.10, "max_concurrent": 12},
+        "strategy": {"low_vol_allocation": 0.95, "high_vol_allocation": 0.60},
+    })
+    check = pf.check_live_can_reach_the_backtested_allocation()
+    assert check.passed is True, check.detail

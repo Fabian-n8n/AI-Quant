@@ -234,6 +234,51 @@ def _benchmark_remedy(lost_to: list[str]) -> str:
     return "Re-run the comparison and read which benchmark was lost to."
 
 
+def check_live_can_reach_the_backtested_allocation() -> Check:
+    """The live risk layer must be able to hold what the backtest held.
+
+    The walk-forward backtest rebalances straight to the strategy's target
+    allocation, averaging around 80% invested. The live risk layer caps every
+    position at `max_single_position` and the count at `max_concurrent`, so the
+    most it can ever hold is the product of the two. With 3% and 12 that is
+    36%, against a low-volatility target of 95%.
+
+    When those disagree, the backtest is measuring a strategy that cannot be
+    run, and every conclusion drawn from it -- including whether it beats
+    buy-and-hold -- is about a different system. Observed live: five positions
+    at 3% each, 14% invested, while the engine reported a target of 119%.
+
+    This is a settings conflict, not a bug, and it is documented in
+    config/settings.yaml. It is checked here because a documented conflict that
+    nobody re-reads is indistinguishable from an undocumented one.
+    """
+    from config import load_settings
+
+    settings = load_settings()
+    risk, strategy = settings["risk"], settings["strategy"]
+    cap = float(risk.get("max_single_position", 1.0))
+    count = int(risk.get("max_concurrent", 0))
+    reachable = cap * count
+
+    targets = {k: float(v) for k, v in strategy.items() if k.endswith("_allocation")
+               or k.startswith(("low_vol_allocation", "mid_vol_allocation", "high_vol_allocation"))}
+    wanted = max(targets.values()) if targets else 0.0
+
+    ok = reachable >= wanted
+    return Check(
+        name="Live sizing can reach the backtested allocation",
+        passed=ok,
+        detail=(f"{cap:.0%} x {count} positions = {reachable:.0%} reachable, "
+                f"strategy targets up to {wanted:.0%}"
+                + ("" if ok else " -- the backtest holds what live cannot")),
+        remedy=("Raise max_single_position or max_concurrent until their product "
+                "covers the highest allocation target, or lower the targets to "
+                "what the risk layer will actually deploy. Until they agree, the "
+                "backtest is measuring a different strategy from the live one, "
+                "and raising the cap raises real risk -- decide deliberately."),
+    )
+
+
 def check_every_position_has_a_stop() -> Check:
     """Every open position has a live stop order at the broker.
 
@@ -319,6 +364,7 @@ def run_preflight(db_path: Path | None = None) -> Preflight:
         check_expectancy(repo),
         check_backtest_freshness(),
         check_beats_benchmarks(),
+        check_live_can_reach_the_backtested_allocation(),
         check_every_position_has_a_stop(),
         check_not_halted(repo),
     ):
