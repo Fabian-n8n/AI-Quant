@@ -1,57 +1,64 @@
 {
-  "session_id": "20260910-230913",
-  "started_at": "2026-09-10T23:09:13.369168+00:00",
-  "saved_at": "2026-09-10T23:09:24.226286+00:00",
-  "peak_equity": 99575.60926299816,
-  "day_start_equity": 99575.36012344259,
-  "week_start_equity": 99575.60926299816,
-  "day_start_date": "2026-09-10",
+  "session_id": "20260911-231520",
+  "started_at": "2026-09-11T23:15:20.674296+00:00",
+  "saved_at": "2026-09-11T23:15:32.210262+00:00",
+  "peak_equity": 99914.59651245235,
+  "day_start_equity": 99900.67,
+  "week_start_equity": 99914.59651245235,
+  "day_start_date": "2026-09-11",
   "week_start_date": "2026-09-07",
-  "equity_at_save": 99561.73,
-  "sizing_basis": 99561.73,
-  "daily_trades": 3,
-  "bars_processed": 6,
-  "last_bar_timestamp": "SPY@2026-09-10 00:00:00",
-  "last_regime": "neutral",
-  "last_regime_confidence": 0.9993546832515562,
+  "equity_at_save": 99900.42,
+  "sizing_basis": 99900.42,
+  "daily_trades": 0,
+  "bars_processed": 7,
+  "last_bar_timestamp": "SPY@2026-09-11 00:00:00",
+  "last_regime": "weak_bear",
+  "last_regime_confidence": 0.9996438710086799,
   "stops": {
-    "AVGO": 356.6239792819096,
+    "AVGO": 359.23606545565076,
     "COIN": 165.9,
+    "META": 597.37,
+    "NVDA": 211.33171383116618,
     "PLTR": 158.3,
-    "QQQ": 706.4206691989983,
+    "QQQ": 706.5215053421229,
     "SMCI": 35.56,
-    "SPY": 755.0155734496293
+    "SPY": 755.2138994613124
   },
   "equity_history": [
     {
       "t": "2026-09-04",
-      "equity": 99575.61,
-      "peak": 99575.61
+      "equity": 99914.6,
+      "peak": 99914.6
     },
     {
       "t": "2026-09-04",
-      "equity": 99575.61,
-      "peak": 99575.61
+      "equity": 99914.6,
+      "peak": 99914.6
     },
     {
       "t": "2026-09-04",
-      "equity": 99575.61,
-      "peak": 99575.61
+      "equity": 99914.6,
+      "peak": 99914.6
     },
     {
       "t": "2026-09-08",
-      "equity": 99575.36,
-      "peak": 99575.61
+      "equity": 99914.35,
+      "peak": 99914.6
     },
     {
       "t": "2026-09-09",
-      "equity": 99575.36,
-      "peak": 99575.61
+      "equity": 99914.35,
+      "peak": 99914.6
     },
     {
       "t": "2026-09-10",
-      "equity": 99561.73,
-      "peak": 99575.61
+      "equity": 99900.67,
+      "peak": 99914.6
+    },
+    {
+      "t": "2026-09-11",
+      "equity": 99900.42,
+      "peak": 99914.6
     }
   ],
   "regime_history": [
@@ -78,6 +85,10 @@
     {
       "t": "2026-09-10",
       "regime": "neutral"
+    },
+    {
+      "t": "2026-09-11",
+      "regime": "weak_bear"
     }
   ],
   "breaker_daily_tripped": "none",
