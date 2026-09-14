@@ -8,7 +8,7 @@ import {
 } from "@/components/panels";
 import { CandidatesCard, TopPickCard } from "@/components/panels/candidates";
 import { Badge } from "@/components/ui/badge";
-import { relativeTime } from "@/lib/format";
+import { countdown, relativeTime } from "@/lib/format";
 import { isDemo, lastSuccessfulRun, useSnapshot } from "@/lib/useSnapshot";
 import type { Snapshot } from "@/lib/types";
 
@@ -164,13 +164,51 @@ function LastRun({ snap }: { snap: Snapshot }) {
  *  answers "why has nothing happened", and it is the first question worth
  *  answering, because most of the time the answer is "it is 4am in New York". */
 function MarketStatus({ snap }: { snap: Snapshot }) {
-  const session = snap.timing?.session_state;
-  if (!session) return null;
+  const timing = snap.timing;
+  if (!timing) return null;
 
-  const open = session.state === "open";
+  // Derived here, not read from `session_state`.
+  //
+  // `session_state.detail` is a sentence built when the file was written, so a
+  // Friday-night publish still reads "Opens in 2.6 days" on Monday morning.
+  // `next_open` and `next_close` are absolute instants and stay true, and
+  // Alpaca's clock orders them the other way round while a session is running:
+  // mid-session `next_close` is today's close and `next_open` is tomorrow's.
+  // That inversion is the whole test.
+  const now = Date.now();
+  const opensAt = new Date(timing.next_open ?? "").getTime();
+  const closesAt = new Date(timing.next_close ?? "").getTime();
+  const known = !Number.isNaN(opensAt) && !Number.isNaN(closesAt);
+  const stale = known && opensAt < now && closesAt < now;
+
+  let state: "open" | "closed" | "unknown" = "unknown";
+  let label = "Session unknown";
+  let detail = "Could not read the market calendar.";
+
+  if (known && !stale) {
+    if (closesAt < opensAt) {
+      state = "open";
+      label = "Market open";
+      const left = countdown(timing.next_close);
+      detail = left ? `Closes in ${left}.` : "Closing now.";
+    } else {
+      state = "closed";
+      label = "Market closed";
+      const left = countdown(timing.next_open);
+      detail = left
+        ? `Opens in ${left}. Orders rest until then.`
+        : "Opening now.";
+    }
+  } else if (stale) {
+    state = "closed";
+    label = "Market closed";
+    detail = "Waiting on the next session. Nothing moves until it opens.";
+  }
+
+  const open = state === "open";
   const tone = open
     ? "border-positive/30 bg-positive/[0.07]"
-    : session.state === "unknown"
+    : state === "unknown"
       ? "border-warning/30 bg-warning/[0.07]"
       : "border-border bg-muted/20";
 
@@ -181,10 +219,10 @@ function MarketStatus({ snap }: { snap: Snapshot }) {
         <span aria-hidden
               className={`h-2 w-2 rounded-full ${
                 open ? "animate-pulse-dot bg-positive"
-                     : session.state === "unknown" ? "bg-warning" : "bg-muted-foreground"}`} />
-        {session.label}
+                     : state === "unknown" ? "bg-warning" : "bg-muted-foreground"}`} />
+        {label}
       </span>
-      <span className="text-muted-foreground">{session.detail}</span>
+      <span className="text-muted-foreground">{detail}</span>
       {!open && (
         <span className="ml-auto text-xs text-muted-foreground">
           Refreshes pause outside market hours.

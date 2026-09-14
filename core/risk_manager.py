@@ -890,8 +890,20 @@ class RiskManager:
         if not quote.get("tradeable", True):
             return False, RejectionReason.NOT_TRADEABLE, f"{signal.symbol} is not tradeable"
 
+        # A spread is a liquidity fact only while there is a book to be thin.
+        #
+        # This system decides after the close and the order queues for the next
+        # open, so the quote sitting there at 23:15 UTC describes nothing that
+        # will be traded against. Applied to it, this check rejected six of
+        # fourteen symbols in one run for "spreads" of 9.85% to 11.94%, which
+        # were closed-market artefacts, and the account sat at 22% invested
+        # against a backtest that runs at 32%.
+        #
+        # `usable` is absent from hand-built quotes in tests and from any caller
+        # that does not know about sessions, so it defaults to True and the
+        # check keeps its old behaviour wherever the flag is not supplied.
         bid, ask = quote.get("bid", 0.0), quote.get("ask", 0.0)
-        if bid > 0 and ask > 0:
+        if quote.get("usable", True) and bid > 0 and ask > 0:
             spread = (ask - bid) / ((ask + bid) / 2)
             if spread > self.max_spread_pct:
                 return False, RejectionReason.SPREAD_TOO_WIDE, (

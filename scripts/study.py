@@ -67,10 +67,12 @@ def score(result, initial_capital: float) -> dict:
     }
 
 
-def build(settings, bars, risk_overrides=None, regime_mode="hmm", regime_seed=0):
+def build(settings, bars, risk_overrides=None, regime_mode="hmm", regime_seed=0,
+          entry_fill="open"):
     risk = dict(settings["risk"])
     risk.update(risk_overrides or {})
     return PortfolioBacktester(
+        entry_fill=entry_fill,
         symbols=list(bars), primary=settings["broker"]["symbols"][0],
         train_window=settings["backtest"]["train_window"],
         test_window=settings["backtest"]["test_window"],
@@ -86,16 +88,19 @@ def build(settings, bars, risk_overrides=None, regime_mode="hmm", regime_seed=0)
 
 
 def run_arm(registry, study, label, settings, bars, risk_overrides=None,
-            regime_mode="hmm", regime_seed=0):
-    backtester = build(settings, bars, risk_overrides, regime_mode, regime_seed)
+            regime_mode="hmm", regime_seed=0, entry_fill="open"):
+    backtester = build(settings, bars, risk_overrides, regime_mode, regime_seed,
+                       entry_fill)
     result = backtester.run(bars)
     metrics = score(result, settings["backtest"]["initial_capital"])
     if not metrics:
         return None
+    metrics["fill_rate"] = result.config.get("fill_rate", 1.0)
+    metrics["orders_submitted"] = result.config.get("orders_submitted", 0)
     registry.record(Trial(
         study=study, label=label,
         config={"risk": risk_overrides or {}, "regime_mode": regime_mode,
-                "regime_seed": regime_seed},
+                "regime_seed": regime_seed, "entry_fill": entry_fill},
         total_return=metrics["total_return"], sharpe=metrics["sharpe"],
         max_drawdown=metrics["max_drawdown"], avg_exposure=metrics["avg_exposure"],
         n_trades=metrics["n_trades"], n_bars=metrics["n_bars"],
@@ -172,6 +177,44 @@ def study_ablation(registry, settings, bars, risk_overrides=None, suffix="") -> 
                   "costing.")
 
 
+def study_fill(registry, settings, bars, risk_overrides=None, suffix="") -> None:
+    """Does the strategy survive the way its orders actually fill?
+
+    Every backtest here has assumed each order fills at the next open. Live, the
+    system decides on a close and rests a DAY buy limit just above it, which
+    fills only if the next session trades back down to that price.
+
+    That is not a rounding error on a momentum screen. The screen wants names
+    above their EMA50 with a positive 20-day return; the resting limit fills on
+    whichever of those weakened and misses whichever ran. The entry rule and the
+    fill rule select opposite populations.
+    """
+    print("\nFILL MODEL: does the entry survive resting as a limit order?\n")
+    header(("", "return", "maxDD", "Sharpe", "expo", "trades"), (26, 9, 9, 8, 8, 8))
+
+    out = {}
+    for label, mode in (("fill at next open", "open"), ("resting limit (live)", "limit")):
+        m = run_arm(registry, "fill", f"{mode}{suffix}", settings, bars,
+                    risk_overrides, entry_fill=mode)
+        if m:
+            out[mode] = m
+            row(label, m)
+
+    print()
+    for mode, m in out.items():
+        print(f"  {mode:<10} orders reaching the book {m['orders_submitted']:>6}   "
+              f"filled {m['fill_rate']:>6.1%}")
+
+    if len(out) == 2:
+        d_sharpe = out["limit"]["sharpe"] - out["open"]["sharpe"]
+        d_ret = out["limit"]["total_return"] - out["open"]["total_return"]
+        print(f"\n  Switching to the live fill model moves Sharpe {d_sharpe:+.2f} "
+              f"and return {d_ret:+.1%}.")
+        if d_sharpe < -0.10:
+            print("  The published result was an artefact of assuming every order")
+            print("  fills. It does not survive how the orders are actually placed.")
+
+
 def study_risk(registry, settings, bars) -> None:
     """Position cap against circuit-breaker level, corrected for the search."""
     print("\nRISK SETTINGS: position cap x circuit breaker\n")
@@ -240,7 +283,7 @@ def study_report(registry) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("study", choices=("ablation", "risk", "report", "all"))
+    parser.add_argument("study", choices=("ablation", "risk", "fill", "report", "all"))
     parser.add_argument("--breakers", choices=("shipped", "swing"), default="shipped",
                         help="which circuit-breaker levels to run the ablation at. "
                              "The shipped ones hold exposure near 6%%, which tests a "
@@ -266,10 +309,12 @@ def main() -> int:
     print(f"  {len(bars)} symbols, {len(bars[primary])} bars, "
           f"{bars[primary].index[0].date()} -> {bars[primary].index[-1].date()}")
 
+    overrides = SWING_BREAKERS if args.breakers == "swing" else None
     if args.study in ("ablation", "all"):
-        overrides = SWING_BREAKERS if args.breakers == "swing" else None
         study_ablation(registry, settings, bars, overrides,
                        suffix=f"-{args.breakers}")
+    if args.study in ("fill", "all"):
+        study_fill(registry, settings, bars, overrides, suffix=f"-{args.breakers}")
     if args.study in ("risk", "all"):
         study_risk(registry, settings, bars)
 

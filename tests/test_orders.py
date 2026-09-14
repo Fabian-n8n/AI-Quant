@@ -16,6 +16,7 @@ import os
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -1112,3 +1113,172 @@ def test_the_price_checked_is_the_price_submitted(signal, approved):
     trade = executor.submit_order(signal, approved)
     assert float(fake.submitted[0].limit_price) == trade.submitted_price, \
         "the broker got a different price from the one that was checked"
+
+
+# -- off-hours marking ------------------------------------------------------
+#
+# Alpaca's `position.current_price` is not a traded price while the market is
+# shut. Measured on the live paper account at 07:14 UTC on a Monday, with
+# nothing having traded since Friday's close, all eight positions were marked
+# below their own close by up to 3.9%, turning a real -$93 of unrealised P&L
+# into a displayed -$413. The numbers below are that observation.
+
+
+class _Trade:
+    def __init__(self, price):
+        self.price = price
+
+
+class _DataStub:
+    def __init__(self, prices):
+        self.prices = prices
+
+    def get_stock_latest_trade(self, request):
+        symbols = request.symbol_or_symbols
+        symbols = [symbols] if isinstance(symbols, str) else symbols
+        return {s: _Trade(self.prices[s]) for s in symbols if s in self.prices}
+
+
+class MarkStub(AlpacaClient):
+    """Enough client to exercise re-marking, with no network."""
+
+    def __init__(self, *, market_open, prices=None, raw_positions=None,
+                 data_fails=False, clock_fails=False):
+        super().__init__(paper=True, api_key="PKTEST", secret_key="s", load_env=False)
+        self._connected = True
+        self._trading_client = FakeTradingClient(positions=raw_positions or [])
+        self._market_open = market_open
+        self._prices = prices or {}
+        self._data_fails = data_fails
+        self._clock_fails = clock_fails
+
+    def is_market_open(self):
+        if self._clock_fails:
+            raise BrokerConnectionError("clock unreachable")
+        return self._market_open
+
+    @property
+    def data_client(self):
+        if self._data_fails:
+            raise BrokerConnectionError("data client unreachable")
+        return _DataStub(self._prices)
+
+
+def _avgo(mark=352.47):
+    """The real AVGO position, marked the way Alpaca marked it off-hours."""
+    qty, entry = 8.0, 365.26
+    return Position(
+        symbol="AVGO", quantity=qty, average_entry_price=entry,
+        current_price=mark, market_value=mark * qty, cost_basis=entry * qty,
+        unrealised_pnl=(mark - entry) * qty,
+        unrealised_pnl_pct=(mark - entry) / entry,
+    )
+
+
+def test_open_market_marks_are_left_alone():
+    """During the session Alpaca's mark is live and correct."""
+    client = MarkStub(market_open=True, prices={"AVGO": 361.90})
+    assert client._remark_if_closed([_avgo()])[0].current_price == pytest.approx(352.47)
+
+
+def test_closed_market_marks_off_the_last_trade():
+    client = MarkStub(market_open=False, prices={"AVGO": 361.90})
+    marked = client._remark_if_closed([_avgo()])[0]
+
+    assert marked.current_price == pytest.approx(361.90)
+    assert marked.market_value == pytest.approx(361.90 * 8)
+    # -$26.14 is the truth. -$102.30 is what the stale mark showed.
+    assert marked.unrealised_pnl == pytest.approx((361.90 - 365.26) * 8)
+    assert marked.unrealised_pnl_pct == pytest.approx(
+        (361.90 - 365.26) / 365.26, rel=1e-6
+    )
+
+
+def test_a_zero_last_trade_leaves_the_position_alone():
+    """A missing print is not a reason to mark a position at zero."""
+    client = MarkStub(market_open=False, prices={"AVGO": 0.0})
+    assert client._remark_if_closed([_avgo()])[0].current_price == pytest.approx(352.47)
+
+
+@pytest.mark.parametrize("kwargs", [{"data_fails": True}, {"clock_fails": True}])
+def test_an_unreachable_service_leaves_the_marks_alone(kwargs):
+    """Degrade to the broker's number rather than inventing one."""
+    client = MarkStub(market_open=False, prices={"AVGO": 361.90}, **kwargs)
+    assert client._remark_if_closed([_avgo()])[0].current_price == pytest.approx(352.47)
+
+
+def test_equity_follows_the_remarked_positions():
+    """Position P&L that does not add up to the equity above it is worse than
+    either number alone, because nothing says which one to believe."""
+    raw = SimpleNamespace(
+        symbol="AVGO", qty=8.0, avg_entry_price=365.26, current_price=352.47,
+        market_value=352.47 * 8, cost_basis=365.26 * 8,
+        unrealized_pl=-102.30, unrealized_plpc=-0.035, side="long", asset_id="x",
+    )
+    client = MarkStub(market_open=False, prices={"AVGO": 361.90}, raw_positions=[raw])
+    # Equity as Alpaca reported it: cash plus this one position at the stale mark.
+    stale = 77_773.68 + 352.47 * 8
+    account = Account(
+        equity=stale, cash=77_773.68, buying_power=0.0,
+        portfolio_value=stale, is_paper=True, status="ACTIVE",
+    )
+
+    marked = client._remark_account_if_closed(account)
+
+    assert marked.equity == pytest.approx(77_773.68 + 361.90 * 8)
+    assert marked.portfolio_value == pytest.approx(marked.equity)
+    # The phantom loss, removed: $9.43 a share on 8 shares.
+    assert marked.equity - account.equity == pytest.approx((361.90 - 352.47) * 8)
+    assert marked.cash == account.cash         # cash is cash; it is not marked
+
+
+def test_open_market_equity_is_left_alone():
+    client = MarkStub(market_open=True, prices={"AVGO": 361.90})
+    account = Account(
+        equity=99_588.83, cash=77_773.68, buying_power=0.0,
+        portfolio_value=99_588.83, is_paper=True, status="ACTIVE",
+    )
+    assert client._remark_account_if_closed(account).equity == pytest.approx(99_588.83)
+
+
+# -- closed-market quotes ----------------------------------------------------
+#
+# One run refused all fourteen symbols. Four were rejected by the broker as
+# wash trades, four for a limit "deviating" from a lone bid with no ask, and
+# six for "spreads" of 9.85% to 11.94%. Every one was a closed-market quote
+# being read as a live one. `usable` is the single answer all three guards now
+# share.
+
+
+def test_a_quote_is_usable_only_with_a_session_behind_it():
+    quote = {"bid": 346.46, "ask": 0.0, "usable": False}
+    executor = OrderExecutor(FakeAlpacaClient(quote=quote))
+    signal = Signal(
+        symbol="AVGO", direction=Direction.LONG, confidence=0.9,
+        entry_price=361.99, stop_loss=350.0, take_profit=None,
+        position_size_pct=0.03, leverage=1.0, regime_id=0, regime_name="bull",
+        regime_probability=0.9, timestamp=pd.Timestamp("2026-09-11"),
+        reasoning="test", strategy_name="HighVolDefensiveStrategy",
+    )
+
+    price, stale = executor._reference_price(signal)
+
+    # The 361.99 close actually traded. The 346.46 bid did not.
+    assert price == pytest.approx(361.99)
+    assert stale is True
+
+
+def test_the_price_guard_stands_down_without_a_live_quote():
+    """Refusing a correct limit for deviating from a bad reference cost four
+    symbols in one run. The limit was right; the reference was garbage."""
+    executor = OrderExecutor(FakeAlpacaClient(quote={"bid": 346.46, "ask": 0.0,
+                                                    "usable": False}))
+    # 367.08 is +5.95% from that lone bid, which is what got AVGO refused.
+    executor._assert_price_sane("AVGO", 367.08, OrderSide.BUY)
+
+
+def test_the_price_guard_still_bites_during_a_session():
+    executor = OrderExecutor(FakeAlpacaClient(quote={"bid": 99.99, "ask": 100.01,
+                                                    "usable": True}))
+    with pytest.raises(OrderExecutionError, match="deviates"):
+        executor._assert_price_sane("SPY", 130.0, OrderSide.BUY)

@@ -22,10 +22,31 @@ drifts. If the risk layer changes, this changes with it.
 
 WHAT IT DOES NOT DO
 -------------------
-It is not a market simulator. Fills are at the next bar's open plus slippage,
-there is no order book, no partial fills and no borrow cost on margin. Those
-omissions flatter the result, and the honest use of the output is to compare
-configurations against each other rather than to predict a dollar figure.
+It is not a market simulator. There is no order book, no partial fills and no
+borrow cost on margin. Those omissions flatter the result, and the honest use
+of the output is to compare configurations against each other rather than to
+predict a dollar figure.
+
+HOW ORDERS FILL
+---------------
+`entry_fill` picks between two models, and the gap between them is the point.
+
+  "open"   every order fills at the next bar's open plus slippage. Simple,
+           optimistic, and NOT what the live system does.
+
+  "limit"  what the live system actually does. The decision is taken on a bar
+           close, a DAY limit order is submitted at close x (1 + offset), and
+           it fills only if the next session trades down to that price.
+
+The second matters because the screen is a momentum screen: it wants names
+above their own EMA50 with a positive 20-day return. A resting buy limit set
+just above yesterday's close fills only on names that weakened during the day,
+and never on the ones that gapped up and kept going. The entry rule and the
+fill rule therefore select opposite populations, and the "open" model cannot
+see that because it fills everything.
+
+Measured on the live account over 11 orders: the 8 that filled had a mean
+overnight gap of -0.37%, the 3 that did not had +1.28%.
 
 LOOK-AHEAD
 ----------
@@ -135,6 +156,8 @@ class PortfolioBacktester:
         hmm_min_train_bars: int | None = None,
         regime_mode: str = "hmm",
         regime_seed: int = 0,
+        entry_fill: str = "open",
+        limit_offset: float = 0.005,
         **_ignored: Any,
     ) -> None:
         self.symbols = list(symbols)
@@ -151,6 +174,18 @@ class PortfolioBacktester:
         self.strategy_config = dict(strategy_config or {})
         self.risk_config = dict(risk_config or {})
         self.reward_risk_ratio = reward_risk_ratio
+
+        # See "HOW ORDERS FILL" at the top of the module. The default stays
+        # "open" so existing trials remain comparable; "limit" is the honest one.
+        if entry_fill not in ("open", "limit"):
+            raise ValueError(f"entry_fill must be 'open' or 'limit', got {entry_fill!r}")
+        self.entry_fill = entry_fill
+        # Mirrors broker.order_executor.DEFAULT_STALE_OFFSET. The live system
+        # prices off a bar close when the market is shut, which is always, since
+        # the decision is taken after it.
+        self.limit_offset = limit_offset
+        self.orders_submitted = 0
+        self.orders_filled = 0
 
         # How the regime is decided each bar. The point of the switch is to
         # answer "does the HMM earn its complexity" by holding everything else
@@ -255,6 +290,12 @@ class PortfolioBacktester:
                 "symbols": self.symbols, "primary": self.primary,
                 "train_window": self.train_window, "test_window": self.test_window,
                 "slippage_pct": self.slippage_pct,
+                "entry_fill": self.entry_fill,
+                "limit_offset": self.limit_offset,
+                "orders_submitted": self.orders_submitted,
+                "orders_filled": self.orders_filled,
+                "fill_rate": (self.orders_filled / self.orders_submitted
+                              if self.orders_submitted else 0.0),
                 "max_single_position": self.risk_config.get("max_single_position"),
                 "max_concurrent": self.risk_config.get("max_concurrent"),
                 "max_risk_per_trade": self.risk_config.get("max_risk_per_trade"),
@@ -329,10 +370,9 @@ class PortfolioBacktester:
                     continue
                 if len(holdings) >= max_concurrent:
                     break
-                price = self._price(bars, symbol, timestamp, "open")
-                if price is None or price <= 0:
-                    continue
-                fill = price * (1 + self.slippage_pct)
+                fill = self._entry_fill(bars, symbol, timestamp, order)
+                if fill is None:
+                    continue          # gapped away from a resting limit, or no bar
                 cost = order["shares"] * fill + self.commission_per_share * order["shares"]
                 if cost > cash:
                     continue          # no margin in this model
@@ -408,6 +448,9 @@ class PortfolioBacktester:
                     "symbol": candidate.symbol, "shares": float(candidate.shares),
                     "stop_loss": stop, "take_profit": target,
                     "regime": regime.label.value,
+                    # The reference the live executor would price off: this
+                    # bar's close, since the market is shut when it decides.
+                    "limit_price": candidate.entry_price * (1 + self.limit_offset),
                 })
 
             rows.append({
@@ -468,6 +511,50 @@ class PortfolioBacktester:
             if len(part) >= required_warmup() // 2:
                 out[symbol] = part
         return out
+
+    def _entry_fill(self, bars, symbol: str, timestamp, order) -> float | None:
+        """What the entry actually costs, or None if the order never traded.
+
+        "open" crosses at the open and pays slippage.
+
+        "limit" is a DAY buy limit resting at the price the live executor would
+        have set. Three outcomes, and only the first two exist in the "open"
+        model:
+
+          open <= limit   the market gapped our way. We cross and take the open,
+                          which is better than the limit we asked for.
+          low  <= limit   the session traded down to us at some point. Passive
+                          fill at the limit itself, no spread to cross.
+          low  >  limit   the name never came back. The order expires unfilled.
+
+        The third case is the one that matters. It removes exactly the names
+        that opened strong and kept going, which on a momentum screen are the
+        names the screen was trying to buy.
+        """
+        open_ = self._price(bars, symbol, timestamp, "open")
+        if open_ is None or open_ <= 0:
+            return None
+
+        if self.entry_fill == "open":
+            self.orders_submitted += 1
+            self.orders_filled += 1
+            return open_ * (1 + self.slippage_pct)
+
+        limit = order.get("limit_price")
+        if limit is None or limit <= 0:
+            return None
+        self.orders_submitted += 1
+
+        if open_ <= limit:
+            self.orders_filled += 1
+            return open_ * (1 + self.slippage_pct)
+
+        low = self._price(bars, symbol, timestamp, "low")
+        if low is None or low > limit:
+            return None
+
+        self.orders_filled += 1
+        return limit
 
     def _price(self, bars, symbol: str, timestamp, field_name: str) -> float | None:
         frame = bars.get(symbol)

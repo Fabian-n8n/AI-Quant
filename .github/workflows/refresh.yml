@@ -35,7 +35,20 @@ name: Refresh dashboard
 on:
   schedule:
     # Ignition only. The job loops once it starts; see the note above.
-    - cron: "*/15 13-21 * * 1-5"
+    #
+    # This used to be `*/15 13-21`, which asks GitHub for 36 runs a day and is
+    # exactly the shape it deprioritises. Measured over the two days nobody was
+    # triggering it by hand, the FIRST refresh of the session landed at 16:57
+    # and 17:07 UTC against a 13:30 open. Three and a half hours of every
+    # trading day had no dashboard at all, which is what "it never refreshes"
+    # actually was.
+    #
+    # Four ignitions a day, spaced under the loop's own three-hour run, so each
+    # is a backup for the one before rather than the only chance. 13:25 covers
+    # the open, and the 19:25 loop runs into the 21:00 break. `cancel-in-progress`
+    # means a redundant ignition replaces a healthy loop instead of doubling it,
+    # which costs one cycle and buys the redundancy.
+    - cron: "25 13,15,17,19 * * 1-5"
   workflow_dispatch:
 
 permissions:

@@ -33,7 +33,7 @@ import logging
 import os
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
@@ -224,6 +224,7 @@ class AlpacaClient:
 
         self._trading_client = None
         self._data_client = None
+        self._clock_cache: tuple[float, bool] | None = None
         self._connected = False
 
     @staticmethod
@@ -339,6 +340,7 @@ class AlpacaClient:
     def disconnect(self) -> None:
         self._trading_client = None
         self._data_client = None
+        self._clock_cache: tuple[float, bool] | None = None
         self._connected = False
 
     def _require_connection(self):
@@ -352,7 +354,7 @@ class AlpacaClient:
     def get_account(self) -> Account:
         raw = self._require_connection().get_account()
         number = str(getattr(raw, "account_number", "") or "")
-        return Account(
+        account = Account(
             equity=float(raw.equity or 0),
             cash=float(raw.cash or 0),
             buying_power=float(raw.buying_power or 0),
@@ -368,6 +370,44 @@ class AlpacaClient:
             status=str(getattr(raw.status, "value", raw.status)),
             last_equity=float(raw.last_equity or 0),
         )
+        return self._remark_account_if_closed(account)
+
+    def _remark_account_if_closed(self, account: Account) -> Account:
+        """Keep equity consistent with the re-marked positions.
+
+        `_remark_if_closed` corrects what each position is worth. This corrects
+        the total, which is otherwise Alpaca's own figure carrying exactly the
+        same stale off-hours marks. Fixing one without the other would be worse
+        than fixing neither: the dashboard would print position P&L that does
+        not add up to the equity above it, and there would be no way to tell
+        which of the two to believe.
+
+        This is not only cosmetic. Every circuit breaker is a ratio against
+        equity, so a phantom mark is a phantom drawdown. At the 22% exposure
+        this account runs, the gap was 0.32% and nowhere near the 5% reduce
+        level; the same per-position mismarks of up to 3.9% at full exposure
+        would be within reach of it, and would halt trading over nothing.
+
+        Costs one clock call and one latest-trade call per account refresh,
+        which at a fifteen-minute cadence is not worth optimising away.
+        """
+        try:
+            if self.is_market_open():
+                return account
+            raw_positions = self._require_connection().get_all_positions()
+            positions = self._remark_if_closed(
+                [self._to_position(p) for p in raw_positions], market_open=False,
+            )
+        except Exception as exc:
+            logger.warning("Could not re-mark equity off the last trade: %s", exc)
+            return account
+
+        if not positions:
+            return account
+        equity = account.cash + sum(p.market_value for p in positions)
+        if equity <= 0:
+            return account
+        return replace(account, equity=equity, portfolio_value=equity)
 
     def get_available_margin(self) -> float:
         """Buying power beyond cash. Borrowable, not owned.
@@ -390,14 +430,90 @@ class AlpacaClient:
             "next_close": clock.next_close,
         }
 
-    def is_market_open(self) -> bool:
-        return self.get_clock()["is_open"]
+    def is_market_open(self, max_age_seconds: float = 30.0) -> bool:
+        """Whether a session is running, cached briefly.
+
+        Every quote now carries a `usable` flag derived from this, so a scan of
+        fourteen symbols would otherwise ask the broker what time it is fourteen
+        times. The open and close are fixed points in the day, so a reading a
+        few seconds old cannot be wrong about anything except the single tick
+        either side of the bell, and nothing here trades on that tick.
+        """
+        now = time.monotonic()
+        cached = self._clock_cache
+        if cached is not None and now - cached[0] < max_age_seconds:
+            return cached[1]
+        is_open = bool(self.get_clock()["is_open"])
+        self._clock_cache = (now, is_open)
+        return is_open
 
     # -- positions ----------------------------------------------------------
 
     @_retry()
     def get_positions(self) -> list[Position]:
-        return [self._to_position(p) for p in self._require_connection().get_all_positions()]
+        return self._remark_if_closed(
+            [self._to_position(p) for p in self._require_connection().get_all_positions()]
+        )
+
+    def _remark_if_closed(self, positions: list[Position],
+                          *, market_open: bool | None = None) -> list[Position]:
+        """Re-price positions off the last real trade while the market is shut.
+
+        `position.current_price` from Alpaca is not a traded price outside
+        regular hours, and it drifts. Measured on this account at 07:14 UTC on a
+        Monday, with no share having changed hands since Friday's close:
+
+            symbol   broker mark   last trade   official close
+            AVGO          352.47       361.90           361.99
+            SMCI           38.54        40.06            40.10
+            QQQ           705.05       714.99           714.88
+
+        All eight positions were marked below their own close, by up to 3.9%,
+        and the marks kept moving across a weekend. That turned a real -$93 of
+        unrealised P&L into a displayed -$413, and took $319 off published
+        equity. Three of the eight quotes were one-sided with a zero ask, which
+        is the likeliest source of the bad mark.
+
+        This is the normal case rather than an edge case: a dashboard read from
+        Singapore is read outside US market hours nearly every time. During the
+        session Alpaca's mark is live and correct, so it is left alone.
+        """
+        if not positions:
+            return positions
+        try:
+            if market_open is None:
+                market_open = self.is_market_open()
+            if market_open:
+                return positions
+        except Exception:
+            return positions        # cannot tell what the session is: do not guess
+
+        try:
+            from alpaca.data.requests import StockLatestTradeRequest
+
+            trades = self.data_client.get_stock_latest_trade(
+                StockLatestTradeRequest(symbol_or_symbols=[p.symbol for p in positions])
+            )
+        except Exception as exc:
+            logger.warning("Could not re-mark positions off the last trade: %s", exc)
+            return positions
+
+        remarked = []
+        for position in positions:
+            price = float(getattr(trades.get(position.symbol), "price", 0) or 0)
+            if price <= 0 or position.quantity == 0:
+                remarked.append(position)
+                continue
+            value = price * position.quantity
+            pnl = value - position.cost_basis
+            remarked.append(replace(
+                position,
+                current_price=price,
+                market_value=value,
+                unrealised_pnl=pnl,
+                unrealised_pnl_pct=pnl / position.cost_basis if position.cost_basis else 0.0,
+            ))
+        return remarked
 
     def get_position(self, symbol: str) -> Position | None:
         try:
@@ -467,24 +583,51 @@ class AlpacaClient:
 
     @_retry(attempts=2)
     def get_latest_quote(self, symbol: str) -> dict[str, float]:
-        """Best bid and ask.
+        """Best bid and ask, with an explicit verdict on whether it is a market.
 
-        Outside market hours the free IEX feed commonly returns a zero ask, so
-        callers must treat zero as "no quote" rather than as a price. The risk
-        manager's spread check and the executor's limit pricing both do.
+        `usable` is the important field. Outside regular hours the free IEX feed
+        returns quotes that look like data and are not: one-sided books with a
+        zero ask, and two-sided books 10% wide. Three separate guards used to
+        each decide for themselves whether to believe a quote, and they decided
+        differently, which is how a run reached the state where every one of
+        fourteen symbols was refused:
+
+            SPY QQQ NVDA META    wash-trade rejection at the broker
+            AAPL AMD TSLA AVGO   "limit deviates +6% from the market", where
+                                 the market was a lone bid with no ask
+            MSFT AMZN GOOGL      "spread 10% exceeds 0.50%"
+            PLTR COIN SMCI
+
+        Every one of those was a closed-market quote being treated as a live
+        one. The decision is taken after the close by design and the order
+        queues for the next open, so the spread right now is not a fact about
+        anything. One flag, computed once, and every guard honours it.
         """
         from alpaca.data.requests import StockLatestQuoteRequest
 
         quote = self.data_client.get_stock_latest_quote(
             StockLatestQuoteRequest(symbol_or_symbols=symbol)
         )[symbol]
+        bid = float(quote.bid_price or 0)
+        ask = float(quote.ask_price or 0)
+
+        two_sided = bid > 0 and ask > 0
+        try:
+            session_open = self.is_market_open()
+        except Exception:
+            session_open = False        # cannot confirm a session: assume none
+
         return {
-            "bid": float(quote.bid_price or 0),
-            "ask": float(quote.ask_price or 0),
+            "bid": bid,
+            "ask": ask,
             "bid_size": float(quote.bid_size or 0),
             "ask_size": float(quote.ask_size or 0),
             "timestamp": quote.timestamp,
             "tradeable": True,
+            # A quote is a market only when there is a session behind it and
+            # both sides are there. Anything else is a number, not a price.
+            "usable": bool(session_open and two_sided),
+            "market_open": bool(session_open),
         }
 
     @property

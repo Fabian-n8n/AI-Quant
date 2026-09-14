@@ -760,6 +760,18 @@ class OrderExecutor:
             logger.debug("%s: no quote for the price guard (%s), allowing", symbol, exc)
             return
 
+        # Nothing to validate against outside a session.
+        #
+        # This guard used to fall back to a lone bid when the ask was zero, and
+        # off-hours that bid sits well under the last trade. AVGO was refused
+        # for a limit "+5.95% from the market", where the market was a 346.46
+        # bid against a 361.99 close that had actually traded. The limit was
+        # right and the reference was garbage. Four symbols were lost this way
+        # in a single run.
+        if not quote.get("usable", True):
+            logger.debug("%s: no live two-sided quote, skipping the price guard", symbol)
+            return
+
         bid, ask = quote.get("bid", 0.0) or 0.0, quote.get("ask", 0.0) or 0.0
         market = (bid + ask) / 2 if bid > 0 and ask > 0 else (ask or bid)
         if not market or market <= 0:
@@ -916,6 +928,11 @@ class OrderExecutor:
         try:
             quote = self.client.get_latest_quote(signal.symbol)
             bid, ask = quote.get("bid", 0.0) or 0.0, quote.get("ask", 0.0) or 0.0
+
+            # No session behind the quote means the bar close is the only real
+            # price available, and it is the one the signal was computed from.
+            if not quote.get("usable", True):
+                return signal.entry_price, True
 
             if bid > 0 and ask > 0:
                 mid = (bid + ask) / 2

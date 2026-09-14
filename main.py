@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import signal
 import sys
 import threading
@@ -61,6 +62,10 @@ PHASES = [
 ]
 
 logger = logging.getLogger("regime-trader.engine")
+
+# UUIDs and long hex handles in broker errors. They identify an order in an
+# account and belong in neither a public snapshot nor a dashboard string.
+_OPAQUE_ID = re.compile(r"\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b|\b[0-9a-f]{24,}\b")
 
 #: Distinguishes "argument not supplied" from an explicit None.
 _UNSET = object()
@@ -329,6 +334,33 @@ class TradingEngine:
             return self.log.log_event(event, message, **fields)
         logger.info(message or getattr(event, "value", event))
         return {}
+
+    @staticmethod
+    def _broker_reason(exc: Exception) -> str:
+        """The readable part of a broker rejection, without the identifiers.
+
+        Alpaca returns rejections as a JSON blob:
+
+            {"code":40310000,"existing_order_id":"554c19d5-4ca6-...",
+             "message":"potential wash trade detected. use complex orders",
+             "reject_reason":"opposite side market/stop order exists"}
+
+        Recorded whole, that is unreadable on the dashboard, and it carried
+        account order UUIDs into a public repository -- which is what the
+        snapshot secret scan was failing on. The sentence is the useful half.
+        """
+        text = str(exc)
+        start = text.find("{")
+        if start != -1:
+            try:
+                payload = json.loads(text[start:])
+                parts = [str(payload[key]).strip()
+                         for key in ("message", "reject_reason") if payload.get(key)]
+                if parts:
+                    return "; ".join(parts)
+            except (ValueError, TypeError):
+                pass
+        return _OPAQUE_ID.sub("<id>", text).strip()
 
     def _broker_retry(self, fn: Callable, *args: Any, what: str = "broker call", **kwargs: Any):
         """3 retries with exponential backoff, per the spec's error handling.
@@ -1729,7 +1761,27 @@ class TradingEngine:
         signals = self.orchestrator.generate_signals(self.symbols, self.bars, regime_state)
         outcome.signals = len(signals)
 
+        # One position per symbol. Adding to a holding is neither accepted by
+        # the broker nor measured by the backtest.
+        #
+        # Alpaca refuses a buy while a sell stop rests on the same symbol:
+        # "potential wash trade detected, opposite side market/stop order
+        # exists". Every add against a protected position was therefore
+        # rejected, four of them in a single run (SPY, QQQ, NVDA, META), each
+        # one landing in the log as a raw broker error blob.
+        #
+        # The alternative is to cancel the stop, add, then re-place it, which
+        # leaves a real position unprotected for the hours until the next open.
+        # That trade is not worth making, and it is not what was tested:
+        # `PortfolioBacktester` skips any symbol already in `holdings`, so every
+        # published figure describes a system that opens a name once.
+        held = set(self.position_tracker.get_open_positions())
+
         for candidate_signal in signals:
+            if candidate_signal.symbol in held:
+                logger.debug("%s: already held, not adding to it",
+                             candidate_signal.symbol)
+                continue
             quote = self._quote(candidate_signal.symbol)
             decision = self.risk_manager.validate_signal(
                 candidate_signal, self.portfolio, quote=quote, overnight=True
@@ -1773,10 +1825,11 @@ class TradingEngine:
                              client_order_id=trade.client_order_id)
                 self._attach_stop(candidate_signal, decision, trade)
             except Exception as exc:
-                outcome.errors.append(f"{candidate_signal.symbol}: {exc}")
+                reason = self._broker_reason(exc)
+                outcome.errors.append(f"{candidate_signal.symbol}: {reason}")
                 self._emit(EventType.ORDER_REJECTED,
-                           f"{candidate_signal.symbol}: order failed, {exc}",
-                           symbol=candidate_signal.symbol, error=str(exc))
+                           f"{candidate_signal.symbol}: order failed, {reason}",
+                           symbol=candidate_signal.symbol, error=reason)
 
     def _repair_stops(self, unprotected: list[str], positions: dict) -> list[str]:
         """Place a stop for every position found without one. Returns what is

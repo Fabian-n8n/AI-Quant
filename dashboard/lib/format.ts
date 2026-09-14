@@ -43,6 +43,25 @@ export const relativeTime = (iso: string | null | undefined) => {
   return `${Math.round(seconds / 86400)}d ago`;
 };
 
+/** How far away an absolute instant is, phrased forwards.
+ *
+ *  The publisher bakes a finished sentence into the JSON at write time --
+ *  "Opens in 2.6 days". Read on Monday morning, a file published on Friday
+ *  night still says exactly that, while the ISO timestamp sitting beside it is
+ *  still perfectly correct. A frozen countdown next to a stale "last run" badge
+ *  is the single thing that makes a correctly idle system look broken, so the
+ *  words get rebuilt from the timestamp on every render instead. */
+export const countdown = (iso: string | null | undefined) => {
+  if (!iso) return null;
+  const seconds = (new Date(iso).getTime() - Date.now()) / 1000;
+  if (Number.isNaN(seconds) || seconds <= 0) return null;
+  if (seconds < 90) return "under a minute";
+  const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
+  if (seconds < 5400) return plural(Math.round(seconds / 60), "minute");
+  if (seconds < 172800) return plural(Math.round(seconds / 3600), "hour");
+  return plural(Math.round(seconds / 86400), "day");
+};
+
 /** Tone for a drawdown, graded on the FRACTION OF ITS LIMIT consumed, not on
  *  the drawdown itself. 2% of a 3% limit is nearly spent; 2% of a 10% limit has
  *  room. Grading the raw number would tone both the same, which is backwards. */

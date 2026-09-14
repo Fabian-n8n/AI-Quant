@@ -173,3 +173,91 @@ class TestResultIntegrity:
                                                                   universe):
         result = backtester.run(universe)
         assert result.is_significant == (result.n_trades >= 30)
+
+
+# -- how orders fill ---------------------------------------------------------
+#
+# The backtest assumed every order fills at the next open. Live, the decision is
+# taken on a close and a DAY buy limit rests just above it, so an order fills
+# only if the next session trades back down to that price. Those are different
+# strategies, and the difference is not noise: a resting buy limit on a momentum
+# screen fills on the names that weakened and misses the ones that ran.
+
+
+def _fill_bars(open_, low):
+    """One symbol, one bar, with the open and low that decide the fill."""
+    index = pd.bdate_range("2024-01-01", periods=1, tz="UTC")
+    return {"X": pd.DataFrame(
+        {"open": [open_], "high": [max(open_, 110.0)], "low": [low],
+         "close": [open_], "volume": [1_000_000]}, index=index,
+    )}
+
+
+def _tester(entry_fill, slippage=0.0):
+    return PortfolioBacktester(symbols=["X"], entry_fill=entry_fill,
+                               slippage_pct=slippage, hmm_config=HMM_TEST_CONFIG)
+
+
+def test_open_model_always_fills():
+    """The optimistic model. It cannot represent a missed entry at all."""
+    bt = _tester("open", slippage=0.001)
+    bars = _fill_bars(open_=105.0, low=104.0)
+    order = {"limit_price": 100.5}      # ignored by this model
+
+    fill = bt._entry_fill(bars, "X", bars["X"].index[0], order)
+
+    assert fill == pytest.approx(105.0 * 1.001)
+    assert bt.orders_filled == bt.orders_submitted == 1
+
+
+def test_limit_fills_at_the_open_when_the_market_gaps_our_way():
+    """Opening below the limit means we cross and take the better price."""
+    bt = _tester("limit", slippage=0.001)
+    bars = _fill_bars(open_=99.0, low=98.0)
+
+    fill = bt._entry_fill(bars, "X", bars["X"].index[0], {"limit_price": 100.5})
+
+    assert fill == pytest.approx(99.0 * 1.001)
+
+
+def test_limit_fills_at_the_limit_when_the_session_comes_back():
+    """Opened away, traded down to us. Passive fill, no spread to cross."""
+    bt = _tester("limit", slippage=0.001)
+    bars = _fill_bars(open_=103.0, low=100.0)
+
+    fill = bt._entry_fill(bars, "X", bars["X"].index[0], {"limit_price": 100.5})
+
+    assert fill == pytest.approx(100.5)
+
+
+def test_limit_does_not_fill_when_the_name_runs_away():
+    """The case the open model cannot see, and the reason this exists.
+
+    A name that gaps up and never looks back is exactly what a momentum screen
+    is trying to buy, and exactly what a resting limit never gets.
+    """
+    bt = _tester("limit")
+    bars = _fill_bars(open_=103.0, low=101.0)
+
+    assert bt._entry_fill(bars, "X", bars["X"].index[0], {"limit_price": 100.5}) is None
+    assert bt.orders_submitted == 1
+    assert bt.orders_filled == 0
+
+
+def test_limit_model_never_pays_more_than_the_limit():
+    """The property that has to hold for every bar, not just the chosen ones."""
+    bt = _tester("limit")
+    limit, index = 100.5, pd.bdate_range("2024-01-01", periods=1, tz="UTC")[0]
+    rng = np.random.default_rng(3)
+
+    for open_, low in zip(rng.uniform(90, 115, 200), rng.uniform(85, 112, 200),
+                          strict=True):
+        low = min(low, open_)
+        fill = bt._entry_fill(_fill_bars(open_, low), "X", index, {"limit_price": limit})
+        if fill is not None:
+            assert fill <= limit * 1.0001, f"paid {fill} on a {limit} limit"
+
+
+def test_an_unknown_fill_model_is_refused():
+    with pytest.raises(ValueError, match="entry_fill"):
+        PortfolioBacktester(symbols=["X"], entry_fill="market")
