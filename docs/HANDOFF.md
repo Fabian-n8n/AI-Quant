@@ -132,8 +132,14 @@ of sample, with the real position limits applied.
 
 | | return | worst drawdown | Sharpe |
 |---|---:|---:|---:|
-| this strategy | +93% | −21% | **0.93** |
+| this strategy | +98% | −19% | **1.00** |
 | SPY buy and hold | +204% | −34% | 0.83 |
+
+Measured with a limit-order fill model: orders rest at a price and fill only if
+the market comes to them, which misses 11.8% of entries. Filling everything at
+the next open instead — the assumption most backtesters make — scores +93% and
+Sharpe 0.93, so on this strategy the optimistic assumption is the *pessimistic*
+one. That is not the usual direction and it was only found by building both.
 
 Better risk-adjusted, less than half the money, because it holds ~30% and cash
 earns nothing.

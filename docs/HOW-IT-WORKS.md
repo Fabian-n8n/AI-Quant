@@ -10,8 +10,9 @@ at how the market has been behaving lately, decides whether conditions look
 calm or dangerous, picks a handful of stocks that fit those conditions, works
 out how many shares it can buy without risking too much, and places the orders
 with Alpaca. Alpaca is a broker with a practice mode, so no real money is
-involved. A separate job wakes up every fifteen minutes during market hours to
-check what happened and update the website.
+involved. A separate job refreshes the website every fifteen minutes while the US
+market is open, so nothing changes overnight or at the weekend because nothing
+is happening.
 
 ## The pieces, in the order they run
 
@@ -79,8 +80,9 @@ broker, so it protects the position even when our computer is switched off.
 
 If the account loses more than certain amounts, the system stops trading.
 
-**This is currently the biggest problem with the setup**, and it is covered
-below.
+These levels used to be the biggest problem with the setup. They were set for a
+day-trading system and this one holds positions for weeks, so they fired almost
+immediately and then nothing traded for years. See below.
 
 ## Words you will see
 
@@ -104,25 +106,28 @@ real position limits applied:
 
 | setup | 10-year return | worst drawdown | Sharpe |
 |---|---:|---:|---:|
-| what is running today | +2.73% | -10.8% | 0.12 |
-| same, with sane circuit breakers | +93.29% | -21.1% | 0.93 |
+| the old circuit breakers | +2.73% | -10.8% | 0.12 |
+| **what is running today** | **+98.15%** | **-18.8%** | **1.00** |
+| just buying SPY | +203.74% | -33.8% | 0.83 |
 
-**Both lose to just buying SPY.** But look at the gap between those two rows.
-That is the same strategy, same stocks, same everything, with one settings block
-changed.
+**It still loses to just buying SPY on money made**, though it gets there with
+about half the worst-case pain. Note the gap between the first two rows: that is
+the same strategy, same stocks, same everything, with one settings block changed.
 
-### Why the current setup barely trades
+### Why the old setup barely traded
 
-There is a rule that says: if the account ever falls 10% below its best-ever
+There was a rule that said: if the account ever falls 10% below its best-ever
 value, stop trading entirely and wait for a human.
 
 That number came from a day-trading tutorial. This system holds positions for
 days to months, and the US market itself falls more than 10% in ordinary years.
-So the rule fires early, and then everything stops for the rest of the decade.
+So the rule fired early, and then everything stopped for the rest of the decade.
 
-The 3%-per-position limit is not protecting you either. It is the only size
-small enough that the account never falls far enough to trip that halt. The
-system has been quietly routing around its own emergency brake.
+The 3%-per-position limit was not protecting you either. It was the only size
+small enough that the account never fell far enough to trip that halt. The
+system was quietly routing around its own emergency brake. The levels have since
+been set by **how often they would fire** against ten years of real prices,
+rather than copied from a tutorial for a different holding period.
 
 ### Does the market-mood model help?
 
@@ -130,9 +135,33 @@ We tested this by taking the model's own mood labels and **shuffling them into a
 random order**. Same moods, same proportions, timing destroyed. If the model has
 skill, it must beat its own shuffled labels.
 
-At the current settings it did not. That may be because the system barely trades
-at those settings, so a retest at settings where it actually trades is in
-progress.
+It does not. Retested at settings where the system actually trades:
+
+| setup | Sharpe |
+|---|---:|
+| the mood model | 0.93 |
+| no mood model at all | 0.89 |
+| **its own labels, shuffled** | **0.94** |
+
+Shuffling scores the same, within the noise of shuffling. **The mood model is
+the centrepiece of this system and it is not timing anything.** Whatever the
+system earns comes from the entry screen, where the stop is placed, and how the
+position is sized.
+
+### Does it survive how orders actually fill?
+
+The backtest used to assume every order fills at the next morning's open. Real
+orders are limits that rest at a price, and fill only if the market comes to
+them. Those are different strategies, so the honest version was built and run:
+
+| fill model | return | worst drawdown | Sharpe |
+|---|---:|---:|---:|
+| everything fills at the open | +93% | -21.1% | 0.93 |
+| **resting limit, what really happens** | **+98%** | **-18.8%** | **1.00** |
+
+11.8% of orders never fill. The ones that do fill slightly cheaper, and that
+more than pays for the misses. This was expected to be bad news and was not,
+which is the only reason it is worth reporting.
 
 ## What has to be true before any of this touches real money
 
@@ -160,3 +189,61 @@ worthless strategies would have cleared anyway.
 
 The best setting found so far scores **0.789** on that adjusted measure. The
 bar is 0.95. It does not pass, which is why nothing has been changed.
+
+## What was broken, and what fixing it changed
+
+Found on 14 September 2026, all from live data rather than from reading code.
+
+### The dashboard was showing a loss that had not happened
+
+Alpaca reports a "current price" for each position. Outside US market hours that
+number is not a price anything traded at, and it drifts. Checked on a Monday
+morning, with no share having changed hands since Friday's close, **all eight
+positions were marked below their own closing price**, by as much as 3.9%.
+
+That turned a real **-$93** into a displayed **-$413**, and took $319 off the
+equity on the dashboard. Since Singapore is thirteen hours ahead of New York,
+almost every time you looked at it, you were looking at the broken version.
+
+Positions and equity are now priced off the last trade that actually happened.
+The first refresh after the fix moved equity from $99,588 back to $99,902.
+
+This mattered beyond the display: every emergency brake is measured as a
+percentage of equity, so a fake loss is a fake drawdown.
+
+### Nothing could be bought at all
+
+In the last full trading run, **all fourteen stocks were refused**, for three
+different reasons that turned out to be one reason.
+
+- Six were rejected for a bid-ask spread of about 10%. A wide spread normally
+  means "this is hard to trade, stay away" — but the market was shut. There was
+  no spread, only a stale quote.
+- Four were refused because the order price looked 6% away from the market. The
+  "market" was a bid with no ask on the other side.
+- Four were rejected by the broker itself, for trying to buy more of something
+  already held while a sell order sat protecting it.
+
+The first two are now skipped when there is no live market behind the quote,
+which is by design, since the decision is made after the close. Checked against
+the real account: **14 of 14 stocks now get through, where 0 of 14 did.**
+
+For the third, the system no longer adds to a position it already holds. That is
+also what the backtest always did, so live and tested now match.
+
+### The refresh was starting hours late
+
+The schedule asked GitHub for a refresh every 15 minutes. GitHub treats frequent
+schedules as low priority and quietly dropped most of them: on the days nobody
+triggered it by hand, the first refresh of the day arrived at **16:57 and 17:07**
+against a 13:30 open. Three and a half hours of each day had no dashboard.
+
+It now asks four times a day instead of thirty-six, and each run keeps itself
+alive for three hours. Asking for less is what makes it arrive.
+
+### "Updated 2 days ago" was usually telling the truth
+
+On a Monday morning in Singapore, the last US session really was Friday. The
+badge was right; the sentence next to it was frozen at publish time and still
+read "Opens in 2.6 days". The countdown is now worked out in your browser, so it
+says how long until the next open as of the moment you look.
