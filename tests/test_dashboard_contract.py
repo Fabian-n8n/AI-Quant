@@ -640,3 +640,37 @@ def test_an_order_failure_never_reports_a_size_it_does_not_have():
         "shares is defaulted to 0; an event with no size will render as '0 shares'"
     )
     assert "sized" in panel, "expected an explicit has-a-size check before printing one"
+
+
+# -- freshness badge ---------------------------------------------------------
+#
+# The badge showed "69m ago" over a file written 8 minutes earlier. It read the
+# newest run with status 'ok', which is by construction never the run that
+# wrote the file: the publisher serialises from inside the run, so that row is
+# still 'running' in its own snapshot and the badge always showed the previous
+# one. The gap is one refresh interval during the session and grows to the
+# whole weekend when the market is shut.
+
+
+def test_the_freshness_badge_reads_the_file_timestamp():
+    page = (DASHBOARD / "app" / "page.tsx").read_text()
+    start = page.index("function LastRun")
+    body = re.sub(r"//.*?$", "", page[start:start + 2000], flags=re.MULTILINE)
+
+    assert "relativeTime(snap.published_at)" in body, (
+        "the badge must age the snapshot itself, not a run row"
+    )
+    assert "lastSuccessfulRun" not in body, (
+        "lastSuccessfulRun returns the run BEFORE the one that wrote the file"
+    )
+
+
+def test_a_run_in_flight_is_not_treated_as_a_failure():
+    """The newest row is always 'running'. Counting it as unsettled is the
+    whole point; counting it as broken lights the warning on every load."""
+    page = (DASHBOARD / "app" / "page.tsx").read_text()
+    start = page.index("function LastRun")
+    body = re.sub(r"//.*?$", "", page[start:start + 2000], flags=re.MULTILINE)
+    assert 'r.status !== "running"' in body, (
+        "in-flight runs must be excluded before judging the last outcome"
+    )

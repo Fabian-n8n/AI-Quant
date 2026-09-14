@@ -51,7 +51,12 @@ export function useSnapshot() {
 export const isDemo = (snap: Snapshot) =>
   snap.is_demo ?? snap.source === "demo";
 
-/** When the system last completed a run, as opposed to when the file was
- *  written. A publish that happened during a failed run is not freshness. */
+/** The newest run that finished cleanly.
+ *
+ *  NOT a freshness signal, despite the obvious temptation. The publisher
+ *  serialises the snapshot from inside the run, so the run that wrote a given
+ *  file is always still 'running' in it and this returns the one before. Using
+ *  it for "last updated" made the badge report a 71-minute-old run over an
+ *  8-minute-old file. Freshness is `published_at`. */
 export const lastSuccessfulRun = (snap: Snapshot) =>
   (snap.activity?.runs ?? []).find((r) => r.status === "ok") ?? null;

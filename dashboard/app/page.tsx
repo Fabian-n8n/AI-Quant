@@ -9,7 +9,7 @@ import {
 import { CandidatesCard, TopPickCard } from "@/components/panels/candidates";
 import { Badge } from "@/components/ui/badge";
 import { countdown, relativeTime } from "@/lib/format";
-import { isDemo, lastSuccessfulRun, useSnapshot } from "@/lib/useSnapshot";
+import { isDemo, useSnapshot } from "@/lib/useSnapshot";
 import type { Snapshot } from "@/lib/types";
 
 /** Read-only view of a published snapshot.
@@ -127,32 +127,34 @@ function Masthead({ snap, demo }: { snap: Snapshot; demo: boolean }) {
   );
 }
 
-/** When the system last completed a run, not when this file was written.
- *
- *  Those differ in the case that matters: a run that crashed still publishes,
- *  so "updated 2m ago" off the file timestamp would report a failure as
- *  freshness. Reading the last row with status 'ok' cannot do that. */
+/** How old the data on this page is, with a warning if the last completed run
+ *  failed. */
 function LastRun({ snap }: { snap: Snapshot }) {
-  const run = lastSuccessfulRun(snap);
-  if (!run) {
-    return <Badge variant="outline">Published {relativeTime(snap.published_at)}</Badge>;
-  }
-  // A run still in flight is not a failed one.
+  // How old the numbers are is `published_at`. Nothing else.
   //
-  // The publisher writes the snapshot from inside the run, so the newest row is
-  // always 'running' when the file is written. Testing "is index 0 the last ok
-  // run" therefore raised the warning on every single page load, which is how a
-  // warning colour stops meaning anything.
+  // This used to show the newest run with status 'ok', which is by construction
+  // never the run that wrote the file: the publisher serialises from inside the
+  // run, so that row is still 'running' at the moment it is written. The badge
+  // therefore always reported the PREVIOUS run and read as stale even when the
+  // refresh had just succeeded. Measured on a Monday morning it said "69m ago"
+  // over a file written 8 minutes earlier, and the gap grows to however long
+  // the market has been shut.
+  //
+  // Reaching for the runs table was not a silly idea: a run that crashes still
+  // publishes, so a bare file timestamp can present a failure as freshness.
+  // That concern is kept as a warning colour, which is where it belongs,
+  // rather than by printing a number that is reliably wrong.
   const runs = snap.activity?.runs ?? [];
-  const okAt = runs.findIndex((r) => r.status === "ok");
-  const failedSince = runs
-    .slice(0, okAt === -1 ? runs.length : okAt)
-    .some((r) => r.status === "failed" || r.status === "halted");
+  const settled = runs.filter((r) => r.status !== "running");
+  const broke = settled.length > 0
+    && (settled[0].status === "failed" || settled[0].status === "halted");
 
   return (
-    <Badge variant={failedSince ? "warning" : "outline"}
-           title={failedSince ? "A more recent run did not complete" : undefined}>
-      Last run {relativeTime(run.finished_at ?? run.started_at)}
+    <Badge variant={broke ? "warning" : "outline"}
+           title={broke
+             ? "The last completed run did not finish cleanly"
+             : "When this snapshot was written"}>
+      Updated {relativeTime(snap.published_at)}
     </Badge>
   );
 }
