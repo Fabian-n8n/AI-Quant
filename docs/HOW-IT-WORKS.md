@@ -247,3 +247,65 @@ On a Monday morning in Singapore, the last US session really was Friday. The
 badge was right; the sentence next to it was frozen at publish time and still
 read "Opens in 2.6 days". The countdown is now worked out in your browser, so it
 says how long until the next open as of the moment you look.
+
+## The Instagram bot, tested
+
+Someone sent over a carousel from @derekanddakota describing a bot that
+"makes $3K/month". Its stated rules, and what each one does on real data,
+2018 to 2026:
+
+| market | its rule | result per year | verdict |
+|---|---|---:|---|
+| S&P 500 | mean reversion, 15-min | **-2.0%** | loses money |
+| NASDAQ | mean reversion, 15-min | **-1.6%** | loses money |
+| Bitcoin | breakout, 1-hour, volume | **-12.7%** | loses badly |
+| Gold | trend, 4-hour | +10.5% | 31 trades; loses to holding gold |
+| Oil | trend, 4-hour | — | data unusable, see below |
+
+Four of five lose. The fifth is 31 trades, three of which are 61% of the
+profit, and it still makes less than simply buying gold.
+
+### The carousel debunks itself
+
+Its own final slide does the arithmetic: the bot makes ~1% a month, which is
+**12.68% a year**, so $3,000/month needs **$300,000** in the account.
+
+Over the exact window I tested, **SPY returned 12.7% a year.** So by the
+poster's own numbers, five markets, three strategies and a 24/7 server produce
+what an index fund produces, and need the same $300,000 to pay you $3k a month.
+
+Then it pivots: "most people don't have that kind of money. But we still found
+a way to use AI to build income" → DM 'ASSET'. The trading bot is the hook;
+their actual product is something else. The carousel is built to make you
+conclude trading won't work for you, then sell you the alternative.
+
+### Two mistakes I made getting there
+
+Worth recording, because both are the traps this document warns about:
+
+1. **I used unadjusted prices.** Alpaca serves intraday bars raw unless you ask
+   for adjustment. NVDA's 10-for-1 split showed up as a -89.9% day and oil's
+   reverse split as a +732.8% day. My first NVDA result looked spectacular and
+   was meaningless. Our own daily pipeline does this correctly; my throwaway
+   test scripts did not.
+2. **I checked for the problem one-way.** I scanned for large *down* gaps to
+   find splits, which missed the reverse split entirely. The same one-sided
+   mistake that hid the stop-reconciliation bug earlier.
+
+## The bug the carousel found in our system
+
+One of its slides says: "Filters prevent NASDAQ and S&P 500 from going long
+simultaneously." That is a genuinely good rule, and we claim to have it. Our
+settings refuse anything correlating above 0.85.
+
+We were holding SPY and QQQ at the same time. Their correlation is **0.896**.
+
+The check works and is tested. Nothing had ever *given it any data*. It reads
+a price-history field that only the tests ever filled in, and when that field
+is empty it deliberately allows the trade rather than blocking everything
+during a data outage. Live, that field was empty always, so the correlation
+limit had never once been applied, in live or in the backtest.
+
+The practical effect: the dashboard showed eight positions, and SPY, QQQ, NVDA,
+AVGO, SMCI, META and PLTR all move together. It was eight ways of making one
+bet, which is why everything was red at the same time.

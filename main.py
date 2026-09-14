@@ -335,6 +335,35 @@ class TradingEngine:
         logger.info(message or getattr(event, "value", event))
         return {}
 
+    def _sync_price_history(self) -> None:
+        """Give the risk manager the returns its correlation check needs.
+
+        `check_correlation` returns 1.0 when `price_history` is None. That is a
+        deliberate fail-open, and correct for a thin feed: refusing every trade
+        because the data is late turns a data problem into an outage.
+
+        As a permanent state it was something else entirely. Nothing outside
+        the tests ever set `price_history`, so the check had never once run.
+        Every signal since this system was built took the fail-open branch, and
+        the correlation limits in `settings.yaml` described an intention rather
+        than a behaviour.
+
+        What that allowed: SPY and QQQ held simultaneously at a 60-day
+        correlation of 0.896, against a reject threshold of 0.85. The book
+        showed eight positions and carried roughly one bet, because SPY, QQQ,
+        NVDA, AVGO, SMCI, META and PLTR all move together.
+        """
+        import pandas as pd
+
+        closes = {
+            symbol: frame["close"]
+            for symbol, frame in self.bars.items()
+            if frame is not None and not frame.empty and "close" in frame
+        }
+        if len(closes) < 2:
+            return          # nothing to correlate against; stay failed-open
+        self.risk_manager.price_history = pd.DataFrame(closes).pct_change().dropna(how="all")
+
     @staticmethod
     def _broker_reason(exc: Exception) -> str:
         """The readable part of a broker rejection, without the identifiers.
@@ -1363,6 +1392,7 @@ class TradingEngine:
 
         # ---- 1. new bar ---------------------------------------------------
         self.bars = self._fetch_bars()
+        self._sync_price_history()
         primary = self.symbols[0]
         if primary not in self.bars or self.bars[primary].empty:
             outcome.skipped = "no bars"
@@ -1646,6 +1676,7 @@ class TradingEngine:
         try:
             self.refresh_portfolio()
             self.bars = self._fetch_bars()
+            self._sync_price_history()
 
             primary = self.symbols[0]
             if primary not in self.bars or self.bars[primary].empty:

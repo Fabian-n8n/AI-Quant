@@ -326,6 +326,22 @@ class PortfolioBacktester:
         # beyond a rejection count. Neither failure announces itself.
         risk = RiskManager(self.risk_config, lock_file=self._lock_file)
 
+        # The correlation check needs returns, and nothing was giving it any.
+        #
+        # `RiskManager.check_correlation` fails open when `price_history` is
+        # None, so leaving it unset meant every published figure from this
+        # module was measured with the correlation limits switched off, while
+        # `settings.yaml` said they were on. Live had the identical hole, so at
+        # least the two agreed; they now agree with the settings instead.
+        #
+        # Sliced per fold below, never the whole series, or the risk layer
+        # would see returns from after the bar being traded.
+        fold_returns = pd.DataFrame({
+            symbol: frame["close"] for symbol, frame in bars.items()
+            if frame is not None and not frame.empty and "close" in frame
+        }).pct_change()
+        corr_window = int(self.risk_config.get("correlation_window", 60))
+
         stream = engine.stream()
         warmup = features.iloc[max(window.train_start, window.train_end - 60): window.train_end]
         stream.warm(warmup)
@@ -421,6 +437,11 @@ class PortfolioBacktester:
                 regime=regime.label.value, regime_confirmed=regime.is_confirmed,
                 regime_confidence=regime.probability,
             )
+
+            # Only bars up to and including this one. Handing the risk layer
+            # the whole fold would let it correlate against the future.
+            if not fold_returns.empty:
+                risk.price_history = fold_returns.loc[:timestamp].tail(corr_window)
 
             try:
                 from core import candidates as candidates_module

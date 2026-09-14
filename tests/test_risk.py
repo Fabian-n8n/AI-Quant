@@ -12,6 +12,8 @@ refuse to trade.
 """
 
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -745,3 +747,58 @@ def test_shipped_breakers_are_rare_events(settings):
         "eleven, and this halt is permanent")
     assert risk["daily_dd_reduce"] < risk["daily_dd_halt"]
     assert risk["weekly_dd_reduce"] < risk["weekly_dd_halt"]
+
+
+# -- correlation, wired up ---------------------------------------------------
+#
+# `check_correlation` fails open when `price_history` is None. That is correct
+# for a thin feed and was catastrophic as a permanent state: nothing outside
+# these tests ever set it, so the check never ran once in production. The live
+# book held SPY and QQQ together at a 0.896 correlation against a 0.85 reject
+# threshold. These pin the wiring, not just the arithmetic.
+
+def test_live_engine_supplies_price_history():
+    """The check is worthless unless something feeds it."""
+    source = (Path(__file__).resolve().parent.parent / "main.py").read_text()
+    assert "_sync_price_history" in source, "nothing populates price_history"
+    assert source.count("self._sync_price_history()") >= 2, (
+        "both bar-fetch paths must refresh it, or one of them trades blind"
+    )
+    assert "risk_manager.price_history" in source
+
+
+def test_portfolio_backtest_supplies_price_history():
+    """Otherwise the backtest measures a different strategy from the live one."""
+    source = (Path(__file__).resolve().parent.parent
+              / "backtest" / "portfolio_backtester.py").read_text()
+    assert "risk.price_history" in source, (
+        "the backtest runs with correlation limits off while settings say on"
+    )
+    assert ".loc[:timestamp]" in source, "correlation window must not see the future"
+
+
+def test_spy_and_qqq_cannot_both_be_held(risk_config, isolated_lock):
+    """The exact case that was live: two index funds at 0.90 correlation."""
+    index = pd.bdate_range("2024-01-01", periods=90, tz="UTC")
+    rng = np.random.default_rng(11)
+    market = rng.normal(0, 0.01, 90)
+    history = pd.DataFrame(
+        {"SPY": market + rng.normal(0, 0.001, 90),
+         "QQQ": market + rng.normal(0, 0.001, 90)},
+        index=index,
+    )
+    assert history["SPY"].corr(history["QQQ"]) > 0.85
+
+    manager = RiskManager(risk_config, lock_file=isolated_lock, price_history=history)
+    state = PortfolioState(
+        equity=100_000.0, cash=50_000.0, buying_power=100_000.0,
+        positions={"SPY": {"market_value": 5_000.0, "quantity": 10.0,
+                           "entry_price": 500.0, "stop_loss": 480.0,
+                           "unrealised_pnl": 0.0}},
+        peak_equity=100_000.0, day_start_equity=100_000.0, week_start_equity=100_000.0,
+    )
+
+    multiplier, note = manager.check_correlation("QQQ", state)
+
+    assert multiplier == 0.0, f"QQQ was allowed alongside SPY: {note!r}"
+    assert "SPY" in note
