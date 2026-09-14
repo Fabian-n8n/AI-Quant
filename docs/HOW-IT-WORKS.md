@@ -107,8 +107,19 @@ real position limits applied:
 | setup | 10-year return | worst drawdown | Sharpe |
 |---|---:|---:|---:|
 | the old circuit breakers | +2.73% | -10.8% | 0.12 |
-| **what is running today** | **+98.15%** | **-18.8%** | **1.00** |
+| correlation limit still broken | +98.15% | -18.8% | 1.00 |
+| **what is running today** | **+58.68%** | **-10.5%** | **0.89** |
 | just buying SPY | +203.74% | -33.8% | 0.83 |
+
+The third row is lower than the second because the correlation limit now
+actually runs. It refuses roughly a third of the trades the second row took,
+which costs return and nearly halves the worst drawdown. The second row was
+never real: it describes a system with its own stated risk limits switched off.
+
+The number that matters most is neither of those. It is that the backtest now
+holds **21.3%** invested on average and the live account holds **22.2%**. Those
+figures disagreed for months, which meant every backtest was describing a
+different strategy from the one running.
 
 **It still loses to just buying SPY on money made**, though it gets there with
 about half the worst-case pain. Note the gap between the first two rows: that is
