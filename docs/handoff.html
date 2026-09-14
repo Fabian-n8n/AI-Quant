@@ -189,7 +189,7 @@
 
   <div class="verdict">
     <h2>Read this before rebuilding it anywhere</h2>
-    <p>The infrastructure works. The strategy has <strong>no demonstrated edge</strong>, and its centrepiece does not do what it claims: shuffling the regime model's own predictions into random order scores <em>the same</em>. Over ten years it returns +93% against SPY's +204%.</p>
+    <p>The infrastructure works. The strategy has <strong>no demonstrated edge</strong>, and its centrepiece does not do what it claims: shuffling the regime model's own predictions into random order scores <em>the same</em>. Over ten years it returns +59% against SPY's +204%, at a third of the drawdown.</p>
     <p>Moving the same rules to a different tool changes the plumbing, not the edge. If the goal is a nicer way to iterate, that is a fair reason to switch. If the goal is for it to start making money, the binding problem travels with you.</p>
   </div>
 
@@ -281,9 +281,9 @@ GOOGL  AMD  TSLA  AVGO  PLTR  COIN  SMCI</pre>
   <section>
     <h2 class="sec"><span class="num">03</span> Current state</h2>
     <div class="stats">
-      <div class="stat"><span class="k">Equity</span><span class="v">$99,598</span></div>
+      <div class="stat"><span class="k">Equity</span><span class="v">$99,902</span></div>
       <div class="stat"><span class="k">Cash</span><span class="v">$77,774</span></div>
-      <div class="stat"><span class="k">Invested</span><span class="v">22.3%</span></div>
+      <div class="stat"><span class="k">Invested</span><span class="v">22.2%</span></div>
       <div class="stat"><span class="k">Positions</span><span class="v">8</span></div>
       <div class="stat"><span class="k">Closed trades</span><span class="v">0</span></div>
     </div>
@@ -298,11 +298,12 @@ GOOGL  AMD  TSLA  AVGO  PLTR  COIN  SMCI</pre>
     <div class="scroller"><table>
       <thead><tr><th></th><th class="n">Return</th><th class="n">Worst drawdown</th><th class="n">Sharpe</th></tr></thead>
       <tbody>
-        <tr><td>This strategy</td><td class="n">+93%</td><td class="n">&minus;21%</td><td class="n good">0.93</td></tr>
+        <tr><td>This strategy</td><td class="n">+59%</td><td class="n">&minus;11%</td><td class="n good">0.89</td></tr>
         <tr><td>SPY buy and hold</td><td class="n">+204%</td><td class="n">&minus;34%</td><td class="n">0.83</td></tr>
       </tbody>
     </table></div>
-    <p>Better risk-adjusted return and a third less drawdown, but less than half the money, because it holds about 30% and the cash earns nothing.</p>
+    <p>Marginally better per unit of risk and a third of the drawdown, but under a third of the money, because it holds about 21% and the cash earns nothing.</p>
+    <p class="note"><strong>Correction.</strong> An earlier version of this page reported +93% at Sharpe 0.93, and a later one +98% at Sharpe 1.00. Both were measured with the system's own correlation limit silently switched off: the check read a field that nothing outside the tests ever populated, so it had never once executed. With it running, about a third of trades are refused, forty points of return disappear and the worst drawdown nearly halves. Any rebuild that declares correlation limits must verify they actually fire.</p>
 
     <h3>The regime model is not doing anything</h3>
     <p>Its own predictions were shuffled into random order &mdash; same mix of regimes, timing destroyed. If the model reads the market it has to beat that.</p>

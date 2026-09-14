@@ -114,9 +114,9 @@ above the limit.
 ## 3. Current live state
 
 ```
-equity      $99,597.92     from a $100,000 start
+equity      $99,902.42     from a $100,000 start
 cash        $77,773.68
-invested    22.3%
+invested    22.2%
 positions   8   AVGO COIN META NVDA PLTR QQQ SMCI SPY
 closed trades: 0
 ```
@@ -130,19 +130,27 @@ of sample, with the real position limits applied.
 
 ### It does not beat buying the index
 
-| | return | worst drawdown | Sharpe |
-|---|---:|---:|---:|
-| this strategy | +98% | −19% | **1.00** |
-| SPY buy and hold | +204% | −34% | 0.83 |
+| | return | worst drawdown | Sharpe | avg invested |
+|---|---:|---:|---:|---:|
+| this strategy | +59% | −11% | **0.89** | 21% |
+| SPY buy and hold | +204% | −34% | 0.83 | 100% |
 
-Measured with a limit-order fill model: orders rest at a price and fill only if
-the market comes to them, which misses 11.8% of entries. Filling everything at
-the next open instead — the assumption most backtesters make — scores +93% and
-Sharpe 0.93, so on this strategy the optimistic assumption is the *pessimistic*
-one. That is not the usual direction and it was only found by building both.
+A third of the money, a third of the pain, marginally better per unit of risk.
+It holds ~21% and cash earns nothing here.
 
-Better risk-adjusted, less than half the money, because it holds ~30% and cash
-earns nothing.
+Two measurement details, because both changed the answer and both are easy to
+get wrong in a rebuild:
+
+- **Fill model.** Orders rest as limits and fill only if the market comes back
+  to them, which misses 11.8% of entries. Assuming instead that everything
+  fills at the next open — what most backtesters do — scores *higher*, not
+  lower. On this strategy the optimistic assumption is the pessimistic one.
+- **Correlation limit.** An earlier version of this document reported +98% at
+  Sharpe 1.00. That figure was measured with the system's own correlation limit
+  silently switched off: the check read a field nothing ever populated, so it
+  had never run. Turning it on refuses about a third of the trades, costs forty
+  points of return, and nearly halves the worst drawdown. Any rebuild that
+  declares correlation limits must verify they actually execute.
 
 ### The HMM is not doing anything
 
