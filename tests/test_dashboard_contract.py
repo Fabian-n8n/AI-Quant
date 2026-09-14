@@ -24,7 +24,8 @@ from monitoring.publish import (
 )
 
 TYPES_TS = Path(__file__).resolve().parent.parent / "dashboard" / "lib" / "types.ts"
-STATE_JSON = Path(__file__).resolve().parent.parent / "dashboard" / "public" / "data" / "state.json"
+DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
+STATE_JSON = DASHBOARD / "public" / "data" / "state.json"
 
 #: Snapshot key -> the TypeScript interface describing one of its records.
 PANELS = {
@@ -527,3 +528,115 @@ def test_a_good_snapshot_replaces_a_blank_one(tmp_path):
     publish(good, path, source="demo",
             equity_history=[], regime_history=[])
     assert json.loads(path.read_text())["regime"]["regime"] != "unknown"
+
+
+# -- bento grid alignment ----------------------------------------------------
+#
+# Reported as "the boxes don't fill the width" more than once, and fixed by eye
+# more than once. The cause is arithmetic, not taste: the grid is 12 columns and
+# every card declares a span, so any row whose spans sum to less than 12 leaves
+# dead space on the right. Three rows were short (9, 9 and 6 of 12), which is
+# exactly where the gaps appeared.
+
+CELL_WIDTHS_LG = {"1": 3, "2": 6, "3": 9, "full": 12}
+
+
+def _card_spans() -> dict[str, str]:
+    """Map each panel component to the span its <Card> declares."""
+    spans: dict[str, str] = {}
+    for name in ("index.tsx", "candidates.tsx"):
+        source = (DASHBOARD / "components" / "panels" / name).read_text()
+        current = None
+        for line in source.splitlines():
+            declared = re.match(r"\s*(?:export\s+)?function\s+(\w+)", line)
+            if declared:
+                current = declared.group(1)
+            found = re.search(r'<Card span="(\w+)"', line)
+            if found and current and current not in spans:
+                spans[current] = found.group(1)
+    return spans
+
+
+def _rendered_order() -> list[str]:
+    """The cards as page.tsx actually lays them out, in order."""
+    page = (DASHBOARD / "app" / "page.tsx").read_text()
+    grid = page.split('<div className="grid grid-cols-12 gap-4">', 1)[1].split("</div>", 1)[0]
+    return re.findall(r"<(\w+Card)\b", grid)
+
+
+def test_every_bento_row_fills_the_full_width():
+    spans, order = _card_spans(), _rendered_order()
+    assert order, "no cards found in the bento grid"
+
+    rows, row, used = [], [], 0
+    for name in order:
+        width = CELL_WIDTHS_LG[spans[name]]
+        if used + width > 12:
+            rows.append((row, used))
+            row, used = [], 0
+        row.append(name)
+        used += width
+    rows.append((row, used))
+
+    short = [(names, total) for names, total in rows if total != 12]
+    assert not short, (
+        "these rows leave dead space on the right at lg:\n"
+        + "\n".join(f"  {total}/12  {' + '.join(n)}" for n, total in short)
+    )
+
+
+def test_every_card_declares_a_span():
+    """A card with no span inherits nothing and breaks the row arithmetic."""
+    spans = _card_spans()
+    missing = [name for name in _rendered_order() if name not in spans]
+    assert not missing, f"cards rendered without a declared span: {missing}"
+
+
+# -- signal outcomes ---------------------------------------------------------
+#
+# The feed carries three kinds of event and the panel recognised two, so an
+# `order_rejected` fell through to the approved branch and rendered as a green
+# "Approved · 0 shares · $0". Four real broker refusals were displayed as
+# successes that day. The size was invented by a `?? 0` fallback on a field the
+# event never carries.
+
+SIGNAL_EVENTS = ("signal_generated", "signal_rejected", "order_rejected")
+
+
+def _signals_panel_source(*, strip_comments: bool = False) -> str:
+    """The SignalsCard body.
+
+    `strip_comments` matters: the comment explaining the `?? 0` bug contains the
+    string `?? 0`, so a naive search finds the prose that documents the fix and
+    calls it the bug.
+    """
+    source = (DASHBOARD / "components" / "panels" / "index.tsx").read_text()
+    start = source.index("export function SignalsCard")
+    body = source[start:start + 6000]
+    if strip_comments:
+        body = re.sub(r"//.*?$", "", body, flags=re.MULTILINE)
+    return body
+
+
+@pytest.mark.parametrize("event", SIGNAL_EVENTS)
+def test_the_signals_panel_handles_every_event_the_engine_emits(event):
+    """An event the panel does not name gets whatever the else branch says."""
+    emitted = (Path(__file__).resolve().parent.parent / "monitoring" / "logger.py").read_text()
+    assert f'"{event}"' in emitted, f"{event} is no longer emitted; update this test"
+
+    panel = _signals_panel_source()
+    if event == "signal_generated":
+        return          # the default branch, deliberately unnamed
+    assert f'"{event}"' in panel, (
+        f"{event} is not handled in SignalsCard, so it renders as an approval"
+    )
+
+
+def test_an_order_failure_never_reports_a_size_it_does_not_have():
+    """`order_rejected` carries no shares. Defaulting it to 0 printed a
+    failure as 'Approved, 0 shares, $0', which reads as a successful trade."""
+    panel = _signals_panel_source(strip_comments=True)
+    assert "s.shares ?? 0" not in panel, (
+        "shares is defaulted to 0; an event with no size will render as '0 shares'"
+    )
+    assert "sized" in panel, "expected an explicit has-a-size check before printing one"

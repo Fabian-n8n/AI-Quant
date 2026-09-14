@@ -39,7 +39,7 @@ export function RegimeCard({ regime }: { regime: Snapshot["regime"] }) {
     vol === "low" ? "positive" : vol === "high" ? "negative" : vol === "mid" ? "warning" : "muted";
 
   return (
-    <Card span="2">
+    <Card span="3">
       <CardHeader>
         <CardTitle>Detected regime</CardTitle>
         <span className="text-xs text-muted-foreground">
@@ -222,7 +222,7 @@ export function EquityChartCard({ snapshot }: { snapshot: Snapshot }) {
   const change = first ? portfolio.equity / first - 1 : 0;
 
   return (
-    <Card span="3">
+    <Card span="full">
       <CardHeader>
         <CardTitle>Equity and regime history</CardTitle>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -354,6 +354,17 @@ export function PositionsCard({ positions }: { positions: Snapshot["positions"] 
 
 /* ----------------------------------------------------------- signals -- */
 
+/** The readable half of an order failure.
+ *
+ *  The message arrives as "AVGO: order failed, AVGO: limit 367.08 deviates...".
+ *  The symbol is already in its own column twice over, so strip both copies and
+ *  keep the sentence that says what went wrong. */
+function orderFailure(message: string | null | undefined): string {
+  if (!message) return "order failed";
+  const after = message.split(/order failed,\s*/i).pop() ?? message;
+  return after.replace(/^[A-Z.]{1,6}:\s*/, "").trim() || "order failed";
+}
+
 export function SignalsCard({ signals }: { signals: Snapshot["signals"] }) {
   const [open, setOpen] = React.useState<number | null>(null);
   const rows = [...signals].reverse().slice(0, 10);
@@ -370,7 +381,19 @@ export function SignalsCard({ signals }: { signals: Snapshot["signals"] }) {
         ) : (
           <ul className="space-y-0.5">
             {rows.map((s, i) => {
-              const rejected = s.event === "signal_rejected";
+              // Three outcomes, not two.
+              //
+              // This used to be `rejected = event === "signal_rejected"`, so an
+              // `order_rejected` fell through to the approved branch. Those
+              // events carry no size, and `s.shares ?? 0` turned that into a
+              // green "Approved · 0 shares · $0". Every order the broker
+              // refused was being reported as a success with nothing in it,
+              // which is the exact opposite of what happened.
+              const outcome =
+                s.event === "signal_rejected" ? "refused"
+                : s.event === "order_rejected" ? "failed"
+                : "approved";
+              const sized = s.shares != null && s.notional != null;
               const isOpen = open === i;
               return (
                 <li key={`${s.timestamp}-${s.symbol}-${i}`}>
@@ -380,20 +403,28 @@ export function SignalsCard({ signals }: { signals: Snapshot["signals"] }) {
                     aria-expanded={isOpen}
                     className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted/40"
                   >
-                    {rejected
+                    {outcome === "refused"
                       ? <Ban className="h-3.5 w-3.5 shrink-0 text-negative" aria-hidden />
-                      : <CircleDot className="h-3.5 w-3.5 shrink-0 text-positive" aria-hidden />}
+                      : outcome === "failed"
+                        ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+                        : <CircleDot className="h-3.5 w-3.5 shrink-0 text-positive" aria-hidden />}
                     <span className="tnum w-11 shrink-0 text-xs text-muted-foreground">
                       {clockTime(s.timestamp)}
                     </span>
                     <span className="w-14 shrink-0 font-semibold">{s.symbol ?? "—"}</span>
                     <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                      {rejected
+                      {outcome === "refused"
                         ? humanise(s.rejection_reason ?? "rejected")
-                        : `${s.shares ?? 0} shares · ${money(s.notional ?? 0)}`}
+                        : outcome === "failed"
+                          ? orderFailure(s.message)
+                          : sized
+                            ? `${s.shares} shares · ${money(s.notional ?? 0)}`
+                            : "approved, size not recorded"}
                     </span>
-                    <Badge variant={rejected ? "negative" : "positive"}>
-                      {rejected ? "Rejected" : "Approved"}
+                    <Badge variant={outcome === "refused" ? "negative"
+                                    : outcome === "failed" ? "warning" : "positive"}>
+                      {outcome === "refused" ? "Rejected"
+                       : outcome === "failed" ? "Order failed" : "Approved"}
                     </Badge>
                     <ChevronDown
                       className={cn(
@@ -407,11 +438,15 @@ export function SignalsCard({ signals }: { signals: Snapshot["signals"] }) {
                   {isOpen && (
                     <dl className="mb-1 ml-8 space-y-1.5 rounded-md bg-muted/25 p-3 text-xs">
                       {[
-                        ["Verdict", rejected
-                          ? `Rejected — ${humanise(s.rejection_reason ?? "")}`
-                          : "Approved by the risk cascade"],
+                        ["Verdict", outcome === "refused"
+                          ? `Rejected by the risk cascade: ${humanise(s.rejection_reason ?? "")}`
+                          : outcome === "failed"
+                            ? `Approved, then the order failed: ${orderFailure(s.message)}`
+                            : "Approved by the risk cascade"],
                         ["Regime at signal", humanise(s.signal_regime ?? "unknown")],
-                        ["Size", rejected ? "none" : `${s.shares ?? 0} shares · ${money(s.notional ?? 0)}`],
+                        ["Size", outcome === "refused" ? "none"
+                                 : sized ? `${s.shares} shares · ${money(s.notional ?? 0)}`
+                                 : "not recorded on this event"],
                         ["Logged", new Date(s.timestamp).toUTCString().slice(5, 22) + " UTC"],
                       ].map(([label, value]) => (
                         <div key={label} className="flex justify-between gap-4">
@@ -530,14 +565,14 @@ export function SystemCard({ system, risk }: {
   ];
 
   return (
-    <Card span="2">
+    <Card span="full">
       <CardHeader>
         <CardTitle>System</CardTitle>
         {system.data_feed_healthy
           ? <Wifi className="h-4 w-4 text-positive" aria-hidden />
           : <WifiOff className="h-4 w-4 text-negative" aria-hidden />}
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {rows.map((r) => (
           <Stat key={r.label} label={r.label} size="sm" tone={r.tone} value={r.value} />
         ))}
