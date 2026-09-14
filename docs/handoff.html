@@ -1,0 +1,389 @@
+<title>Regime-Trader Handoff</title>
+<style>
+  /* ---- tokens: complete light palette on bare :root ---- */
+  :root {
+    --ground:    #F2F4F6;
+    --surface:   #FFFFFF;
+    --surface-2: #E9ECF0;
+    --ink:       #11151B;
+    --ink-soft:  #3D4652;
+    --muted:     #626D7C;
+    --rule:      #D3D9E0;
+    --rule-soft: #E3E7EC;
+    --accent:    #1D4E89;
+    --accent-bg: #E7EEF7;
+    --oxide:     #A03530;
+    --oxide-bg:  #F8EBEA;
+    --verdant:   #2E6F52;
+    --verdant-bg:#E8F2ED;
+    --shadow:    0 1px 2px rgba(17,21,27,.05), 0 8px 24px -16px rgba(17,21,27,.22);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:    #0E1116;
+      --surface:   #161B22;
+      --surface-2: #1D242D;
+      --ink:       #E6E9EE;
+      --ink-soft:  #BAC3CE;
+      --muted:     #8B97A6;
+      --rule:      #2A323C;
+      --rule-soft: #222932;
+      --accent:    #7FB0E3;
+      --accent-bg: #162435;
+      --oxide:     #E9908A;
+      --oxide-bg:  #2C1A1A;
+      --verdant:   #7BC8A0;
+      --verdant-bg:#15271F;
+      --shadow:    0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:    #0E1116;
+    --surface:   #161B22;
+    --surface-2: #1D242D;
+    --ink:       #E6E9EE;
+    --ink-soft:  #BAC3CE;
+    --muted:     #8B97A6;
+    --rule:      #2A323C;
+    --rule-soft: #222932;
+    --accent:    #7FB0E3;
+    --accent-bg: #162435;
+    --oxide:     #E9908A;
+    --oxide-bg:  #2C1A1A;
+    --verdant:   #7BC8A0;
+    --verdant-bg:#15271F;
+    --shadow:    0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 61rem; margin: 0 auto; padding: 3.5rem 1.5rem 6rem; }
+
+  /* ---- masthead ---- */
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 1.5rem; margin-bottom: 2.5rem; }
+  .kicker {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .6875rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 .75rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1.08; letter-spacing: -.03em;
+    font-weight: 750; margin: 0 0 .85rem; text-wrap: balance;
+  }
+  .standfirst { font-size: 1.0625rem; color: var(--ink-soft); margin: 0; max-width: 46rem; }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: .4rem 1.5rem; margin-top: 1.5rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .75rem; color: var(--muted);
+  }
+  .meta b { color: var(--ink-soft); font-weight: 600; }
+
+  /* ---- verdict ---- */
+  .verdict {
+    background: var(--oxide-bg); border: 1px solid var(--oxide);
+    border-left-width: 4px; border-radius: 3px;
+    padding: 1.35rem 1.5rem; margin: 0 0 3rem;
+  }
+  .verdict h2 { font-size: 1.0625rem; margin: 0 0 .5rem; color: var(--oxide); letter-spacing: -.01em; }
+  .verdict p { margin: 0; color: var(--ink-soft); font-size: .9375rem; }
+  .verdict p + p { margin-top: .6rem; }
+
+  /* ---- sections ---- */
+  section { margin-bottom: 3.25rem; }
+  h2.sec {
+    display: flex; align-items: baseline; gap: .85rem;
+    font-size: 1.4rem; letter-spacing: -.02em; font-weight: 700;
+    margin: 0 0 1.1rem; padding-bottom: .6rem; border-bottom: 1px solid var(--rule);
+    text-wrap: balance;
+  }
+  h2.sec .num {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8125rem; color: var(--accent); font-weight: 600;
+    flex: none; padding-top: .15rem;
+  }
+  h3 { font-size: 1rem; letter-spacing: -.005em; margin: 1.9rem 0 .6rem; font-weight: 680; }
+  p { margin: 0 0 .9rem; max-width: 44rem; }
+  p.lede { color: var(--ink-soft); }
+  ul { margin: 0 0 .9rem; padding-left: 1.15rem; max-width: 44rem; }
+  li { margin-bottom: .35rem; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8375em; background: var(--surface-2); padding: .12em .38em;
+    border-radius: 3px; color: var(--ink);
+  }
+  strong { font-weight: 660; }
+  .warn { color: var(--oxide); font-weight: 600; }
+  .good { color: var(--verdant); font-weight: 600; }
+
+  /* ---- tables ---- */
+  .scroller { overflow-x: auto; margin: 0 0 1.1rem; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .875rem; }
+  th, td { padding: .6rem .85rem; text-align: left; border-bottom: 1px solid var(--rule-soft); }
+  thead th {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .6875rem; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; background: var(--surface-2);
+    border-bottom: 1px solid var(--rule); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.n, th.n { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.sym { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 600; }
+  tr.hl td { background: var(--accent-bg); }
+  tr.hl td.sym, tr.hl td:first-child { font-weight: 680; }
+
+  /* ---- code blocks ---- */
+  pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8125rem; line-height: 1.65;
+    background: var(--surface); color: var(--ink-soft);
+    border: 1px solid var(--rule); border-radius: 3px;
+    padding: 1rem 1.15rem; overflow-x: auto; margin: 0 0 1.1rem;
+  }
+  pre.prompt { border-left: 4px solid var(--accent); white-space: pre-wrap; }
+
+  /* ---- stat strip ---- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 3px; margin-bottom: 1.1rem; }
+  .stat { background: var(--surface); padding: .85rem 1rem; }
+  .stat .k {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .625rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+    display: block; margin-bottom: .3rem;
+  }
+  .stat .v { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.0625rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  /* ---- callout ---- */
+  .note { border-left: 3px solid var(--rule); padding: .1rem 0 .1rem 1.1rem; margin: 0 0 1.1rem; color: var(--muted); font-size: .9375rem; max-width: 44rem; }
+  .note.acc { border-left-color: var(--accent); color: var(--ink-soft); }
+
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); font-size: .8125rem; color: var(--muted); }
+
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:focus-visible, :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="kicker">Migration spec &middot; regime-trader</p>
+    <h1>Everything another tool needs to rebuild this</h1>
+    <p class="standfirst">A daily US equity swing system running unattended against an Alpaca paper account. This is the complete strategy, the current state, and what ten years of out-of-sample testing actually says about it.</p>
+    <div class="meta">
+      <span><b>Source</b> ~/Desktop/AI Quant Trading</span>
+      <span><b>Repo</b> github.com/Fabian-n8n/AI-Quant</span>
+      <span><b>Code</b> 23,601 lines &middot; 659 tests</span>
+      <span><b>Capital</b> paper only</span>
+    </div>
+  </header>
+
+  <div class="verdict">
+    <h2>Read this before rebuilding it anywhere</h2>
+    <p>The infrastructure works. The strategy has <strong>no demonstrated edge</strong>, and its centrepiece does not do what it claims: shuffling the regime model's own predictions into random order scores <em>the same</em>. Over ten years it returns +93% against SPY's +204%.</p>
+    <p>Moving the same rules to a different tool changes the plumbing, not the edge. If the goal is a nicer way to iterate, that is a fair reason to switch. If the goal is for it to start making money, the binding problem travels with you.</p>
+  </div>
+
+  <section>
+    <h2 class="sec"><span class="num">01</span> What it is</h2>
+    <p class="lede">After each US close it classifies the market into a volatility regime, maps that regime to a target exposure, ranks fourteen large-cap names, sizes each position by risk rather than by dollar amount, and submits limit orders that fill at the next open. Every filled position immediately gets a stop order resting at the broker, so protection survives the process exiting.</p>
+    <p>It runs on GitHub Actions. Nothing needs to stay switched on.</p>
+  </section>
+
+  <section>
+    <h2 class="sec"><span class="num">02</span> The strategy, complete</h2>
+    <p class="lede">This section is the migratable part. Everything else in the repository is plumbing.</p>
+
+    <h3>Universe</h3>
+    <pre>SPY  QQQ  AAPL  MSFT  NVDA  META  AMZN
+GOOGL  AMD  TSLA  AVGO  PLTR  COIN  SMCI</pre>
+    <p class="note">Daily bars. Split and dividend adjusted for indicators, raw prices for orders and stops. Getting that backwards makes a 4-for-1 split look like a 75% crash.</p>
+
+    <h3>Step 1 &mdash; Classify the regime</h3>
+    <p>Fit a Gaussian Hidden Markov Model on six volatility features of SPY. State count chosen by BIC from 3 to 7 candidates. A regime change must persist <strong>three consecutive bars</strong> before it is acted on. Confidence below 0.55 halves position size.</p>
+    <p>States are then re-sorted by <strong>measured volatility, not by return</strong>. This is why a state labelled "bull" can land in the high-volatility tier and be allocated defensively. It looks wrong on a dashboard until you know why.</p>
+
+    <h3>Step 2 &mdash; Regime to target exposure</h3>
+    <div class="scroller"><table>
+      <thead><tr><th>Tier</th><th>Condition</th><th class="n">Target</th><th>Stop rule</th></tr></thead>
+      <tbody>
+        <tr><td>Low vol</td><td>&mdash;</td><td class="n">95%</td><td class="sym">max(price &minus; 3&middot;ATR, EMA50 &minus; 0.5&middot;ATR)</td></tr>
+        <tr><td>Mid vol</td><td>price &gt; EMA50</td><td class="n">95%</td><td class="sym">EMA50 &minus; 0.5&middot;ATR</td></tr>
+        <tr><td>Mid vol</td><td>price &le; EMA50</td><td class="n">60%</td><td class="sym">EMA50 &minus; 0.5&middot;ATR</td></tr>
+        <tr><td>High vol</td><td>&mdash;</td><td class="n">60%</td><td class="sym">EMA50 &minus; 1.0&middot;ATR</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">EMA50 is the 50-period exponential moving average, ATR the 14-period average true range. Only rebalance when the gap to target exceeds 10%. Stop floors: at least 0.5&middot;ATR below entry <em>and</em> at least 0.5% of price.</p>
+
+    <h3>Step 3 &mdash; Rank the candidates</h3>
+    <div class="scroller"><table>
+      <thead><tr><th class="n">Weight</th><th>Component</th><th>Measured as</th></tr></thead>
+      <tbody>
+        <tr><td class="n">0.35</td><td>Trend</td><td class="sym">price above its own 50 EMA (1 or 0)</td></tr>
+        <tr><td class="n">0.30</td><td>Stop tightness</td><td class="sym">1 / max(1, stop_atr_mult)</td></tr>
+        <tr><td class="n">0.20</td><td>Size survival</td><td class="sym">fraction left after the risk cascade</td></tr>
+        <tr><td class="n">0.15</td><td>Momentum</td><td class="sym">(return_20d + 0.10) / 0.20</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Step 4 &mdash; Size the position</h3>
+    <pre>shares = (equity &times; risk_pct) / |entry &minus; stop|</pre>
+    <p>Risk-based, not notional-based. A wide stop buys fewer shares, a tight stop more, so every trade loses roughly the same amount when it is wrong. Then capped, in order:</p>
+    <div class="scroller"><table>
+      <thead><tr><th>Cap</th><th class="n">Level</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>Risk per trade</td><td class="n">1%</td><td>nominal</td></tr>
+        <tr><td>Gap cap</td><td class="n">0.667%</td><td class="sym">(equity &times; 0.02) / (3 &times; stop_dist) &mdash; binds first</td></tr>
+        <tr class="hl"><td>Single position</td><td class="n">3%</td><td>dominates everything in practice</td></tr>
+        <tr><td>Concurrent positions</td><td class="n">12</td><td>ceiling of 36% gross</td></tr>
+        <tr><td>Gross exposure</td><td class="n">80%</td><td>never reached</td></tr>
+        <tr><td>Correlation</td><td class="n">0.70 / 0.85</td><td>halve above, reject above (60-day)</td></tr>
+        <tr><td>Sector</td><td class="n">30%</td><td>&mdash;</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Step 5 &mdash; Exits</h3>
+    <ul>
+      <li><strong>Stop loss</strong> &mdash; resting at the broker, placed the moment a fill lands. Tighten-only; a stop may never move away from price.</li>
+      <li><strong>Take profit</strong> &mdash; <code>entry + 2.0 &times; (entry &minus; stop)</code>.</li>
+      <li><strong>Trailing stop</strong> &mdash; Alpaca native, trail percent derived from ATR. Must be standalone; Alpaca forbids it as a bracket leg.</li>
+    </ul>
+
+    <h3>Step 6 &mdash; Circuit breakers</h3>
+    <p>Levels set by how often they fire against SPY 2015&ndash;2026, <strong>not</strong> by what they return.</p>
+    <div class="scroller"><table>
+      <thead><tr><th>Rule</th><th class="n">Level</th><th class="n">Fires</th></tr></thead>
+      <tbody>
+        <tr><td>Daily reduce</td><td class="n">5%</td><td class="n">0.6&times;/yr</td></tr>
+        <tr><td>Daily halt</td><td class="n">8%</td><td class="n">0.1&times;/yr</td></tr>
+        <tr><td>Weekly reduce</td><td class="n">10%</td><td class="n">0.2&times;/yr</td></tr>
+        <tr><td>Weekly halt</td><td class="n">15%</td><td class="n">never in 10.7 yrs</td></tr>
+        <tr><td>Peak halt</td><td class="n">25%</td><td class="n">1 yr in 11</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note acc">These were previously tutorial day-trading numbers &mdash; a 3% daily halt fires about three times a year, and the 10% peak halt caught six years in eleven. A breaker that frequent is not protecting the strategy, it is replacing it. The system held 6% instead of 32% and took 565 trades where it should have taken 2,859.</p>
+
+    <h3>Execution and schedule</h3>
+    <p>Decide after the close, submit <strong>limit</strong> orders, fill at the next open. Limit offset 0.1% through the touch against a live quote, 0.5% when pricing off a stale bar close. Reject if the quote spread exceeds 1%, if the limit deviates more than 5% from reference, or if the stop would sit at or above the limit.</p>
+    <pre>15 21 * * 1-5    UTC   the daily decision, after the US close
+*/15 13-21 * * 1-5  UTC   dashboard refresh during market hours</pre>
+  </section>
+
+  <section>
+    <h2 class="sec"><span class="num">03</span> Current state</h2>
+    <div class="stats">
+      <div class="stat"><span class="k">Equity</span><span class="v">$99,598</span></div>
+      <div class="stat"><span class="k">Cash</span><span class="v">$77,774</span></div>
+      <div class="stat"><span class="k">Invested</span><span class="v">22.3%</span></div>
+      <div class="stat"><span class="k">Positions</span><span class="v">8</span></div>
+      <div class="stat"><span class="k">Closed trades</span><span class="v">0</span></div>
+    </div>
+    <p class="note">From a $100,000 start. Zero closed trades is the number that matters: nothing can be concluded from an account that has never completed a round trip, and the readiness gate requires thirty.</p>
+  </section>
+
+  <section>
+    <h2 class="sec"><span class="num">04</span> What the evidence says</h2>
+    <p class="lede">Real Alpaca bars, 2016-01 to 2026-09, fourteen symbols, walk-forward, out of sample, with the real position limits applied.</p>
+
+    <h3>It does not beat the index</h3>
+    <div class="scroller"><table>
+      <thead><tr><th></th><th class="n">Return</th><th class="n">Worst drawdown</th><th class="n">Sharpe</th></tr></thead>
+      <tbody>
+        <tr><td>This strategy</td><td class="n">+93%</td><td class="n">&minus;21%</td><td class="n good">0.93</td></tr>
+        <tr><td>SPY buy and hold</td><td class="n">+204%</td><td class="n">&minus;34%</td><td class="n">0.83</td></tr>
+      </tbody>
+    </table></div>
+    <p>Better risk-adjusted return and a third less drawdown, but less than half the money, because it holds about 30% and the cash earns nothing.</p>
+
+    <h3>The regime model is not doing anything</h3>
+    <p>Its own predictions were shuffled into random order &mdash; same mix of regimes, timing destroyed. If the model reads the market it has to beat that.</p>
+    <div class="scroller"><table>
+      <thead><tr><th>Arm</th><th class="n">Sharpe</th></tr></thead>
+      <tbody>
+        <tr><td>HMM regime</td><td class="n">0.93</td></tr>
+        <tr><td>No HMM at all</td><td class="n">0.89</td></tr>
+        <tr class="hl"><td>Shuffled labels</td><td class="n">0.94</td></tr>
+      </tbody>
+    </table></div>
+    <p>A gap of &minus;0.014 against a shuffle spread of 0.025. <span class="warn">The centrepiece adds no timing value.</span> Whatever the system earns comes from the entry screen, the stop placement and the position sizing.</p>
+
+    <h3>Three traps that produced false results here</h3>
+    <ul>
+      <li><strong>Synthetic data.</strong> The loader silently returned a random walk when it could not reach the broker. Every backtest before 2026-09-10 was measured on noise. Verify any tool is loading real bars.</li>
+      <li><strong>Backtest that was not the live system.</strong> A single-asset test with no position caps averaged 80% invested; the live system with caps averages 6&ndash;30%. Different strategies. Any backtest must model the per-position cap and the count limit.</li>
+      <li><strong>No multiple-testing correction.</strong> Best-of-twenty over pure noise passes an uncorrected Sharpe nearly always. The best setting found here scores <strong>0.789</strong> on a deflated Sharpe against a 0.95 bar &mdash; not distinguishable from a lucky search.</li>
+    </ul>
+
+    <h3>The constraint no tool removes</h3>
+    <p>Telling a good strategy from a lucky one, from live profit and loss alone, needs roughly <strong>seven years</strong> at this Sharpe. Live results cannot be the feedback loop. Any product promising a bot that learns from its own recent performance is selling noise-fitting.</p>
+  </section>
+
+  <section>
+    <h2 class="sec"><span class="num">05</span> What migrates, and what does not</h2>
+    <p class="lede">Astral takes a description of rules and generates strategy code. It cannot import a Python repository. Section 02 is what transfers; the table below is what would be lost or need rebuilding.</p>
+    <div class="scroller"><table>
+      <thead><tr><th>Capability</th><th>Where it lives now</th></tr></thead>
+      <tbody>
+        <tr><td>Next.js dashboard on Vercel</td><td class="sym">dashboard/</td></tr>
+        <tr><td>Scheduled runs, state committed to git</td><td class="sym">.github/workflows/</td></tr>
+        <tr><td>Broker reconciliation: fills, positions, stops</td><td class="sym">main.py, data/repository.py</td></tr>
+        <tr><td>SQLite state, migrations, run history</td><td class="sym">data/</td></tr>
+        <tr><td>Walk-forward portfolio backtest with the real risk layer</td><td class="sym">backtest/portfolio_backtester.py</td></tr>
+        <tr><td>Deflated Sharpe, append-only trial registry</td><td class="sym">backtest/trials.py</td></tr>
+        <tr><td>Preflight gate, 7 checks, blocks live trading</td><td class="sym">scripts/preflight.py</td></tr>
+        <tr><td>659 tests</td><td class="sym">tests/</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note acc">Astral's backtester runs on up to 40,000 bars and its documentation does not describe modelling per-position caps or correcting for multiple testing. Those are the two things that changed every conclusion reached here.</p>
+  </section>
+
+  <section>
+    <h2 class="sec"><span class="num">06</span> Prompt to paste in</h2>
+    <pre class="prompt">I want to build a daily US equity swing strategy on a paper account.
+
+Universe: SPY QQQ AAPL MSFT NVDA META AMZN GOOGL AMD TSLA AVGO PLTR
+COIN SMCI. Daily bars.
+
+Entry: long only. A symbol is a candidate when its price is above its
+own 50-period EMA. Rank candidates by 0.35 x (price above EMA50) +
+0.30 x stop tightness in ATR terms + 0.15 x 20-day return, and take the
+top names up to 12 concurrent positions.
+
+Stop loss: max(price - 3 x ATR(14), EMA50 - 0.5 x ATR(14)), never less
+than 0.5 x ATR or 0.5% of price below entry. Stops may only tighten.
+
+Take profit: entry + 2 x (entry - stop).
+
+Position sizing: shares = (equity x 0.00667) / (entry - stop), capped at
+3% of equity per position and 80% gross exposure. Reject a new position
+if its 60-day correlation to an existing one exceeds 0.85.
+
+Circuit breakers: halve size after a 5% daily or 10% weekly drawdown.
+Stop trading after 8% daily, 15% weekly, or 25% below the equity high.
+
+Orders: limit orders submitted after the close, priced 0.1% through the
+touch, filling at the next open.
+
+Backtest this walk-forward on 10 years, out of sample, with per-position
+caps applied, against three benchmarks: SPY buy-and-hold, a 200-day SMA
+trend system, and random entry with the same exposure. Report max
+drawdown and Sharpe, not just total return.
+
+Tell me how many configurations you tested.</pre>
+    <p class="note acc">The last line matters more than the rest. If the tool cannot say how many configurations it tried, its best result cannot be interpreted &mdash; and the best result is the only one it will show you.</p>
+  </section>
+
+  <footer>
+    Generated from the working repository. Full source spec at <code>docs/HANDOFF.md</code>, plain-English system walkthrough at <code>docs/HOW-IT-WORKS.md</code>, evidence and method at <code>docs/phases/11-evidence-and-ablation.md</code>. Paper trading only; no real capital has been deployed.
+  </footer>
+
+</div>
