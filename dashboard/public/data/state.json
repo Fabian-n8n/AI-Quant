@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-09-17T22:17:06.248122+00:00",
-  "timestamp": "2026-09-17T22:17:06.247115+00:00",
+  "published_at": "2026-09-17T23:33:27.320394+00:00",
+  "timestamp": "2026-09-17T23:33:27.319794+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 111.85267199999771,
-    "model_age_days": 1.0189166666666667e-05,
+    "api_latency_ms": 21.531007000021418,
+    "model_age_days": 1.0226296296296297e-05,
     "paper": true,
     "mode": "live",
     "market_open": false,
-    "bars_processed": 10,
+    "bars_processed": 11,
     "consecutive_errors": 0,
-    "started_at": "2026-09-17T22:16:55.471299+00:00",
+    "started_at": "2026-09-17T23:33:19.351010+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -34,10 +34,10 @@
   },
   "regime": {
     "n_regimes": 7,
-    "model_trained": "2026-09-17T22:17:05.366779+00:00",
-    "model_age_days": 1.0189456018518518e-05,
+    "model_trained": "2026-09-17T23:33:26.436244+00:00",
+    "model_age_days": 1.0226400462962963e-05,
     "regime": "strong_bear",
-    "confidence": 0.9959807941775402,
+    "confidence": 0.9959807941775348,
     "confirmed": true,
     "consecutive_bars": 1,
     "flicker_rate": 0,
@@ -52,7 +52,7 @@
   "portfolio": {
     "equity": 99522.325,
     "cash": 74771.8,
-    "buying_power": 365947.74,
+    "buying_power": 365933.37,
     "daily_pnl": 0.0,
     "daily_pnl_pct": 0.0,
     "allocation": 0.2486931952202684,
@@ -79,9 +79,9 @@
       "unrealised_pnl_pct": 0.02216629267996847,
       "distance_to_stop_pct": 0.07325434286295042,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "strong_bear",
       "regime_changed": false,
-      "holding_periods": 0,
+      "holding_periods": 1,
       "held_for": "0m",
       "adopted": true
     },
@@ -98,9 +98,9 @@
       "unrealised_pnl_pct": -0.04924607982040071,
       "distance_to_stop_pct": -0.0344575271565375,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "strong_bear",
       "regime_changed": false,
-      "holding_periods": 0,
+      "holding_periods": 1,
       "held_for": "0m",
       "adopted": true
     },
@@ -111,15 +111,15 @@
       "entry_price": 347.65,
       "current_price": 347.41,
       "market_value": 2779.28,
-      "stop_loss": 341.262530988533,
+      "stop_loss": 341.26849816282146,
       "has_stop": true,
       "unrealised_pnl": -1.919999999999618,
       "unrealised_pnl_pct": -0.0006903494894288861,
-      "distance_to_stop_pct": 0.0176951412206529,
+      "distance_to_stop_pct": 0.01767796504757654,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "strong_bear",
       "regime_changed": false,
-      "holding_periods": 0,
+      "holding_periods": 1,
       "held_for": "0m",
       "adopted": true
     },
@@ -136,9 +136,9 @@
       "unrealised_pnl_pct": 0.05187769151218611,
       "distance_to_stop_pct": 0.10045843692449337,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "strong_bear",
       "regime_changed": false,
-      "holding_periods": 0,
+      "holding_periods": 1,
       "held_for": "0m",
       "adopted": true
     },
@@ -155,9 +155,9 @@
       "unrealised_pnl_pct": -0.008408216939966889,
       "distance_to_stop_pct": 0.06125248748731063,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "strong_bear",
       "regime_changed": false,
-      "holding_periods": 0,
+      "holding_periods": 1,
       "held_for": "0m",
       "adopted": true
     },
@@ -174,9 +174,9 @@
       "unrealised_pnl_pct": 0.029363465513783386,
       "distance_to_stop_pct": 0.0373366491114912,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "strong_bear",
       "regime_changed": false,
-      "holding_periods": 0,
+      "holding_periods": 1,
       "held_for": "0m",
       "adopted": true
     },
@@ -193,9 +193,9 @@
       "unrealised_pnl_pct": 0.01739191235311172,
       "distance_to_stop_pct": 0.10141060937189555,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "strong_bear",
       "regime_changed": false,
-      "holding_periods": 0,
+      "holding_periods": 1,
       "held_for": "0m",
       "adopted": true
     },
@@ -206,15 +206,15 @@
       "entry_price": 762.426667,
       "current_price": 762.51,
       "market_value": 2287.5299999999997,
-      "stop_loss": 701.38,
+      "stop_loss": 754.9515113427386,
       "has_stop": true,
       "unrealised_pnl": 0.24999899999966146,
       "unrealised_pnl_pct": 0.00010929969216290169,
-      "distance_to_stop_pct": 0.08016944040078162,
+      "distance_to_stop_pct": 0.009912642007660705,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "strong_bear",
       "regime_changed": false,
-      "holding_periods": 0,
+      "holding_periods": 1,
       "held_for": "0m",
       "adopted": true
     },
@@ -231,9 +231,9 @@
       "unrealised_pnl_pct": 0.01651044921196971,
       "distance_to_stop_pct": 0.03666881255139453,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "strong_bear",
       "regime_changed": false,
-      "holding_periods": 0,
+      "holding_periods": 1,
       "held_for": "0m",
       "adopted": true
     }
@@ -699,14 +699,14 @@
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 111.85267199999771,
-    "model_age_days": 1.019306712962963e-05,
+    "api_latency_ms": 21.531007000021418,
+    "model_age_days": 1.0229039351851852e-05,
     "paper": true,
     "mode": "live",
     "market_open": false,
-    "bars_processed": 10,
+    "bars_processed": 11,
     "consecutive_errors": 0,
-    "started_at": "2026-09-17T22:16:55.471299+00:00",
+    "started_at": "2026-09-17T23:33:19.351010+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -725,7 +725,209 @@
     ],
     "timeframe": "1Day"
   },
-  "signals": [],
+  "signals": [
+    {
+      "timestamp": "2026-09-17T23:33:26.943633+00:00",
+      "event": "signal_rejected",
+      "message": "QQQ: rejected, QQQ correlates 0.89 with SPY, above the 0.85 reject threshold",
+      "regime": "strong_bear",
+      "probability": 0.996,
+      "equity": 99522.32,
+      "positions": 9,
+      "daily_pnl": 0.0,
+      "symbol": "QQQ",
+      "direction": "long",
+      "strategy": "MidVolCautiousStrategy",
+      "entry_price": 716.27,
+      "stop_loss": 705.9310026673965,
+      "requested_allocation": 0.95,
+      "leverage": 1.0,
+      "signal_regime": "strong_bear",
+      "approved": false,
+      "action": "reject",
+      "shares": 0,
+      "notional": 0.0,
+      "modifications": [],
+      "rejection_reason": "correlation_too_high",
+      "reason": "QQQ correlates 0.89 with SPY, above the 0.85 reject threshold"
+    },
+    {
+      "timestamp": "2026-09-17T23:33:26.953033+00:00",
+      "event": "signal_generated",
+      "message": "AMZN: approved 11 shares ($2,761.88) [capped at 3% single position]",
+      "regime": "strong_bear",
+      "probability": 0.996,
+      "equity": 99522.32,
+      "positions": 9,
+      "daily_pnl": 0.0,
+      "symbol": "AMZN",
+      "direction": "long",
+      "strategy": "MidVolCautiousStrategy",
+      "entry_price": 251.08,
+      "stop_loss": 247.9928191203402,
+      "requested_allocation": 0.6,
+      "leverage": 1.0,
+      "signal_regime": "strong_bear",
+      "approved": true,
+      "action": "approve_modified",
+      "shares": 11,
+      "notional": 2761.88,
+      "modifications": [
+        "capped at 3% single position"
+      ],
+      "rejection_reason": null,
+      "reason": "capped at 3% single position"
+    },
+    {
+      "timestamp": "2026-09-17T23:33:26.986126+00:00",
+      "event": "order_submitted",
+      "message": "AMZN: order submitted x11",
+      "regime": "strong_bear",
+      "probability": 0.996,
+      "equity": 99522.32,
+      "positions": 9,
+      "daily_pnl": 0.0,
+      "symbol": "AMZN",
+      "quantity": 11.0,
+      "side": "buy",
+      "order_type": null,
+      "limit_price": null,
+      "filled_quantity": 0.0,
+      "status": "open"
+    },
+    {
+      "timestamp": "2026-09-17T23:33:26.994292+00:00",
+      "event": "signal_generated",
+      "message": "AMD: approved 5 shares ($2,733.07) [capped at 3% single position]",
+      "regime": "strong_bear",
+      "probability": 0.996,
+      "equity": 99522.32,
+      "positions": 9,
+      "daily_pnl": 0.0,
+      "symbol": "AMD",
+      "direction": "long",
+      "strategy": "MidVolCautiousStrategy",
+      "entry_price": 546.615,
+      "stop_loss": 476.71002468682536,
+      "requested_allocation": 0.95,
+      "leverage": 1.0,
+      "signal_regime": "strong_bear",
+      "approved": true,
+      "action": "approve_modified",
+      "shares": 5,
+      "notional": 2733.075,
+      "modifications": [
+        "capped at 3% single position"
+      ],
+      "rejection_reason": null,
+      "reason": "capped at 3% single position"
+    },
+    {
+      "timestamp": "2026-09-17T23:33:27.035686+00:00",
+      "event": "order_submitted",
+      "message": "AMD: order submitted x5",
+      "regime": "strong_bear",
+      "probability": 0.996,
+      "equity": 99522.32,
+      "positions": 9,
+      "daily_pnl": 0.0,
+      "symbol": "AMD",
+      "quantity": 5.0,
+      "side": "buy",
+      "order_type": null,
+      "limit_price": null,
+      "filled_quantity": 0.0,
+      "status": "open"
+    },
+    {
+      "timestamp": "2026-09-17T23:33:27.045214+00:00",
+      "event": "signal_generated",
+      "message": "COIN: approved 17 shares ($2,918.39) [capped at 3% single position]",
+      "regime": "strong_bear",
+      "probability": 0.996,
+      "equity": 99522.32,
+      "positions": 9,
+      "daily_pnl": 0.0,
+      "symbol": "COIN",
+      "direction": "long",
+      "strategy": "MidVolCautiousStrategy",
+      "entry_price": 171.67,
+      "stop_loss": 164.59006463100488,
+      "requested_allocation": 0.95,
+      "leverage": 1.0,
+      "signal_regime": "strong_bear",
+      "approved": true,
+      "action": "approve_modified",
+      "shares": 17,
+      "notional": 2918.39,
+      "modifications": [
+        "capped at 3% single position"
+      ],
+      "rejection_reason": null,
+      "reason": "capped at 3% single position"
+    },
+    {
+      "timestamp": "2026-09-17T23:33:27.075614+00:00",
+      "event": "order_submitted",
+      "message": "COIN: order submitted x17",
+      "regime": "strong_bear",
+      "probability": 0.996,
+      "equity": 99522.32,
+      "positions": 9,
+      "daily_pnl": 0.0,
+      "symbol": "COIN",
+      "quantity": 17.0,
+      "side": "buy",
+      "order_type": null,
+      "limit_price": null,
+      "filled_quantity": 0.0,
+      "status": "open"
+    },
+    {
+      "timestamp": "2026-09-17T23:33:27.084493+00:00",
+      "event": "signal_generated",
+      "message": "SMCI: approved 73 shares ($2,977.31) [capped at 3% single position]",
+      "regime": "strong_bear",
+      "probability": 0.996,
+      "equity": 99522.32,
+      "positions": 9,
+      "daily_pnl": 0.0,
+      "symbol": "SMCI",
+      "direction": "long",
+      "strategy": "MidVolCautiousStrategy",
+      "entry_price": 40.7851,
+      "stop_loss": 33.91663803794979,
+      "requested_allocation": 0.95,
+      "leverage": 1.0,
+      "signal_regime": "strong_bear",
+      "approved": true,
+      "action": "approve_modified",
+      "shares": 73,
+      "notional": 2977.3123,
+      "modifications": [
+        "capped at 3% single position"
+      ],
+      "rejection_reason": null,
+      "reason": "capped at 3% single position"
+    },
+    {
+      "timestamp": "2026-09-17T23:33:27.119752+00:00",
+      "event": "order_submitted",
+      "message": "SMCI: order submitted x73",
+      "regime": "strong_bear",
+      "probability": 0.996,
+      "equity": 99522.32,
+      "positions": 9,
+      "daily_pnl": 0.0,
+      "symbol": "SMCI",
+      "quantity": 73.0,
+      "side": "buy",
+      "order_type": null,
+      "limit_price": null,
+      "filled_quantity": 0.0,
+      "status": "open"
+    }
+  ],
   "equity_history": [
     {
       "t": "2026-09-04",
@@ -776,6 +978,11 @@
       "t": "2026-09-16",
       "equity": 99522.32,
       "peak": 99536.44
+    },
+    {
+      "t": "2026-09-17",
+      "equity": 99522.32,
+      "peak": 99536.45
     }
   ],
   "regime_history": [
@@ -818,28 +1025,37 @@
     {
       "t": "2026-09-16",
       "regime": "neutral"
+    },
+    {
+      "t": "2026-09-17",
+      "regime": "strong_bear"
     }
   ],
   "regime_mix": [
     {
       "regime": "neutral",
       "bars": 4,
-      "pct": 0.4
+      "pct": 0.36363636363636365
     },
     {
       "regime": "strong_bull",
       "bars": 3,
-      "pct": 0.3
+      "pct": 0.2727272727272727
     },
     {
       "regime": "weak_bear",
       "bars": 3,
-      "pct": 0.3
+      "pct": 0.2727272727272727
+    },
+    {
+      "regime": "strong_bear",
+      "bars": 1,
+      "pct": 0.09090909090909091
     }
   ],
   "freshness": {
     "bar_timestamp": "2026-09-17T00:00:00",
-    "bar_age_hours": 22.29,
+    "bar_age_hours": 23.56,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -853,8 +1069,8 @@
     "session_state": {
       "state": "closed",
       "label": "Market closed",
-      "detail": "Opens in 15.2 hours. Orders rest until then.",
-      "hours_until_change": 15.21
+      "detail": "Opens in 13.9 hours. Orders rest until then.",
+      "hours_until_change": 13.94
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -870,6 +1086,82 @@
   "is_demo": false,
   "activity": {
     "orders": [
+      {
+        "id": 26,
+        "run_id": 95,
+        "symbol": "AMD",
+        "side": "buy",
+        "order_type": "limit",
+        "quantity": 5.0,
+        "submitted_price": 549.35,
+        "fill_price": null,
+        "filled_qty": 0.0,
+        "status": "open",
+        "stop_loss": 476.71002468682536,
+        "take_profit": 686.4249506263493,
+        "regime": "strong_bear",
+        "submitted_at": "2026-09-17T23:33:27+00:00",
+        "filled_at": null,
+        "skipped_reason": null,
+        "notes": null
+      },
+      {
+        "id": 27,
+        "run_id": 95,
+        "symbol": "COIN",
+        "side": "buy",
+        "order_type": "limit",
+        "quantity": 17.0,
+        "submitted_price": 172.53,
+        "fill_price": null,
+        "filled_qty": 0.0,
+        "status": "open",
+        "stop_loss": 164.59006463100488,
+        "take_profit": 185.8298707379902,
+        "regime": "strong_bear",
+        "submitted_at": "2026-09-17T23:33:27+00:00",
+        "filled_at": null,
+        "skipped_reason": null,
+        "notes": null
+      },
+      {
+        "id": 28,
+        "run_id": 95,
+        "symbol": "SMCI",
+        "side": "buy",
+        "order_type": "limit",
+        "quantity": 73.0,
+        "submitted_price": 40.99,
+        "fill_price": null,
+        "filled_qty": 0.0,
+        "status": "open",
+        "stop_loss": 33.91663803794979,
+        "take_profit": 54.522023924100424,
+        "regime": "strong_bear",
+        "submitted_at": "2026-09-17T23:33:27+00:00",
+        "filled_at": null,
+        "skipped_reason": null,
+        "notes": null
+      },
+      {
+        "id": 25,
+        "run_id": 95,
+        "symbol": "AMZN",
+        "side": "buy",
+        "order_type": "limit",
+        "quantity": 11.0,
+        "submitted_price": 252.34,
+        "fill_price": null,
+        "filled_qty": 0.0,
+        "status": "open",
+        "stop_loss": 247.9928191203402,
+        "take_profit": 257.25436175931964,
+        "regime": "strong_bear",
+        "submitted_at": "2026-09-17T23:33:26+00:00",
+        "filled_at": null,
+        "skipped_reason": null,
+        "notes": null
+      },
       {
         "id": 20,
         "run_id": 92,
@@ -1337,11 +1629,11 @@
         "exit_price": null,
         "exit_at": null,
         "exit_reason": null,
-        "stop_price": 701.38,
+        "stop_price": 754.9515113427386,
         "current_price": 762.51,
         "unrealised_pnl": 0.24999899999966146,
         "realised_pnl": null,
-        "holding_days": 0,
+        "holding_days": 1,
         "regime_at_entry": "unknown"
       },
       {
@@ -1357,7 +1649,7 @@
         "current_price": 337.09,
         "unrealised_pnl": 58.48000000000002,
         "realised_pnl": null,
-        "holding_days": 0,
+        "holding_days": 1,
         "regime_at_entry": "unknown"
       },
       {
@@ -1369,11 +1661,11 @@
         "exit_price": null,
         "exit_at": null,
         "exit_reason": null,
-        "stop_price": 341.262530988533,
+        "stop_price": 341.26849816282146,
         "current_price": 347.41,
         "unrealised_pnl": -1.919999999999618,
         "realised_pnl": null,
-        "holding_days": 0,
+        "holding_days": 1,
         "regime_at_entry": "unknown"
       },
       {
@@ -1389,7 +1681,7 @@
         "current_price": 497.67,
         "unrealised_pnl": -21.09999999999991,
         "realised_pnl": null,
-        "holding_days": 0,
+        "holding_days": 1,
         "regime_at_entry": "unknown"
       },
       {
@@ -1405,7 +1697,7 @@
         "current_price": 219.4,
         "unrealised_pnl": 87.61999400000013,
         "realised_pnl": null,
-        "holding_days": 0,
+        "holding_days": 1,
         "regime_at_entry": "unknown"
       },
       {
@@ -1421,7 +1713,7 @@
         "current_price": 366.02,
         "unrealised_pnl": 47.559999999999945,
         "realised_pnl": null,
-        "holding_days": 0,
+        "holding_days": 1,
         "regime_at_entry": "unknown"
       },
       {
@@ -1437,7 +1729,7 @@
         "current_price": 681.48,
         "unrealised_pnl": 134.44000000000005,
         "realised_pnl": null,
-        "holding_days": 0,
+        "holding_days": 1,
         "regime_at_entry": "unknown"
       },
       {
@@ -1453,7 +1745,7 @@
         "current_price": 347.27,
         "unrealised_pnl": -143.9000000000001,
         "realised_pnl": null,
-        "holding_days": 0,
+        "holding_days": 1,
         "regime_at_entry": "unknown"
       },
       {
@@ -1469,7 +1761,7 @@
         "current_price": 176.165,
         "unrealised_pnl": 51.195006999999805,
         "realised_pnl": null,
-        "holding_days": 0,
+        "holding_days": 1,
         "regime_at_entry": "unknown"
       }
     ],
@@ -1574,11 +1866,11 @@
     "runs": [
       {
         "id": 95,
-        "started_at": "2026-09-17T22:16:55+00:00",
+        "started_at": "2026-09-17T23:33:19+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
-        "trigger": "loop",
+        "trigger": "manual",
         "bars_processed": 0,
         "orders_submitted": 0,
         "regime": null,
