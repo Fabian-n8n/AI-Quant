@@ -1472,3 +1472,107 @@ def test_a_real_error_still_fails_the_run(built_engine, tmp_path):
         "SELECT status, error FROM runs WHERE id = ?", (engine.run_id,)).fetchone()
     assert row["status"] == "failed"
     assert row["error"] == "data feed unreachable"
+
+
+# ===========================================================================
+# Trailing ratchet: the stop has to climb with the price
+#
+# Written against a measured failure, not a hypothetical. On 2026-09-22 the
+# paper account held twelve positions and NOT ONE had a stop above its own
+# entry price, including META at +15.0% and AMD at +12.6%. The regime stop is
+# anchored to EMA50, so on a position that has run it trails far behind and
+# can sit below entry indefinitely. These tests pin the floor that fixes it.
+# ===========================================================================
+
+def test_the_stop_floor_rises_with_the_price(built_engine):
+    """A position that has run must end up with a stop near the current price,
+    not one still anchored below the entry."""
+    engine = built_engine
+    engine.client._positions = [make_position("SPY", 100, 100.0)]
+    engine.position_tracker.sync()
+    bars = engine.market_data.get_training_window("SPY").copy()
+
+    # Push the last bar far above everything the EMA50 has seen, which is the
+    # situation the regime stop handles badly.
+    price = float(bars["close"].iloc[-1]) * 1.40
+    for col in ("open", "high", "low", "close"):
+        bars.iloc[-1, bars.columns.get_loc(col)] = price
+    engine.bars = {"SPY": bars}
+    engine.position_tracker.update_stop("SPY", 1.0)      # nothing meaningful in place
+
+    state = engine.hmm.classify(_features(engine))
+    engine._update_stops(state)
+
+    assert engine.order_executor.modified, "the ratchet placed nothing at all"
+    _, new_stop = engine.order_executor.modified[-1]
+    max_trail = engine.risk_config["trailing_stop"]["max_trail_pct"] / 100
+    assert new_stop >= price * (1 - max_trail), (
+        f"stop {new_stop:.2f} is further than the configured trail below a "
+        f"price of {price:.2f}; profit is not being locked"
+    )
+
+
+def test_the_floor_never_widens_an_existing_stop(built_engine):
+    """The trail floor must not be able to LOWER a stop that is already higher.
+
+    This is what makes the high-water mark work without storing one: the floor
+    is measured off the current price, so a pullback computes a lower floor,
+    and that lower floor has to be refused.
+    """
+    engine = built_engine
+    engine.client._positions = [make_position("SPY", 100, 100.0)]
+    engine.position_tracker.sync()
+    bars = engine.market_data.get_training_window("SPY").copy()
+    price = float(bars["close"].iloc[-1])
+
+    # A stop already sitting just under the current price: a pullback's floor
+    # is below this and must be rejected rather than applied.
+    engine.position_tracker.update_stop("SPY", price * 0.99)
+    engine.bars = {"SPY": bars}
+
+    state = engine.hmm.classify(_features(engine))
+    engine._update_stops(state)
+
+    for _, stop in engine.order_executor.modified:
+        assert stop > price * 0.99, f"stop was widened to {stop:.2f}"
+
+
+def test_the_trail_floor_is_off_when_trailing_is_disabled(built_engine):
+    """`trailing_stop.enabled: false` must actually disable it."""
+    engine = built_engine
+    engine.risk_config["trailing_stop"] = {"enabled": False}
+    assert engine._trail_pct_for(2.0, 100.0) is None
+
+    engine.risk_config["trailing_stop"] = {
+        "enabled": True, "atr_multiple": 2.5, "min_trail_pct": 1.5, "max_trail_pct": 15.0,
+    }
+    # 2.5 x 4.0 / 100 = 10%, inside the floor and the cap.
+    assert engine._trail_pct_for(4.0, 100.0) == pytest.approx(10.0)
+    # A quiet tape would give 0.25%; the floor lifts it.
+    assert engine._trail_pct_for(0.1, 100.0) == pytest.approx(1.5)
+    # A wild one would give 50%; the cap holds it.
+    assert engine._trail_pct_for(20.0, 100.0) == pytest.approx(15.0)
+
+
+def test_a_native_trailing_stop_is_unreachable_while_a_target_is_set(built_engine):
+    """Documents a real constraint rather than asserting a preference.
+
+    `protect_position` prefers OCO whenever there is a take-profit, and
+    `reward_risk_ratio: 2.0` means there always is one. Alpaca will not accept
+    a trailing stop as an OCO leg, so the native trailing order is unreachable
+    on the shipped config -- which is why the ratchet above has to do the job.
+    Fifty-six stop orders on the paper account, none of them trailing.
+    """
+    engine = built_engine
+    executor = engine.order_executor
+    executor.place_trailing_stop_calls = []
+
+    order = executor.protect_position(
+        "SPY", 10, trail_percent=5.0, stop_price=90.0, take_profit=120.0)
+    assert order.order_type is not OrderType.TRAILING_STOP, (
+        "a target was set, so this should have gone the OCO route"
+    )
+
+    # Drop the target and the trailing stop becomes reachable again.
+    order = executor.protect_position("SPY", 10, trail_percent=5.0, stop_price=90.0)
+    assert order.order_type is OrderType.TRAILING_STOP

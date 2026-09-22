@@ -1724,7 +1724,33 @@ class TradingEngine:
             settled = self._reconcile_orders()
             if settled:
                 logger.info("settled %d order(s) against the broker", settled)
-            self.audit_stops(alert=False)   # backfills stops adopted from the broker
+            # repair=True, not merely a report. Stops disappear from the broker
+            # between runs: ten GTC stops were cancelled at 08:00 UTC on
+            # 2026-09-22 with no process of ours running, and nothing replaced
+            # them until the next daily job, leaving ten positions naked
+            # through a full session. Startup already repairs, but this job
+            # loops for three hours and only its first cycle was startup, so
+            # eleven of every twelve cycles watched the gap and did nothing.
+            self.audit_stops(alert=False, repair=True)
+
+            # Ratchet here too, not only in the daily job.
+            #
+            # The docstring above says this job moves no stops, and that was
+            # written when the daily run was assumed reliable. It is not: the
+            # scheduled trading run missed Monday 2026-09-21 entirely, and the
+            # queue routinely delays it by three hours or more. A stop that
+            # only tightens once a day, on a job that sometimes does not fire,
+            # is not a trailing stop.
+            #
+            # Tightening a stop is risk REDUCTION, the same category as the
+            # repair above, and `modify_stop` refuses to widen, so the worst
+            # this can do on a bad print is leave the existing stop alone. It
+            # opens nothing and sizes nothing, so the view-only promise that
+            # matters -- this job does not trade -- still holds.
+            tightened = self._update_stops(regime_state)
+            if tightened:
+                logger.info("tightened %d stop(s)", tightened)
+
             self._capture_stops()             # ...so snapshot after it, not before
             self._record_bar_state(outcome)
             self._flag_material_change()
@@ -1922,12 +1948,18 @@ class TradingEngine:
         gets taken out by normal intraday noise. The cap exists because past
         about 15% the order is not a stop, it is a formality.
         """
+        return self._trail_pct_for((signal.metadata or {}).get("atr"), signal.entry_price)
+
+    def _trail_pct_for(self, atr: float | None, price: float | None) -> float | None:
+        """The same calculation against a bare ATR and price.
+
+        `_update_stops` has both to hand from the indicator context and no
+        Signal, and the trail has to mean the same thing there as it does at
+        entry or the stop jumps the moment the ratchet first runs.
+        """
         config = self.risk_config.get("trailing_stop", {}) or {}
         if not config.get("enabled", False):
             return None
-
-        atr = (signal.metadata or {}).get("atr")
-        price = signal.entry_price
         if not atr or not price or price <= 0:
             return None
 
@@ -2063,6 +2095,27 @@ class TradingEngine:
             price, ema50, atr_value, _ = context
             raw = strategy.compute_raw_stop(price, ema50, atr_value)
             new_stop, _clamped = strategy._clamp_stop(price, raw, atr_value)
+
+            # The trailing floor, and the reason this method locks profit at all.
+            #
+            # The regime stop is anchored to EMA50, so on a position that has
+            # run it sits far below the current price and can stay below the
+            # ENTRY price indefinitely. Measured on the paper account: META was
+            # +15.0% with its stop 5.4% below entry, AMD +12.6% with its stop
+            # 8.5% below entry. Not one of twelve open positions had a stop
+            # above its own entry. A position that round-tripped gave back
+            # every point of profit and then some, which is exactly what a
+            # trailing stop is supposed to prevent.
+            #
+            # No high-water mark is stored, because none is needed. This floor
+            # is measured off the CURRENT price, and the guard below refuses
+            # any stop that is not higher than the one already in place, so the
+            # effective stop is the running maximum of the floor -- which is
+            # the high-water-mark trail, for free, out of a rule that was
+            # already here.
+            trail_pct = self._trail_pct_for(atr_value, price)
+            if trail_pct is not None:
+                new_stop = max(new_stop, price * (1 - trail_pct / 100))
 
             if position.stop_loss is not None and new_stop <= position.stop_loss:
                 continue
