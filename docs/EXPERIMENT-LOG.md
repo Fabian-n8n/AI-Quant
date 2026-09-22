@@ -241,3 +241,77 @@ Rules:
 - Under 30 closed out-of-sample trades, write "not enough data" rather than a
   number.
 - Record all three benchmark comparisons, not just the flattering one.
+
+---
+
+## Variant 6 — congressional trading data, 2026-09-22
+
+Tested whether QuiverQuant's alternative data (congress trades, insider Form 4,
+13F, lobbying, dark pool) is worth adding as a second signal source.
+
+**The MCP connector is free. The data behind it is not.** The token in
+`~/.claude.json` authenticates fine and `tools/list` returns 20 tools, but every
+tool that returns actual data answers:
+
+> Your QuiverQuant account is authenticated but has no active subscription.
+
+Ten data tools tested, ten paywalled. Only `search_datasets`, the catalogue,
+responds. API access starts around $25-30/month on the annual Hobbyist tier;
+insider and lobbying sit on a higher tier.
+
+### The signal was tested anyway, for free
+
+The congress-trading strategy already trades as two live ETFs: **NANC**
+(Democrat disclosures) and **KRUZ** (Republican), both listed 2023-02. That is
+a better test than any backtest run here — real money, real fees, real 45-day
+STOCK Act disclosure lag, and no way to peek at the future while building it.
+
+`scripts/etf_alpha.py`, 893 daily bars, 2023-03-02 to 2026-09-22:
+
+| fund | total | Sharpe | alpha/yr | t | beta | R² |
+|---|---:|---:|---:|---:|---:|---:|
+| SPY | 105.0% | 1.43 | — | — | 1.00 | 1.00 |
+| NANC | **122.8%** | 1.44 | 1.07% | **0.42** | 1.07 | **0.92** |
+| KRUZ | 28.6% | 0.75 | -0.86% | -0.20 | 0.40 | 0.34 |
+
+NANC beat SPY by 17.8 points and it means nothing. Its R² against SPY is 0.92
+and its beta is 1.07: it is a slightly levered S&P fund. Sharpe 1.44 against
+SPY's 1.43 is the same risk-adjusted return, and the alpha t-stat is 0.42
+against this project's |t| >= 2 bar — the same bar that rejected the HMM in
+variant 3.
+
+KRUZ is worse outright: -10.4%, -19.0% and -14.1% against SPY in 2024, 2025 and
+2026, mostly from sitting at beta 0.40 during a rising market.
+
+**Honest limit on this finding.** 3.5 years cannot detect a small alpha. The
+standard error puts the detection floor at **5.1%/yr for NANC** — an alpha
+below that is invisible in this sample. The claim is "not demonstrated", not
+"proven absent". Re-run the script later; the funds keep accumulating data.
+
+### Three structural problems, independent of the evidence
+
+1. **Disclosure lag.** The STOCK Act allows 45 days. Only `ReportDate` is
+   actionable; a backtest keyed on `TransactionDate` is look-ahead, and it is
+   the same trap as the `.loc[:timestamp]` slice fixed in variant 2.
+2. **Coverage.** Congressional trades cluster on a handful of mega-caps. Across
+   19 symbols on a daily cadence the series is almost entirely empty.
+3. **Cadence.** A few disclosures a month, each a month stale, against a system
+   that decides daily. It is a monthly-rebalance factor, not a daily one.
+
+### MCP cannot be a cron job
+
+MCP is a session-scoped protocol between a client and a server. GitHub Actions
+runs `python main.py`; there is no Claude session, no MCP client, and no tool
+call. Putting any MCP feed into the daily pipeline means going to the vendor's
+REST API with a key in repo secrets — a separate integration, not a switch.
+
+The MCP is a research instrument for use inside a session. It is not, and
+cannot be, a data source for `trade.yml`.
+
+### Verdict
+
+**Not adopted. No subscription.** Revisit only if `scripts/etf_alpha.py` shows
+NANC's alpha t-stat clearing 2, which needs either several more years or an
+alpha above 5%/yr appearing. The underlying instinct — more independent
+information sources — was right and was already acted on in variant 5, on the
+asset side, by adding the five defensive sleeves.
