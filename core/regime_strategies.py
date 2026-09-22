@@ -505,6 +505,8 @@ class StrategyOrchestrator:
 
         # "hmm" or "volatility". See `realised_vol_rank` and variant 4.
         self.regime_source: str = self.config.get("regime_source", "hmm")
+        self.trend_filter: str = self.config.get("trend_filter", "off")
+        self.trend_window: int = int(self.config.get("trend_window", 200))
         self._rank_strategies: dict[VolatilityRank, BaseStrategy] = {}
 
         self.regime_infos: dict[int, RegimeInfo] = {}
@@ -572,6 +574,36 @@ class StrategyOrchestrator:
 
     def get_volatility_rank(self, regime_id: int) -> VolatilityRank:
         return self.vol_ranks[regime_id]
+
+    def _downtrend(self, symbols: list[str], bars: dict[str, pd.DataFrame]) -> bool:
+        """Absolute momentum: is the market itself below its long moving average?
+
+        The volatility tiers cut exposure but never to nothing. `high_vol_allocation`
+        floors the target at 60%, so in a sustained decline the system stays
+        invested and bleeds. Measured over 2019-2026: in 2022, the single year
+        SPY fell 18.2%, this made -11.6%. Losing less is not profiting, and the
+        brief asks for a system that works in any market.
+
+        Adding defensive sleeves did not fix it, because 2022 took equities,
+        Treasuries and gold down together. Being *in* the wrong thing is the
+        problem; holding a different wrong thing does not solve it.
+
+        So: when the reference symbol closes below its own long-run average,
+        take no new positions. Open positions still exit through their stops,
+        which is what makes this a filter rather than a liquidation. This is
+        absolute momentum, the mechanism behind Faber-style tactical allocation,
+        and it is the one well-evidenced way a long-only book stops losing in a
+        bear market.
+
+        Off by default. `strategy.trend_filter: off | sma200`.
+        """
+        if self.trend_filter != "sma200" or not symbols:
+            return False
+        frame = bars.get(symbols[0])
+        if frame is None or len(frame) < self.trend_window + 1:
+            return False
+        close = frame["close"]
+        return bool(close.iloc[-1] < close.tail(self.trend_window).mean())
 
     def _resolve(
         self, regime_state: RegimeState, symbols: list[str], bars: dict[str, pd.DataFrame]
@@ -663,6 +695,8 @@ class StrategyOrchestrator:
         how invested one symbol should be. The per-symbol share is written into
         `metadata["per_symbol_weight"]` once the tradable count is known.
         """
+        if self._downtrend(symbols, bars):
+            return []
         strategy, rank = self._resolve(regime_state, symbols, bars)
         uncertain = self.is_uncertain(regime_state, is_flickering)
         reason = self._uncertainty_reason(regime_state, is_flickering) if uncertain else ""

@@ -141,6 +141,11 @@ strategy:
   # carries no forward-return information (42 IC tests, none at |t|=2), so this
   # switch exists to measure whether the classifier adds anything at all.
   regime_source: hmm
+  # Absolute momentum. `sma200` takes no new positions while the reference
+  # symbol closes below its own 200-day average. The volatility tiers floor
+  # exposure at 60% and never reach cash, which is why 2022 cost -11.6%.
+  trend_filter: off
+  trend_window: 200
   low_vol_allocation: 0.95         # calm market, near fully invested
   mid_vol_allocation_trend: 0.95   # choppy but above the 50 EMA, stay invested
   mid_vol_allocation_no_trend: 0.60  # choppy and below it, cut back

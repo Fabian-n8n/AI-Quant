@@ -48,7 +48,23 @@ on:
     # the open, and the 19:25 loop runs into the 21:00 break. `cancel-in-progress`
     # means a redundant ignition replaces a healthy loop instead of doubling it,
     # which costs one cycle and buys the redundancy.
-    - cron: "25 13,15,17,19 * * 1-5"
+    #
+    # MEASURED AGAIN 2026-09-22, and the previous fix was only half right.
+    # Dropping from 36 requests a day to 4 doubled the ignitions that land, but
+    # counting where they actually fire over the following week:
+    #
+    #     16:xx ###      17:xx #####    18:xx ##
+    #     19:xx #####    21:xx ###      22:xx ######   23:xx #
+    #
+    # Not one landed before 16:00 UTC against a 13:30 open. These are not being
+    # dropped, they are being queued: a 13:25 request surfaces around 17:00.
+    # Asking more often cannot fix a delay, so the request moves earlier to
+    # absorb it. Still five a day, still low frequency.
+    #
+    # This is empirical compensation for someone else's scheduler, not a
+    # guarantee. If the histogram above shifts, move these again. Reliable
+    # intraday refresh needs a host that stays up; GitHub does not promise one.
+    - cron: "25 10,12,14,16,18 * * 1-5"
   workflow_dispatch:
 
 permissions:
