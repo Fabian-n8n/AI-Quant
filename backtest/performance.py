@@ -405,6 +405,203 @@ def benchmark_random_allocation(
 
 
 # ---------------------------------------------------------------------------
+# Signal quality: does the regime call predict anything?
+# ---------------------------------------------------------------------------
+#
+# The regime breakdown above asks whether the HMM is earning its keep and
+# answers it by attribution. These functions answer it directly, by correlating
+# the signal the strategy acted on against the return that followed.
+#
+# - **IC** (information coefficient) is the rank correlation between the
+#   allocation wanted at bar t and the return delivered from t to t+h. A signal
+#   with no predictive content scores ~0 at every horizon. Rank rather than
+#   Pearson, so one 8-sigma bar does not decide the verdict.
+# - **ICIR** divides mean rolling IC by its standard deviation. A signal that is
+#   mildly right most quarters beats one spectacularly right once and wrong the
+#   rest of the year; total return cannot tell those apart.
+# - **Decay** reports IC across horizons. The shape matters more than any single
+#   number: an IC already indistinguishable from noise at h=2 has no shelf life,
+#   and iterating against it only finds prettier noise faster.
+#
+# A near-zero IC at every horizon is not a bug in this code. It is the finding.
+
+DEFAULT_DECAY_HORIZONS = (1, 2, 3, 5, 10, 20, 50)
+
+#: Below this many overlapping observations an IC is noise about noise.
+MIN_IC_OBSERVATIONS = 30
+
+#: Rolling IC window, in bars. A quarter. Shorter is mostly sampling error;
+#: much longer leaves too few windows to take a standard deviation of.
+IC_WINDOW = 63
+
+
+def forward_return(prices: pd.Series, horizon: int = 1) -> pd.Series:
+    """Return from each bar to `horizon` bars later.
+
+    Indexed at the bar the signal was known, so `signal[t]` aligns with the
+    return it was predicting. The final `horizon` rows are NaN by construction:
+    there is no future left to measure them against, and filling them with zero
+    would score an unmeasurable stretch as a correct flat call.
+    """
+    p = pd.to_numeric(prices, errors="coerce")
+    if horizon < 1 or len(p) <= horizon:
+        # Genuinely empty, NOT an all-NaN series on the original index: a caller
+        # testing `.empty` has to get True, or it proceeds on a column of NaN.
+        return pd.Series(dtype=float)
+    return p.shift(-horizon) / p - 1.0
+
+
+def information_coefficient(
+    signal: pd.Series, prices: pd.Series, horizon: int = 1
+) -> float:
+    """Rank correlation between the signal and the return that followed it.
+
+    Zero means the signal carried no information about the next `horizon` bars.
+    Negative means it was informative and pointed the wrong way, which is a
+    different and more tractable failure than noise.
+
+    Returns NaN rather than 0.0 when there is not enough overlap to judge, so
+    "unmeasured" is never reported as "measured and worthless".
+    """
+    fwd = forward_return(prices, horizon)
+    pair = pd.concat(
+        [pd.to_numeric(signal, errors="coerce").rename("s"), fwd.rename("f")], axis=1
+    ).dropna()
+    if len(pair) < MIN_IC_OBSERVATIONS:
+        return float("nan")
+    if float(pair["s"].std(ddof=1)) < ZERO_VOL_TOLERANCE:
+        # A constant allocation makes no claim about the future. That is a real
+        # zero, not a missing measurement.
+        return 0.0
+    ic = pair["s"].corr(pair["f"], method="spearman")
+    return float(ic) if np.isfinite(ic) else float("nan")
+
+
+def rolling_ic(
+    signal: pd.Series, prices: pd.Series, horizon: int = 1, window: int = IC_WINDOW
+) -> pd.Series:
+    """IC over a moving window, so its consistency can be measured."""
+    fwd = forward_return(prices, horizon)
+    pair = pd.concat(
+        [pd.to_numeric(signal, errors="coerce").rename("s"), fwd.rename("f")], axis=1
+    ).dropna()
+    if len(pair) < window:
+        return pd.Series(dtype=float)
+    # ponytail: O(n*w) explicit loop. pandas rolling.corr has no spearman, and
+    # rank-then-Pearson per window costs the same. Vectorise only if this ever
+    # runs inside the iteration loop on every trial.
+    out: dict[Any, float] = {}
+    for end in range(window, len(pair) + 1):
+        chunk = pair.iloc[end - window : end]
+        if float(chunk["s"].std(ddof=1)) < ZERO_VOL_TOLERANCE:
+            out[pair.index[end - 1]] = 0.0
+            continue
+        c = chunk["s"].corr(chunk["f"], method="spearman")
+        out[pair.index[end - 1]] = float(c) if np.isfinite(c) else np.nan
+    return pd.Series(out, dtype=float)
+
+
+def ic_information_ratio(
+    signal: pd.Series, prices: pd.Series, horizon: int = 1, window: int = IC_WINDOW
+) -> float:
+    """ICIR: mean rolling IC divided by its standard deviation.
+
+    The consistency score. A strategy earning a little reliably scores higher
+    than one earning a lot once, which is the ordering that survives contact
+    with a live account.
+    """
+    series = rolling_ic(signal, prices, horizon, window).dropna()
+    if len(series) < 2:
+        return float("nan")
+    sd = float(series.std(ddof=1))
+    if not np.isfinite(sd) or sd < ZERO_VOL_TOLERANCE:
+        # Perfectly stable IC. Meaningful only if it is also non-zero.
+        return 0.0 if abs(float(series.mean())) < ZERO_VOL_TOLERANCE else float("inf")
+    return float(series.mean() / sd)
+
+
+def signal_decay(
+    signal: pd.Series,
+    prices: pd.Series,
+    horizons: tuple[int, ...] = DEFAULT_DECAY_HORIZONS,
+    window: int = IC_WINDOW,
+) -> pd.DataFrame:
+    """IC and ICIR at each horizon. The shelf-life table.
+
+    Read the `ic` column down the horizons. Holding some magnitude out to 20-50
+    bars is an edge with a usable life on a swing system. Collapsing to noise by
+    h=2 or h=3 means the signal does not survive the holding period it is being
+    asked to support.
+    """
+    rows = []
+    for h in horizons:
+        n_obs = int(
+            pd.concat(
+                [pd.to_numeric(signal, errors="coerce"), forward_return(prices, h)],
+                axis=1,
+            )
+            .dropna()
+            .shape[0]
+        )
+        ic = information_coefficient(signal, prices, h)
+        # Overlapping forward returns share bars, so `n_obs` badly overstates the
+        # independent sample: at h=20, 484 rows carry roughly 24 non-overlapping
+        # observations. Dividing by the horizon is the crude Newey-West-flavoured
+        # correction, and it is the difference between reading IC 0.15 at h=20 as
+        # a 3-sigma finding and reading it, correctly, as well under one.
+        n_eff = max(2.0, n_obs / max(1, h))
+        se = 1.0 / np.sqrt(n_eff - 1.0)
+        rows.append(
+            {
+                "horizon": h,
+                "ic": ic,
+                "icir": ic_information_ratio(signal, prices, h, window),
+                "n_obs": n_obs,
+                "n_eff": round(n_eff, 1),
+                "se": se,
+                # |t| below ~2 is indistinguishable from no signal at all.
+                "t_stat": ic / se if np.isfinite(ic) and se > ZERO_VOL_TOLERANCE else np.nan,
+            }
+        )
+    return pd.DataFrame(rows).set_index("horizon")
+
+
+def consistency(equity: pd.Series, window: int = 21) -> dict[str, Any]:
+    """How reliably the curve gains, rather than how much it gained.
+
+    Non-overlapping windows, because overlapping ones share bars and make the
+    hit rate look steadier than it is. 21 bars is roughly a month.
+    """
+    e = pd.to_numeric(equity, errors="coerce").dropna()
+    if len(e) < window * 2:
+        return {"window": window, "n_windows": 0, "hit_rate": float("nan"),
+                "mean": float("nan"), "std": float("nan"), "ratio": float("nan")}
+    marks = e.iloc[::window]
+    rets = marks.pct_change().dropna()
+    if len(rets) < 2:
+        return {"window": window, "n_windows": len(rets), "hit_rate": float("nan"),
+                "mean": float("nan"), "std": float("nan"), "ratio": float("nan")}
+    sd = float(rets.std(ddof=1))
+    mean = float(rets.mean())
+    if not np.isfinite(sd) or sd < ZERO_VOL_TOLERANCE:
+        # Identical window returns. Flat equity (mean 0) is genuinely no
+        # consistency; a steady gain with no dispersion is perfect consistency.
+        # Collapsing both to 0.0 scores the best case as the worst, which is
+        # how a halted system and a metronome end up looking alike.
+        ratio = 0.0 if abs(mean) < ZERO_VOL_TOLERANCE else float("inf")
+    else:
+        ratio = mean / sd
+    return {
+        "window": window,
+        "n_windows": int(len(rets)),
+        "hit_rate": float((rets > 0).mean()),
+        "mean": mean,
+        "std": sd,
+        "ratio": ratio,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
 
@@ -421,6 +618,10 @@ class PerformanceReport:
     equity_curve: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
     trade_log: pd.DataFrame = field(default_factory=pd.DataFrame)
     regime_history: pd.DataFrame = field(default_factory=pd.DataFrame)
+    #: IC/ICIR per horizon. Empty when the run carried no signal column.
+    signal: pd.DataFrame = field(default_factory=pd.DataFrame)
+    #: Non-overlapping window hit rate and mean/std ratio.
+    consistency_stats: dict[str, Any] = field(default_factory=dict)
 
     @property
     def beats_all_benchmarks(self) -> bool | None:
@@ -485,6 +686,15 @@ def analyse(
         trade_log=result.trade_log,
         regime_history=result.regime_history,
     )
+
+    # Signal quality. Computed always, not behind `compare`: whether the signal
+    # predicts anything is not a comparison against a benchmark, it is a
+    # property of the run, and a report that omits it invites reading total
+    # return as evidence the regime call worked.
+    hist = result.regime_history
+    if not hist.empty and {"target_allocation", "price"}.issubset(hist.columns):
+        report.signal = signal_decay(hist["target_allocation"], hist["price"])
+    report.consistency_stats = consistency(equity)
 
     if compare:
         report.benchmarks = _run_benchmarks(result, bars, equity, risk_free_rate, n_random_seeds)
