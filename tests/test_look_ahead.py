@@ -306,3 +306,47 @@ def test_short_history_falls_back_rather_than_guessing():
     from core.regime_strategies import realised_vol_rank
 
     assert realised_vol_rank(pd.DataFrame({"close": pd.Series(range(1, 40), dtype=float)})) is None
+
+
+# -- variant 5: the absolute-momentum filter ---------------------------------
+
+def _orchestrator(trend="sma200"):
+    from config import load_settings, strategy_config
+    from core.regime_strategies import StrategyOrchestrator
+
+    cfg = strategy_config(load_settings())
+    cfg["trend_filter"] = trend
+    return StrategyOrchestrator(cfg, {})
+
+
+def test_trend_filter_blocks_entries_only_below_the_average():
+    """Scaling the whole series must NOT trip it: halving every bar halves the
+    average too. Only a recent fall counts, which is the point of the rule."""
+    idx = pd.bdate_range("2020-01-01", periods=400, tz="UTC")
+    up = pd.DataFrame({"close": pd.Series(np.linspace(100, 200, 400), index=idx)})
+    o = _orchestrator()
+
+    assert o._downtrend(["SPY"], {"SPY": up}) is False
+
+    scaled = pd.DataFrame({"close": up["close"] * 0.5})
+    assert o._downtrend(["SPY"], {"SPY": scaled}) is False, (
+        "rescaling the whole series moved the average with it; this is not a selloff"
+    )
+
+    sold_off = up.copy()
+    sold_off.iloc[-40:, sold_off.columns.get_loc("close")] *= 0.6
+    assert o._downtrend(["SPY"], {"SPY": sold_off}) is True
+
+
+def test_trend_filter_is_off_by_default_and_opt_in():
+    idx = pd.bdate_range("2020-01-01", periods=400, tz="UTC")
+    crash = pd.DataFrame({"close": pd.Series(np.linspace(200, 80, 400), index=idx)})
+    assert _orchestrator(trend="off")._downtrend(["SPY"], {"SPY": crash}) is False
+    assert _orchestrator(trend="sma200")._downtrend(["SPY"], {"SPY": crash}) is True
+
+
+def test_trend_filter_needs_a_full_window_before_it_speaks():
+    """Fewer bars than the window means no opinion, not a false downtrend."""
+    idx = pd.bdate_range("2020-01-01", periods=50, tz="UTC")
+    short = pd.DataFrame({"close": pd.Series(np.linspace(200, 100, 50), index=idx)})
+    assert _orchestrator()._downtrend(["SPY"], {"SPY": short}) is False

@@ -162,6 +162,73 @@ measurement that justifies it, and the decision is Fabian's. The switch
 defaults to `hmm`, so nothing changed in behaviour until someone flips it.
 
 
+## Variant 5 — universe and absolute momentum, 2026-09-22
+
+Built `scripts/search.py`, the iteration loop the brief describes. Eight arms:
+universe x regime source x trend filter. Search ran on data before
+**2023-07-01**; the holdout was run once, afterwards, and nothing was tuned
+against it.
+
+**Search (holdout withheld):**
+
+| universe | regime | trend | return | maxDD | Sharpe | trades |
+|---|---|---|---:|---:|---:|---:|
+| equity | hmm | off | 25.1% | -10.1% | 0.77 | 1652 |
+| equity | hmm | sma200 | 21.3% | -12.0% | 0.77 | 697 |
+| equity | volatility | off | 19.1% | -11.7% | 0.60 | 1530 |
+| equity | volatility | sma200 | 16.9% | -12.8% | 0.62 | 646 |
+| diversified | hmm | off | 25.9% | -12.9% | 0.84 | 1387 |
+| **diversified** | **hmm** | **sma200** | **23.8%** | **-8.4%** | **0.96** | **492** |
+| diversified | volatility | off | 24.8% | -11.3% | 0.81 | 1258 |
+| diversified | volatility | sma200 | 23.8% | -9.7% | 0.91 | 443 |
+
+**Deflated Sharpe 0.634 at 41 trials against a 0.95 bar. It does not clear.**
+The Sharpe improvement is not distinguishable from a lucky search and is not
+the reason anything shipped.
+
+**Holdout, `diversified-hmm-sma200`, full span:** +62.9%, maxDD -8.4%,
+Sharpe 1.16, 919 trades.
+
+| year | strategy | SPY |
+|---|---:|---:|
+| 2019 | +8.2% | +31.1% |
+| 2020 | +12.6% | +18.5% |
+| 2021 | +6.7% | +28.6% |
+| **2022** | **-7.2%** | **-18.2%** |
+| 2023 | +22.7% | +26.2% |
+| 2024 | +9.9% | +24.9% |
+| 2025 | +3.7% | +17.7% |
+
+### The filter only works with the sleeves, and that matters
+
+On the equity-only universe the trend filter made drawdown **worse**
+(-10.1% to -12.0%). On the diversified universe it made it **better**
+(-12.9% to -8.4%). Two of four arms moved each way, so the filter is not
+independently robust; the combination is what changed the shape.
+
+The reading: blocking entries while holding fourteen correlated tech names
+just means riding them down with no alternative. Blocking entries while the
+ranker can rotate into Treasuries, gold or T-bills is a different rule.
+
+### What shipped, and on what grounds
+
+Both, together, because splitting them gives the worst of the three:
+diversified without the filter has the deepest drawdown measured.
+
+**Justified by risk structure, not by the Sharpe.** Same reasoning as the
+circuit-breaker levels in variant 2: drawdown cut by a third, the 2022 loss cut
+38%, and 70% fewer trades, which is 70% less cost drag. Return gives up 1.3
+points. The DSR failure is recorded above and is the reason no claim of edge is
+being made.
+
+**Still not an all-weather strategy.** 2022 is -7.2%. That is a smaller loss,
+not a profit. A long-only book with no shorts cannot profit in a broad decline;
+the honest ceiling is losing less, and this reaches it more efficiently.
+
+Paper account at the time of the change: **6 closed trades of the 30 preflight
+requires.** No verdict until that count is met.
+
+
 **Next variant must be the null model**, not another HMM tweak: inverse-vol or
 threshold allocation, same risk layer, same universe. If it matches, the HMM is
 deletable and that is a genuine result.

@@ -51,12 +51,31 @@ broker:
     - PLTR
     - COIN
     - SMCI
+    # Defensive sleeves. Added 2026-09-22 after variant 5.
+    #
+    # The fourteen names above are one bet in fourteen hats: when US tech falls
+    # they all fall. The correlation limit refuses a second correlated name, but
+    # with nothing uncorrelated in the universe it had nowhere to rotate to, so
+    # the book simply held less of the same thing. These give it somewhere to go.
+    #
+    # BIL is the cash proxy. Holding T-bills is how a long-only book expresses
+    # "no opinion" without sitting on idle cash.
+    - TLT          # long Treasuries
+    - IEF          # intermediate Treasuries
+    - GLD          # gold
+    - DBC          # broad commodities
+    - BIL          # 1-3 month T-bills, cash proxy
 
   # Sector labels for the concentration cap. Without these, five large-cap tech
   # names read as five independent positions rather than one bet in five hats.
   sectors:
     SPY: index
     QQQ: index
+    TLT: bonds
+    IEF: bonds
+    GLD: commodities
+    DBC: commodities
+    BIL: cash
     AAPL: technology
     MSFT: technology
     NVDA: semiconductors
@@ -144,7 +163,23 @@ strategy:
   # Absolute momentum. `sma200` takes no new positions while the reference
   # symbol closes below its own 200-day average. The volatility tiers floor
   # exposure at 60% and never reach cash, which is why 2022 cost -11.6%.
-  trend_filter: off
+  # ON as of 2026-09-22. Justified by risk structure, NOT by the measured
+  # Sharpe, which did not clear the multiple-testing correction (DSR 0.634
+  # against a 0.95 bar at 41 trials). Same reasoning as the circuit-breaker
+  # levels: the argument is what it does to the shape of the loss, not to the
+  # return.
+  #
+  #   arm                        return   maxDD  Sharpe  trades   2022
+  #   equity-hmm-off (previous)   25.1%  -10.1%    0.77    1652  -11.6%
+  #   diversified-hmm-sma200      23.8%   -8.4%    0.96     492   -7.2%
+  #
+  # Drawdown down a third, the 2022 loss down 38%, and 70% fewer trades, which
+  # is 70% less cost drag. Return gives up 1.3 points.
+  #
+  # Ships WITH the defensive sleeves above and only makes sense with them:
+  # diversified without this filter has the deepest drawdown of the three
+  # (-12.9%). Revert by setting this to `off` AND removing the five sleeves.
+  trend_filter: sma200
   trend_window: 200
   low_vol_allocation: 0.95         # calm market, near fully invested
   mid_vol_allocation_trend: 0.95   # choppy but above the 50 EMA, stay invested
