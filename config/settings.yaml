@@ -134,6 +134,13 @@ hmm:
 # "bull" is not necessarily calm: on the current fixture all 7 regimes sit in a
 # different position under the return sort than under the volatility sort.
 strategy:
+  # Where the volatility tier comes from: hmm | volatility.
+  #
+  # `volatility` is variant 4's null model: realised-vol percentile straight to
+  # the tier, skipping the classifier. Variant 3 found the HMM's allocation
+  # carries no forward-return information (42 IC tests, none at |t|=2), so this
+  # switch exists to measure whether the classifier adds anything at all.
+  regime_source: hmm
   low_vol_allocation: 0.95         # calm market, near fully invested
   mid_vol_allocation_trend: 0.95   # choppy but above the 50 EMA, stay invested
   mid_vol_allocation_no_trend: 0.60  # choppy and below it, cut back

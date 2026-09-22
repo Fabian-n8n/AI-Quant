@@ -77,6 +77,7 @@ from core.hmm_engine import (
     RegimeState,
     VolatilityRank,
     assign_volatility_ranks,
+    volatility_rank_from_position,
 )
 from data.feature_engineering import atr, ema
 
@@ -394,6 +395,38 @@ STRATEGY_BY_VOL_RANK: dict[VolatilityRank, type[BaseStrategy]] = {
 }
 
 
+def realised_vol_rank(
+    bars: pd.DataFrame, window: int = 60, lookback: int = 252
+) -> VolatilityRank | None:
+    """Volatility tier from realised volatility alone. Variant 4's null model.
+
+    Variant 3 measured the HMM's `target_allocation` against forward returns on
+    all 14 symbols: 42 IC tests, not one reached |t| = 2, mean IC about zero.
+    What the regime layer demonstrably does is hold ~78% and cut when
+    volatility rises. This computes that tier directly from price, so running
+    both arms makes the HMM the only difference between them.
+
+    Returns None when there is not enough history, and the caller falls back to
+    the HMM rather than skipping the bar.
+
+    THE PERCENTILE WINDOW IS TRAILING, AND THAT IS THE WHOLE CARE POINT.
+    Full-sample terciles would rank today's volatility against volatility that
+    has not happened yet, which hands today's allocation tomorrow's news.
+    `tests/test_look_ahead.py` is the guard.
+    """
+    close = bars["close"]
+    if len(close) < window + 2:
+        return None
+    vol = close.pct_change().rolling(window).std().dropna()
+    recent = vol.tail(lookback)
+    if len(recent) < 2:
+        return None
+    # Share of the trailing window sitting below today. Same 0.33/0.67 cuts the
+    # HMM path uses, via the same function, so the two arms cannot disagree
+    # about what "low volatility" means.
+    return volatility_rank_from_position(float((recent < recent.iloc[-1]).mean()))
+
+
 # Backward-compatible aliases. The earlier design named strategies after regime
 # labels, which was the mistake this phase corrects: a label describes return,
 # and allocation keys off volatility. They are kept so older references resolve,
@@ -470,6 +503,10 @@ class StrategyOrchestrator:
             "reward_risk_ratio": self.config.get("reward_risk_ratio", 2.0),
         }
 
+        # "hmm" or "volatility". See `realised_vol_rank` and variant 4.
+        self.regime_source: str = self.config.get("regime_source", "hmm")
+        self._rank_strategies: dict[VolatilityRank, BaseStrategy] = {}
+
         self.regime_infos: dict[int, RegimeInfo] = {}
         self.vol_ranks: dict[int, VolatilityRank] = {}
         self.strategies: dict[int, BaseStrategy] = {}
@@ -535,6 +572,27 @@ class StrategyOrchestrator:
 
     def get_volatility_rank(self, regime_id: int) -> VolatilityRank:
         return self.vol_ranks[regime_id]
+
+    def _resolve(
+        self, regime_state: RegimeState, symbols: list[str], bars: dict[str, pd.DataFrame]
+    ) -> tuple[BaseStrategy, VolatilityRank]:
+        """The strategy and tier for this bar. The only place the HMM is optional.
+
+        Under `regime_source: volatility` the tier comes from the reference
+        symbol's realised volatility instead of the classifier. Everything
+        downstream is untouched: same three strategy classes, same allocations,
+        same risk layer. That is what makes variant 4 a clean comparison rather
+        than a second strategy.
+        """
+        if self.regime_source == "volatility" and symbols:
+            rank = realised_vol_rank(bars.get(symbols[0], pd.DataFrame(columns=["close"])))
+            if rank is not None:
+                if rank not in self._rank_strategies:
+                    self._rank_strategies[rank] = self._build_strategy(rank)
+                return self._rank_strategies[rank], rank
+            # Too little history to rank yet. Fall through to the HMM rather
+            # than drop the bar, so the two arms cover identical dates.
+        return self.get_strategy(regime_state.state_id), self.vol_ranks[regime_state.state_id]
 
     # -- uncertainty --------------------------------------------------------
 
@@ -605,10 +663,9 @@ class StrategyOrchestrator:
         how invested one symbol should be. The per-symbol share is written into
         `metadata["per_symbol_weight"]` once the tradable count is known.
         """
-        strategy = self.get_strategy(regime_state.state_id)
+        strategy, rank = self._resolve(regime_state, symbols, bars)
         uncertain = self.is_uncertain(regime_state, is_flickering)
         reason = self._uncertainty_reason(regime_state, is_flickering) if uncertain else ""
-        rank = self.vol_ranks[regime_state.state_id]
 
         signals: list[Signal] = []
         for symbol in symbols:

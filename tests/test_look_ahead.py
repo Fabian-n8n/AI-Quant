@@ -250,3 +250,59 @@ def test_fills_occur_at_next_open_not_signal_close():
 @pytest.mark.skip(reason="Phase 4: walk-forward backtesting")
 def test_walk_forward_windows_do_not_overlap():
     """Test data must never appear in a training window."""
+
+
+# -- variant 4: the null model -----------------------------------------------
+
+def _series(segments, seed=4):
+    rng = np.random.default_rng(seed)
+    steps = np.concatenate([rng.normal(0, sd, n) for sd, n in segments])
+    idx = pd.bdate_range("2019-01-01", periods=len(steps), tz="UTC")
+    return pd.DataFrame({"close": 100 * np.exp(np.cumsum(steps))}, index=idx)
+
+
+def test_rank_uses_a_trailing_window_not_all_history():
+    """Ancient turbulence must not still be setting today's tier.
+
+    This is the real failure mode for a percentile signal. Swap `.tail(lookback)`
+    for the whole series and a crash five years ago keeps every quiet day since
+    looking LOW forever, which is both wrong and a slow leak of stale state.
+    """
+    from core.regime_strategies import realised_vol_rank
+
+    # 500 bars of chaos, then 500 calm. With a 252-bar lookback the chaos is
+    # out of the window, so trimming it away must change nothing.
+    frame = _series([(0.050, 500), (0.004, 500)])
+    assert realised_vol_rank(frame) == realised_vol_rank(frame.iloc[500:])
+
+
+def test_future_bars_cannot_change_a_past_ranking():
+    """The caller slices to the current bar; confirm nothing reaches past it."""
+    from core.regime_strategies import realised_vol_rank
+
+    frame = _series([(0.004, 500), (0.050, 500)])
+    as_of = realised_vol_rank(frame.iloc[:500])
+
+    wrecked = frame.copy()
+    wrecked.iloc[500:, 0] *= 10          # rewrite everything after the as-of bar
+    assert realised_vol_rank(wrecked.iloc[:500]) == as_of
+
+
+def test_null_model_reaches_every_tier():
+    """A switch that always answered MID would pass every test above and
+    measure nothing. Volatility has to oscillate for LOW to be reachable: a
+    monotonically rising series sits at the top of its own trailing window
+    almost always."""
+    from core.hmm_engine import VolatilityRank
+    from core.regime_strategies import realised_vol_rank
+
+    frame = _series([(0.004, 300), (0.035, 300), (0.004, 300), (0.035, 300)], seed=7)
+    seen = {realised_vol_rank(frame.iloc[:c]) for c in range(200, len(frame), 20)}
+    seen.discard(None)
+    assert seen == set(VolatilityRank), f"only reached {sorted(r.value for r in seen)}"
+
+
+def test_short_history_falls_back_rather_than_guessing():
+    from core.regime_strategies import realised_vol_rank
+
+    assert realised_vol_rank(pd.DataFrame({"close": pd.Series(range(1, 40), dtype=float)})) is None
