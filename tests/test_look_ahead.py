@@ -407,6 +407,7 @@ def test_the_backtest_stop_never_widens_on_a_pullback():
     """A lower floor after a fall has to be refused, or the 'trailing' stop is
     just a stop that follows price in both directions."""
     import pandas as pd
+
     from backtest.portfolio_backtester import Holding
 
     up = _trending(80)
