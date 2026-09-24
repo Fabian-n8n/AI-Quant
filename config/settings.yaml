@@ -216,7 +216,32 @@ strategy:
   # Set to null to run without a target and let the trailing stop decide every
   # exit. That is the more trend-following choice and it is a real option: a
   # fixed target caps the winners that pay for the losers.
-  reward_risk_ratio: 2.0
+  # MEASURED 2026-09-24, on diversified-hmm-sma200 across all 19 symbols, once
+  # the backtester learned to ratchet stops the way the live engine does:
+  #
+  #   trail  target     return    maxDD  Sharpe  trades
+  #   off    2.0         62.9%    -8.4%    1.16     919
+  #   off    none       326.2%   -34.6%    0.81      69
+  #   on     2.0         52.6%    -8.7%    1.05    2362
+  #   on     none        69.9%    -9.6%    1.18    1391
+  #
+  # Set to null because a trailing stop and a fixed target fight each other.
+  # Row three is the combination this file used to claim: the trail cuts the
+  # position before it ever reaches 2R, so you pay 70% more trades than row
+  # four and collect the target almost never. It is beaten on return, on
+  # drawdown AND on trade count. That is a structural result, not a Sharpe
+  # claim, and it is the reason for this change.
+  #
+  # Row two is the tempting one and it is a trap: 326% looks like the answer
+  # until you read -34.6% beside it. CLAUDE.md says real capital here must
+  # survive being down 30%. That row spends the entire budget on one line.
+  #
+  # Row four is what the live account has actually been running since the
+  # trailing ratchet landed, because `protect_position` never reached its OCO
+  # route in practice. This setting stops the config lying about that. It also
+  # makes Alpaca's native trailing_stop order reachable again, since that route
+  # is only taken when there is no take-profit.
+  reward_risk_ratio: null
 
 # ---------------------------------------------------------------------------
 # risk - independent veto layer, overrides everything above

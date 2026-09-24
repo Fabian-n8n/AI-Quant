@@ -65,12 +65,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from core.hmm_engine import HMMEngine
 from core.regime_strategies import StrategyOrchestrator
 from core.risk_manager import PortfolioState, RiskManager
-from data.feature_engineering import build_feature_matrix, log_returns, required_warmup
+from data.feature_engineering import atr, build_feature_matrix, log_returns, required_warmup
 
 from .backtester import Window
 
@@ -174,6 +175,15 @@ class PortfolioBacktester:
         self.strategy_config = dict(strategy_config or {})
         self.risk_config = dict(risk_config or {})
         self.reward_risk_ratio = reward_risk_ratio
+
+        # The live engine ratchets stops upward every cycle (main.py
+        # `_update_stops`). Modelling a stop that is fixed for the life of the
+        # trade, while the account runs one that climbs, means the backtest is
+        # measuring a strategy nobody is trading. `trailing_stop` mirrors
+        # `risk.trailing_stop` from settings.yaml; leave it out for the old
+        # fixed-stop behaviour so earlier trials stay comparable.
+        self.trailing_stop = dict(self.risk_config.get("trailing_stop") or {})
+        self._atr_cache: dict[str, pd.Series] = {}
 
         # See "HOW ORDERS FILL" at the top of the module. The default stays
         # "open" so existing trials remain comparable; "limit" is the honest one.
@@ -359,6 +369,7 @@ class PortfolioBacktester:
             for symbol, holding in list(holdings.items()):
                 if holding.bars_held < 1:
                     continue
+                self._ratchet_stop(bars, symbol, timestamp, holding)
                 exit_price, reason = self._exit_price(bars, symbol, timestamp, holding)
                 if exit_price is None:
                     continue
@@ -461,7 +472,14 @@ class PortfolioBacktester:
                     continue
                 stop = candidate.stop_loss
                 target = None
-                if stop is not None and candidate.entry_price > 0:
+                # A falsy ratio means NO target, matching the strategy's own
+                # `compute_take_profit`. It used to compute `entry + 0 * risk`,
+                # a target sitting exactly at the entry price, which fills on
+                # the next bar that trades up a cent: 7,130 trades instead of
+                # 919 and a return of 4.7%. That is not "no target", it is a
+                # broken one, and it made the no-target arm untestable.
+                if (self.reward_risk_ratio and stop is not None
+                        and candidate.entry_price > 0):
                     distance = candidate.entry_price - stop
                     if distance > 0:
                         target = candidate.entry_price + self.reward_risk_ratio * distance
@@ -612,6 +630,50 @@ class PortfolioBacktester:
             fill = max(open_, holding.take_profit)
             return fill * (1 - self.slippage_pct), "target"
         return None, ""
+
+    def _ratchet_stop(self, bars, symbol: str, timestamp, holding: Holding) -> None:
+        """Raise the stop to the trailing floor. Never lower it.
+
+        The same rule the live engine applies, and the same reason it needs no
+        high-water mark: the floor is measured off the PREVIOUS close, and a
+        lower floor is refused, so the stop is the running maximum on its own.
+
+        Previous close, not this bar's, on purpose. The live ratchet runs
+        between sessions on completed bars; using today's close to set a stop
+        that is tested against today's low would let the backtest exit on
+        information it could not have had.
+        """
+        config = self.trailing_stop
+        if not config.get("enabled", False):
+            return
+        frame = bars.get(symbol)
+        if frame is None or timestamp not in frame.index:
+            return
+        position = frame.index.get_loc(timestamp)
+        if position < 1:
+            return
+        close = float(frame["close"].iloc[position - 1])
+        if close <= 0:
+            return
+
+        # Same ATR the live strategy uses, cached per symbol: recomputing a
+        # 14-period ATR over the full history once per holding per bar turns a
+        # two-minute run into an hour-long one.
+        series = self._atr_cache.get(symbol)
+        if series is None:
+            series = atr(frame["high"], frame["low"], frame["close"],
+                         int(self.strategy_config.get("atr_window", 14)))
+            self._atr_cache[symbol] = series
+        atr_value = float(series.iloc[position - 1])
+        if not np.isfinite(atr_value) or atr_value <= 0:
+            return
+
+        raw = float(config.get("atr_multiple", 2.5)) * atr_value / close * 100
+        trail = max(float(config.get("min_trail_pct", 1.5)),
+                    min(raw, float(config.get("max_trail_pct", 15.0))))
+        floor = close * (1 - trail / 100)
+        if holding.stop_loss is None or floor > holding.stop_loss:
+            holding.stop_loss = floor
 
     def _sell(self, holding: Holding, price: float) -> float:
         return holding.shares * price - self.commission_per_share * holding.shares

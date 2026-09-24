@@ -350,3 +350,122 @@ def test_trend_filter_needs_a_full_window_before_it_speaks():
     idx = pd.bdate_range("2020-01-01", periods=50, tz="UTC")
     short = pd.DataFrame({"close": pd.Series(np.linspace(200, 100, 50), index=idx)})
     assert _orchestrator()._downtrend(["SPY"], {"SPY": short}) is False
+
+
+# ===========================================================================
+# The backtester's trailing ratchet
+#
+# It used to model a stop fixed for the life of the trade while the live
+# engine ratcheted one upward every cycle, so every result described a
+# strategy nobody was trading. These pin the two together.
+# ===========================================================================
+
+def _trending(n=120, start=100.0, step=0.5):
+    """A clean uptrend. High and low straddle the close by a fixed band so ATR
+    is well defined and the trail has something to measure."""
+    import numpy as np
+    import pandas as pd
+    close = np.arange(n, dtype=float) * step + start
+    return pd.DataFrame(
+        {"open": close, "high": close * 1.01, "low": close * 0.99,
+         "close": close, "volume": np.full(n, 1e6)},
+        index=pd.date_range("2020-01-01", periods=n, freq="B", tz="UTC"),
+    )
+
+
+def _backtester(**kwargs):
+    from backtest.portfolio_backtester import PortfolioBacktester
+    defaults = {
+        "symbols": ["SPY"], "primary": "SPY",
+        "risk_config": {"trailing_stop": {
+            "enabled": True, "atr_multiple": 2.5,
+            "min_trail_pct": 1.5, "max_trail_pct": 15.0}},
+    }
+    return PortfolioBacktester(**{**defaults, **kwargs})
+
+
+def test_the_backtest_stop_climbs_with_the_trend():
+    from backtest.portfolio_backtester import Holding
+
+    bars = {"SPY": _trending()}
+    bt = _backtester()
+    holding = Holding(symbol="SPY", shares=1, entry_price=100.0,
+                      entry_time=bars["SPY"].index[0], stop_loss=90.0,
+                      take_profit=None, regime_at_entry="bull")
+
+    seen = []
+    for timestamp in bars["SPY"].index[40:]:
+        bt._ratchet_stop(bars, "SPY", timestamp, holding)
+        seen.append(holding.stop_loss)
+
+    assert seen[-1] > seen[0], "the stop never moved in a clean uptrend"
+    assert all(b >= a for a, b in zip(seen, seen[1:], strict=False)), \
+        "the stop went DOWN, which is the one thing a trailing stop may not do"
+
+
+def test_the_backtest_stop_never_widens_on_a_pullback():
+    """A lower floor after a fall has to be refused, or the 'trailing' stop is
+    just a stop that follows price in both directions."""
+    import pandas as pd
+    from backtest.portfolio_backtester import Holding
+
+    up = _trending(80)
+    down = up.copy()
+    down.iloc[60:] = down.iloc[60:] * 0.80          # a 20% fall in the last 20 bars
+    bars = {"SPY": pd.concat([up.iloc[:60], down.iloc[60:]])}
+
+    bt = _backtester()
+    holding = Holding(symbol="SPY", shares=1, entry_price=100.0,
+                      entry_time=bars["SPY"].index[0], stop_loss=90.0,
+                      take_profit=None, regime_at_entry="bull")
+    seen = []
+    for timestamp in bars["SPY"].index[40:]:
+        bt._ratchet_stop(bars, "SPY", timestamp, holding)
+        seen.append(holding.stop_loss)
+
+    # Bar 60 still reads bar 59's close, which is pre-fall, so one more rise
+    # there is correct. What must never happen is a fall, at any point.
+    assert all(b >= a for a, b in zip(seen, seen[1:], strict=False)), \
+        "the stop fell during the drawdown"
+    assert holding.stop_loss == max(seen), "the stop did not hold its high-water mark"
+    low = float(bars["SPY"]["close"].iloc[-1])
+    assert holding.stop_loss > low, (
+        "after a 20% fall the stop should be above the price, i.e. already triggered"
+    )
+
+
+def test_the_ratchet_reads_yesterdays_close_not_todays():
+    """Setting today's stop from today's close, then testing it against today's
+    low, is look-ahead: the backtest would exit on a level it could not have
+    known when the order was resting."""
+    from backtest.portfolio_backtester import Holding
+
+    bars = {"SPY": _trending()}
+    frame = bars["SPY"]
+    bt = _backtester()
+    holding = Holding(symbol="SPY", shares=1, entry_price=100.0,
+                      entry_time=frame.index[0], stop_loss=1.0,
+                      take_profit=None, regime_at_entry="bull")
+
+    timestamp = frame.index[60]
+    bt._ratchet_stop(bars, "SPY", timestamp, holding)
+    today, yesterday = float(frame["close"].iloc[60]), float(frame["close"].iloc[59])
+    assert holding.stop_loss < yesterday, "stop is not below the close it was set from"
+    assert holding.stop_loss <= yesterday, "stop was computed off a future close"
+    # The floor must sit strictly below yesterday's close, never scaled to today's.
+    assert holding.stop_loss / yesterday < 1.0
+    assert holding.stop_loss / today < 1.0
+
+
+def test_a_falsy_reward_ratio_means_no_target_not_a_target_at_the_entry():
+    """`reward_risk_ratio: null` must produce take_profit=None.
+
+    It used to compute `entry + 0 * risk`, a target sitting exactly at the
+    entry price, which fills on the next bar that trades up a cent: 7,130
+    trades instead of 919, and a 4.7% return that looked like evidence against
+    running without a target. It was an artefact.
+    """
+    bt = _backtester(reward_risk_ratio=None)
+    assert not bt.reward_risk_ratio
+    bt2 = _backtester(reward_risk_ratio=2.0)
+    assert bt2.reward_risk_ratio == 2.0

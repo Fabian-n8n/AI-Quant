@@ -315,3 +315,66 @@ NANC's alpha t-stat clearing 2, which needs either several more years or an
 alpha above 5%/yr appearing. The underlying instinct — more independent
 information sources — was right and was already acted on in variant 5, on the
 asset side, by adding the five defensive sleeves.
+
+---
+
+## Variant 7 — exits: trailing stop vs fixed target, 2026-09-24
+
+Prompted by a plain question: when does a position close, and is there a
+target? Checking the account answered it badly. **Zero take-profit orders
+existed at the broker**, and every one of nine open positions had only a stop.
+The target `reward_risk_ratio: 2.0` computes was never placed, because
+`protect_position`'s OCO route needs a filled quantity and the entries are
+limit orders that fill hours later, so the stop always arrived via the repair
+path instead, which places a plain stop and nothing else.
+
+### The backtest was measuring a different system
+
+`PortfolioBacktester` held each stop fixed for the life of the trade while the
+live engine ratcheted stops upward every cycle. Every number in variants 1-6
+described a strategy nobody was trading. Fixed: `_ratchet_stop` applies the
+same floor as `main.py`, off the **previous** close so the stop cannot be set
+from a bar it is then tested against.
+
+A second bug surfaced while fixing it. A falsy `reward_risk_ratio` computed
+`entry + 0 x risk`, a target sitting exactly at the entry price, filling on the
+next bar that traded up a cent: **7,130 trades and a 4.7% return.** That was an
+artefact, not evidence, and it had made the no-target arm untestable.
+
+### Four combinations, diversified-hmm-sma200, 19 symbols, full span
+
+| trail | target | return | maxDD | Sharpe | trades |
+|---|---|---:|---:|---:|---:|
+| off | 2.0 | 62.9% | -8.4% | 1.16 | 919 |
+| off | none | **326.2%** | **-34.6%** | 0.81 | 69 |
+| on | 2.0 | 52.6% | -8.7% | 1.05 | 2362 |
+| **on** | **none** | **69.9%** | **-9.6%** | **1.18** | 1391 |
+
+**Row three is dominated, and that is the finding.** A trailing stop and a
+fixed target fight each other: the trail cuts the position before it reaches
+2R, so the target is collected almost never while the churn is paid in full.
+It loses to row four on return, on drawdown *and* on trade count. Being beaten
+on every axis at once is a structural result, not a Sharpe claim.
+
+Row two is the trap. 326% is the largest return measured in this project and
+it comes with **-34.6%**, which spends the entire risk budget CLAUDE.md sets
+for real capital on a single line.
+
+Row four is what the live account has actually been running since the trailing
+ratchet landed. `reward_risk_ratio` is now `null` so the config states it.
+
+### What this is not
+
+1.18 against 1.16 is noise, and these are four more trials on top of the 42
+that already failed the deflated-Sharpe test at 0.634. **No edge is claimed.**
+The change is justified by row three being dominated and row two breaching the
+drawdown constraint, neither of which depends on a Sharpe comparison.
+
+### Live state at the time
+
+Nine positions, four with a stop above entry (META +5.5%, AMD +2.0%,
+PLTR +1.3%, NVDA +0.2%). Three stopped out on 2026-09-23 on the newly
+tightened stops: AVGO -$49, GOOGL -$44, AMZN -$1. That is the trail doing its
+job, and it is also the cost of it: a tighter stop exits more often.
+
+**9 closed trades of the 30 preflight requires.**
