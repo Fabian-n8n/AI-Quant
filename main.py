@@ -1144,12 +1144,21 @@ class TradingEngine:
                 # so the rest of the system knows the level and not just that
                 # one exists.
                 for symbol in list(unprotected):
-                    order = resting.get(symbol)
-                    if order is None:
-                        continue
-                    unprotected.remove(symbol)
+                    if symbol in resting:
+                        unprotected.remove(symbol)
+
+                # Adopt the broker's price for EVERY position that has a
+                # resting stop, not only the ones believed naked.
+                #
+                # It used to run inside the loop above, so a position the
+                # tracker thought was protected kept whatever price it
+                # remembered, forever. The ratchet then moved the real order to
+                # 323.20 while the dashboard kept printing 312.40 and a
+                # distance-to-stop computed from it. Wrong numbers on the
+                # screen someone reads to decide whether to intervene.
+                for symbol, order in resting.items():
                     price = getattr(order, "stop_price", None)
-                    if price is not None:
+                    if price is not None and symbol in positions:
                         self.position_tracker.update_stop(symbol, float(price))
 
                 missing_at_broker = [s for s in positions if s not in resting]

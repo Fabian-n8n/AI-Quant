@@ -1576,3 +1576,27 @@ def test_a_native_trailing_stop_is_unreachable_while_a_target_is_set(built_engin
     # Drop the target and the trailing stop becomes reachable again.
     order = executor.protect_position("SPY", 10, trail_percent=5.0, stop_price=90.0)
     assert order.order_type is OrderType.TRAILING_STOP
+
+
+def test_the_broker_stop_price_wins_even_when_we_thought_we_knew_it(built_engine):
+    """A stop the ratchet moved must show up in the tracker, and so on the
+    dashboard. This used to only happen for positions believed unprotected, so
+    a moved stop was invisible and `distance_to_stop_pct` was computed from a
+    price that no longer existed."""
+    engine = built_engine
+    engine.client._positions = [make_position("SPY", 100, 100.0)]
+    engine.position_tracker.sync()
+    engine.position_tracker.update_stop("SPY", 90.0)      # what we remember
+
+    engine.client._open_orders = [
+        Order(order_id="s1", symbol="SPY", side=OrderSide.SELL, quantity=100,
+              filled_quantity=0, status=OrderStatus.OPEN, order_type=OrderType.STOP,
+              limit_price=None, stop_price=95.0,          # what the broker holds
+              average_fill_price=None, submitted_at=None, filled_at=None)
+    ]
+    engine.audit_stops(alert=False)
+
+    tracked = engine.position_tracker.get_open_positions()["SPY"]
+    assert tracked.stop_loss == 95.0, (
+        f"tracker still says {tracked.stop_loss}, the broker says 95.0"
+    )
