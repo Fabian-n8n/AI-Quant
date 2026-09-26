@@ -202,8 +202,36 @@ class DashboardState:
         }
 
     def candidates_panel(self) -> list[dict[str, Any]]:
-        """The ranked watchlist. The dashboard's primary answer."""
-        return [c.to_dict() for c in getattr(self.engine, "candidates", []) or []]
+        """The ranked watchlist. The dashboard's primary answer.
+
+        For a symbol already HELD, the entry and stop are overwritten with the
+        real ones. The scan computes what a FRESH entry would look like today,
+        which is the right number on a row saying "buy" and the wrong one on a
+        row saying "hold": on 2026-09-26 the watchlist showed META's stop as
+        622.42 while the order actually resting at the broker was 700.41, a
+        78-point error on the number that decides when the position exits.
+        """
+        try:
+            held = self.position_tracker.get_open_positions() if self.position_tracker else {}
+        except Exception:
+            held = {}
+
+        rows = []
+        for candidate in getattr(self.engine, "candidates", []) or []:
+            row = candidate.to_dict()
+            position = held.get(row.get("symbol"))
+            if position is not None:
+                entry = getattr(position, "entry_price", None)
+                stop = getattr(position, "stop_loss", None)
+                if entry:
+                    row["entry_price"] = float(entry)
+                if stop:
+                    row["stop_loss"] = float(stop)
+                    if entry:
+                        row["stop_distance_pct"] = (float(entry) - float(stop)) / float(entry)
+                row["quantity"] = getattr(position, "quantity", row.get("shares"))
+            rows.append(row)
+        return rows
 
     def signal_feed(self, limit: int = 50) -> list[dict[str, Any]]:
         """Recent signals with allocation, entry, stop and the reason."""

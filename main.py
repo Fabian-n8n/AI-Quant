@@ -750,6 +750,7 @@ class TradingEngine:
             )
         )
 
+        self._load_known_entry_times()
         report = self._broker_retry(self.position_tracker.sync, what="position sync")
 
         # At startup, adopting positions is expected: it is how a restart picks
@@ -1861,6 +1862,7 @@ class TradingEngine:
                 continue
 
             outcome.approved += 1
+            self._book_pending(candidate_signal, decision)
             if self.dry_run:
                 logger.info(
                     "  dry run: would BUY %s x%g ($%s, risk %.3f%% of equity)%s",
@@ -1896,6 +1898,70 @@ class TradingEngine:
                 self._emit(EventType.ORDER_REJECTED,
                            f"{candidate_signal.symbol}: order failed, {reason}",
                            symbol=candidate_signal.symbol, error=reason)
+
+    def _load_known_entry_times(self) -> None:
+        """Tell the tracker when each open position was actually opened.
+
+        The broker does not report an entry time, so `_adopt` used
+        `datetime.now()`. Every scheduled refresh is a fresh process that
+        adopts every position, so the clock restarted every fifteen minutes and
+        the dashboard showed "held 1d" against positions opened a week earlier.
+        `state.db` has the real `entry_at`, and it survives the process.
+        """
+        if self.repo is None or self.position_tracker is None:
+            return
+        from datetime import datetime as _dt
+        known: dict[str, datetime] = {}
+        for row in self.repo.open_positions():
+            raw = row["entry_at"]
+            if not raw:
+                continue
+            try:
+                stamp = _dt.fromisoformat(raw)
+            except (TypeError, ValueError):
+                continue
+            known[row["symbol"]] = stamp if stamp.tzinfo else stamp.replace(tzinfo=UTC)
+        self.position_tracker.known_entry_times = known
+
+    def _book_pending(self, signal, decision) -> None:
+        """Count an approval against the limits before approving the next one.
+
+        THE BUG THIS FIXES, measured on the paper account 2026-09-26.
+
+        `validate_signal` is handed `self.portfolio`, a snapshot taken once per
+        run. Nothing inside the approval loop updated it, so every candidate
+        was checked against the position count, exposure and sector weights as
+        they stood BEFORE the run placed anything. With nine positions held and
+        a limit of twelve, `9 >= 12` was false for every candidate in turn, so
+        the concurrency cap approved seven more and the account finished the
+        day holding SIXTEEN. The cap did not bend; it never applied.
+
+        The same staleness reaches three other checks, because all of them
+        derive from the same `positions` dict: gross exposure, leverage and
+        sector exposure each saw the full headroom for every candidate. Only
+        `max_single_position: 0.03` kept the total inside the exposure cap, and
+        that is luck, not a control: sixteen positions at three percent is 48%,
+        and a larger per-position cap would have sailed through 80%.
+
+        `PortfolioBacktester` has always enforced these incrementally, which
+        means every published backtest described a tighter system than the one
+        actually trading. Booking the approval here closes that gap. The
+        position is provisional, not filled -- but so is the risk, and the
+        limit exists to bound risk taken, not risk settled.
+        """
+        if self.portfolio is None:
+            return
+        quantity = decision.approved_quantity or 0
+        notional = decision.approved_notional or (quantity * signal.entry_price)
+        self.portfolio.positions[signal.symbol] = {
+            "market_value": float(notional),
+            "quantity": float(quantity),
+            "entry_price": float(signal.entry_price),
+            "stop_loss": float(signal.stop_loss),
+            "unrealised_pnl": 0.0,
+            "pending": True,
+        }
+        self.portfolio.daily_trades += 1
 
     def _repair_stops(self, unprotected: list[str], positions: dict) -> list[str]:
         """Place a stop for every position found without one. Returns what is

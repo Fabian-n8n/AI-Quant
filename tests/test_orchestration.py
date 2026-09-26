@@ -20,6 +20,7 @@ The tests that matter most are not the happy path. They are:
 import copy
 import json
 from datetime import UTC, date, datetime, timedelta
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -1599,4 +1600,71 @@ def test_the_broker_stop_price_wins_even_when_we_thought_we_knew_it(built_engine
     tracked = engine.position_tracker.get_open_positions()["SPY"]
     assert tracked.stop_loss == 95.0, (
         f"tracker still says {tracked.stop_loss}, the broker says 95.0"
+    )
+
+
+# ===========================================================================
+# Position limits must bind DURING a run, not only between runs
+#
+# Measured failure, 2026-09-26: nine positions held, max_concurrent 12, and
+# the run finished holding sixteen. Every candidate was validated against the
+# same pre-run snapshot, so `9 >= 12` was false every time and the cap never
+# applied once.
+# ===========================================================================
+
+def test_booking_an_approval_moves_the_position_count(built_engine):
+    """The narrow unit: one approval has to be visible to the next check."""
+    engine = built_engine
+    engine.refresh_portfolio()
+    before = engine.portfolio.n_positions
+
+    signal = SimpleNamespace(symbol="ZZZZ", entry_price=100.0, stop_loss=90.0)
+    decision = SimpleNamespace(approved_quantity=10, approved_notional=1000.0)
+    engine._book_pending(signal, decision)
+
+    assert engine.portfolio.n_positions == before + 1
+    assert "ZZZZ" in engine.portfolio.positions
+    assert engine.portfolio.positions["ZZZZ"]["market_value"] == 1000.0
+
+
+def test_booking_an_approval_also_moves_exposure_and_the_trade_count(built_engine):
+    """Same staleness reached gross exposure, leverage and sector weights,
+    because all three derive from the positions dict."""
+    engine = built_engine
+    engine.refresh_portfolio()
+    equity = engine.portfolio.equity
+    before_exposure = engine.portfolio.gross_exposure
+    before_trades = engine.portfolio.daily_trades
+
+    signal = SimpleNamespace(symbol="ZZZZ", entry_price=100.0, stop_loss=90.0)
+    engine._book_pending(signal, SimpleNamespace(
+        approved_quantity=10, approved_notional=0.05 * equity))
+
+    assert engine.portfolio.gross_exposure == pytest.approx(before_exposure + 0.05)
+    assert engine.portfolio.leverage == pytest.approx(engine.portfolio.gross_exposure)
+    assert engine.portfolio.daily_trades == before_trades + 1
+
+
+def test_the_concurrency_cap_binds_within_a_single_run(built_engine):
+    """The behaviour that actually broke: approvals in a row must stop at the
+    limit, not all pass against the count as it stood before the run."""
+    engine = built_engine
+    engine.refresh_portfolio()
+    engine.risk_manager.max_concurrent = 3
+    engine.portfolio.positions.clear()          # start flat, room for exactly 3
+
+    approved = []
+    for i in range(8):
+        signal = SimpleNamespace(
+            symbol=f"SYM{i}", entry_price=100.0, stop_loss=90.0,
+            metadata={}, direction=SimpleNamespace(value="long"),
+        )
+        decision = engine.risk_manager.validate_signal(signal, engine.portfolio)
+        if not decision.approved:
+            continue
+        approved.append(signal.symbol)
+        engine._book_pending(signal, decision)
+
+    assert len(approved) <= 3, (
+        f"approved {len(approved)} positions against a limit of 3: {approved}"
     )

@@ -126,6 +126,13 @@ class PositionTracker:
         self._stream_thread: threading.Thread | None = None
         self._stop_stream = threading.Event()
 
+        # Real entry times for positions this process did not open, keyed by
+        # symbol. The engine fills it from `state.db` before syncing. Without
+        # it, `_adopt` stamps `datetime.now()`, and since every scheduled
+        # refresh is a fresh process that adopts everything, a position held
+        # for a week reported "0m" on the dashboard forever.
+        self.known_entry_times: dict[str, datetime] = {}
+
     # -- reconciliation -----------------------------------------------------
 
     def sync(self) -> dict[str, list[str]]:
@@ -179,11 +186,19 @@ class PositionTracker:
             "Adopting untracked position %s x%g. No stop or regime context known.",
             position.symbol, position.quantity,
         )
+        known = self.known_entry_times.get(position.symbol)
+        entry_time = known or datetime.now(UTC)
+        # Holding periods are counted in bars by `increment_holding_periods`,
+        # which starts from zero in each new process. When the real entry time
+        # is known, seed the counter from it instead so an adopted position
+        # does not reset to "held 1 day" on every refresh.
+        elapsed_days = max(0, (datetime.now(UTC) - entry_time).days) if known else 0
         return TrackedPosition(
             symbol=position.symbol,
             quantity=position.quantity,
             entry_price=position.average_entry_price,
-            entry_time=datetime.now(UTC),
+            entry_time=entry_time,
+            holding_periods=elapsed_days,
             current_price=position.current_price,
             adopted=True,
             rationale="adopted during reconciliation; origin unknown",
