@@ -1,7 +1,12 @@
 # Current brief — read this first
 
-Written 2026-09-22. Supersedes nothing; it is the *current task*, not the spec.
+Written 2026-09-22, updated 2026-09-26. The *current task*, not the spec.
 Spec is `docs/HANDOFF.md`. Evidence is `docs/EXPERIMENT-LOG.md`.
+
+**Status: everything this brief asked for is built.** Variant 4 answered,
+variants 5 to 7 followed, and the iteration loop below is `scripts/search.py`.
+What remains is the paper record, which no amount of code shortens. Read
+"Where this actually stands" at the bottom before starting anything.
 
 ---
 
@@ -29,7 +34,20 @@ read it if you need it.
 
 ---
 
-## The task: variant 4, the null model
+## The task: variant 4, the null model — **DONE 2026-09-22**
+
+**Answer: the null model matches. The HMM is deletable.** Equity-curve
+correlation 0.997, exposure correlation 0.870, and IC small and negative for
+both arms at every horizon. The two arms disagree on the tier 33% of bars and
+their raw allocation series correlate only 0.264, so they genuinely make
+different calls a third of the time and it changes nothing.
+
+`strategy.regime_source` still defaults to `hmm` because deleting
+`core/hmm_engine.py` was not authorised, only shown to be justified. Full
+tables in `EXPERIMENT-LOG.md` variant 4.
+
+The original framing is kept below because the reasoning still applies to the
+next null model somebody writes.
 
 Prove the HMM is deletable, or prove it isn't. One question, falsifiable.
 
@@ -75,7 +93,13 @@ Either outcome is a result. There is no wasted run here.
 
 ---
 
-## After variant 4: the iteration loop
+## After variant 4: the iteration loop — **BUILT, `scripts/search.py`**
+
+8 arms, every one logged to `TrialRegistry`, winner scored with a deflated
+Sharpe against the full trial count, holdout run exactly once. Best arm
+`diversified-hmm-sma200` reached Sharpe 0.96 and **DSR 0.634 against a 0.95
+bar, which does not clear.** What shipped from it shipped on risk structure,
+not on that Sharpe. See variant 5.
 
 Only build this once variant 4 has answered. It is the Loop Engineering
 pattern (generate → backtest → score → read why it failed → regenerate),
@@ -129,3 +153,78 @@ state count is not a variant worth a run; variant 3 closed that question.
   model needing ~954 raw bars to fit. **Running 2018-2022 would be a fairer
   trial** and is worth doing before deleting anything on variant 4's evidence
   alone.
+
+---
+
+## Reference implementation: Phil
+
+`https://github.com/bennyjo/phil` — a self-improving Claude Code agent trading
+Polymarket. **Read for ideas, not for code.** Different instrument: binary
+prediction markets, not equities. Its own scorer reports it two months in,
+behind its benchmark, **z = -3.98 overconfident, zero real bets placed.** That
+is a system honest enough to measure its own failure, which is the part worth
+taking.
+
+Exactly three things, each with a gate. **Do not build one before its gate.**
+
+| # | Item | Gate | Status |
+|---|---|---|---|
+| 1 | `.github/scripts/boundary.sh` — CI guard failing any non-`operator:` commit that touches protected paths | The day an agent first gets write permission on strategy files | **NOT BUILT.** No agent has that permission. Building it now guards nothing and adds a CI step that can only produce false confidence. |
+| 2 | Luck-adjusted z-score next to the IC metrics | None, it is a measurement | **BUILT 2026-09-26.** `backtest.performance.calibration_z`, 7 tests. |
+| 3 | Per-class promotion gating as config | Account funded with real money | **NOT BUILT.** Paper only. |
+
+### What item 2 needs before it can report anything
+
+`calibration_z` takes a stated **probability that the trade ends in profit**
+and the realised outcome. This repo does not currently produce that number.
+
+`regime_confidence` is **not** it, and passing it would be a category error:
+it is the HMM's posterior over which volatility *state* the market is in.
+"85% sure this is a high-volatility regime" makes no claim about whether the
+next trade wins. Variant 3 measured that link directly and found the buckets
+*inverted* — sub-50% confidence scored Sharpe 0.92, 70%+ scored 0.74.
+
+So the metric is in place and deliberately unwired. Wiring it needs a real
+per-trade win probability first, which is a modelling task nobody has started.
+The function guards against the misuse in its own docstring.
+
+---
+
+## Where this actually stands
+
+**The goal stated repeatedly is to beat the S&P 500. The evidence says this
+configuration structurally cannot, and that conflict should be resolved
+explicitly rather than absorbed quietly.**
+
+Variant 4, same walk-forward window: strategy **+63.68%**, SPY buy-and-hold
+**+185.72%**. Variant 5 holdout, per calendar year:
+
+| year | strategy | SPY |
+|---|---:|---:|
+| 2019 | +8.2% | +31.1% |
+| 2020 | +12.6% | +18.5% |
+| 2021 | +6.7% | +28.6% |
+| **2022** | **-7.2%** | **-18.2%** |
+| 2023 | +22.7% | +26.2% |
+| 2024 | +9.9% | +24.9% |
+| 2025 | +3.7% | +17.7% |
+
+It loses to SPY in every rising year and wins only in the falling one. Three
+structural reasons, none of which a better signal fixes:
+
+1. **Deployable capital is capped at ~36%** — `max_single_position` 0.03 x
+   `max_concurrent` 12. Roughly a third invested cannot out-return something
+   fully invested, whatever it picks. The constraints section forbids changing
+   this, correctly, until there is an edge to size up.
+2. **No shorts**, by design in four places. A long-only book cannot profit in
+   a broad decline; losing less is the honest ceiling.
+3. **No measured edge.** 42 IC tests at |t| < 2 in variant 3, and DSR 0.634 in
+   variant 5. Nothing here has demonstrated alpha.
+
+What it does deliver is a materially different risk shape: 2022 at -7.2%
+against SPY's -18.2%, and max drawdown -8.4% against SPY's -24%. That is a
+real product. It is just not "beats the S&P 500", and the two goals point in
+opposite directions.
+
+**The real gate is unchanged and is not a code problem: 10 closed paper
+trades of the 30 preflight requires, win rate 0%, expectancy -$81.87.**

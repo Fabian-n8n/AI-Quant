@@ -378,3 +378,33 @@ tightened stops: AVGO -$49, GOOGL -$44, AMZN -$1. That is the trail doing its
 job, and it is also the cost of it: a tighter stop exits more often.
 
 **9 closed trades of the 30 preflight requires.**
+
+---
+
+## Tooling — luck-adjusted calibration, 2026-09-26
+
+Not a variant; no strategy behaviour changed. Adopted in idea from
+`bennyjo/phil`, whose own scorer reported **z = -3.98** two months in: calling
+its shots far better than it hit them.
+
+`backtest.performance.calibration_z(confidence, outcomes)` treats the stated
+win probabilities as Poisson-binomial and reports how many sigma the realised
+hit rate sat from the claim. **Negative is overconfident**, the dangerous
+direction, because position sizes keyed to confidence are largest exactly when
+least deserved. Returns the Brier score alongside, which needs no sample-size
+excuse. 7 tests: honest forecaster near zero, a 25-point overconfidence gap
+caught at z < -3, underconfidence reported separately, too-few-trades and
+degenerate-variance cases refusing to speak, out-of-range probabilities dropped
+rather than clipped.
+
+**Deliberately unwired.** It needs a per-trade probability that the trade ends
+in profit, and this repo does not produce one. `regime_confidence` is not it:
+that is the HMM's posterior over which volatility *state* the market is in, a
+different sample space. Variant 3 measured the link and found the buckets
+inverted, sub-50% confidence scoring Sharpe 0.92 against 70%+ scoring 0.74.
+Feeding it would produce a confident-looking sigma about a quantity nobody
+predicted. The docstring says so.
+
+Variant 4 re-verified the same day: on 1,012 out-of-sample SPY bars the HMM and
+the volatility percentile **disagree on the tier 39.6% of the time** and still
+produce equity curves correlating 0.997. The null model result stands.

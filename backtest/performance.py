@@ -24,6 +24,7 @@ entry/exit round trip. Win rate and holding period read against that.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -518,6 +519,92 @@ def ic_information_ratio(
         # Perfectly stable IC. Meaningful only if it is also non-zero.
         return 0.0 if abs(float(series.mean())) < ZERO_VOL_TOLERANCE else float("inf")
     return float(series.mean() / sd)
+
+
+def calibration_z(
+    confidence: pd.Series, outcomes: pd.Series, min_trades: int = 20
+) -> dict[str, Any]:
+    """Are we as right as we said we would be? Luck-adjusted, in sigma.
+
+    Adopted in idea from `bennyjo/phil`, whose own scorer reported **z = -3.98**
+    two months in: it was calling its shots far better than it hit them. That
+    is the single most useful number a self-assessing agent can carry, because
+    it is the one that cannot be talked up by a good month.
+
+    Each trade carries a stated probability of working, p_i. If those are
+    honest, the number of wins is Poisson-binomial with
+
+        expected  = sum(p_i)
+        variance  = sum(p_i * (1 - p_i))
+
+    and `z = (actual - expected) / sqrt(variance)` says how many standard
+    deviations the real hit rate sat from the claim. **Negative is
+    overconfident**, which is the dangerous direction: it means position sizes
+    keyed to confidence were too large exactly when they were least deserved.
+    Roughly, |z| under 2 is consistent with honest numbers, beyond 3 is not.
+
+    WHAT `confidence` MUST BE, AND WHAT IT MUST NOT BE
+    --------------------------------------------------
+    A probability that THIS TRADE ENDS IN PROFIT. Nothing else is admissible.
+
+    Do not feed it `regime_confidence`. That is the HMM's posterior over which
+    volatility STATE the market is in, which is a different question with a
+    different sample space: "85% sure this is a high-volatility regime" makes
+    no claim at all about whether the next trade wins. Variant 3 measured that
+    directly and found the buckets inverted, sub-50% confidence scoring a
+    higher Sharpe than 70%+. Passing it here would produce a confident-looking
+    sigma about a quantity nobody predicted, which is worse than no metric.
+
+    Returns `z = nan` when there is nothing honest to say: too few trades, or
+    every stated probability pinned at 0 or 1 so the variance collapses.
+    """
+    paired = pd.concat([pd.Series(confidence), pd.Series(outcomes)], axis=1).dropna()
+    paired.columns = ["p", "win"]
+    # A probability outside [0, 1] is a bug upstream, not a number to clip
+    # quietly into range: clipping would hide a miscalibrated scorer behind a
+    # plausible z.
+    valid = paired[(paired["p"] >= 0.0) & (paired["p"] <= 1.0)]
+    dropped = len(paired) - len(valid)
+
+    n = len(valid)
+    out: dict[str, Any] = {
+        "n_trades": n,
+        "dropped_out_of_range": dropped,
+        "expected_wins": float("nan"),
+        "actual_wins": float("nan"),
+        "z": float("nan"),
+        "brier": float("nan"),
+        "verdict": "not enough trades",
+    }
+    if n == 0:
+        return out
+
+    p = valid["p"].astype(float).to_numpy()
+    win = (valid["win"].astype(float) > 0).astype(float).to_numpy()
+    out["expected_wins"] = float(p.sum())
+    out["actual_wins"] = float(win.sum())
+    # Brier is the calibration score that does not need a sample-size excuse:
+    # mean squared error of the probability itself. Lower is better, 0.25 is
+    # what a constant 50% scores.
+    out["brier"] = float(np.mean((p - win) ** 2))
+
+    if n < min_trades:
+        return out
+
+    variance = float(np.sum(p * (1.0 - p)))
+    if variance < ZERO_VOL_TOLERANCE:
+        out["verdict"] = "every claim was 0 or 1; no spread to test against"
+        return out
+
+    z = (out["actual_wins"] - out["expected_wins"]) / math.sqrt(variance)
+    out["z"] = float(z)
+    if abs(z) < 2:
+        out["verdict"] = "consistent with the stated confidence"
+    elif z < 0:
+        out["verdict"] = f"OVERCONFIDENT by {abs(z):.2f} sigma"
+    else:
+        out["verdict"] = f"underconfident by {z:.2f} sigma"
+    return out
 
 
 def signal_decay(
