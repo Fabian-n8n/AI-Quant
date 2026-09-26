@@ -408,3 +408,58 @@ predicted. The docstring says so.
 Variant 4 re-verified the same day: on 1,012 out-of-sample SPY bars the HMM and
 the volatility percentile **disagree on the tier 39.6% of the time** and still
 produce equity curves correlating 0.997. The null model result stands.
+
+---
+
+## Tooling — counterfactual gate ledger, 2026-09-26
+
+Adopted in idea from `bennyjo/phil`'s `core/counterfactual.py`, which prices
+the prediction-market bets its gates declined. Instrument differs, question
+does not: **a gate that blocks losers earns its place, one that blocks winners
+is a tax paid in silence, and the two look identical in the log.**
+
+`scripts/counterfactual.py` replays every recorded signal, approved and
+refused, against real forward bars using the stop and target that were on the
+signal at the time. One addition Phil's version does not have: **approved
+signals go through the identical simulation as a control.** Knowing refused
+trades lost is not enough; the gate only works if what it let through did
+better.
+
+### Two bugs in my own first run, both found before believing the output
+
+1. **Incomplete windows.** Signals from the last few days have three bars of
+   forward data, not twenty, and were being averaged against signals with a
+   full window. Every refusal sat in the first week with complete data while a
+   third of approvals were recent stubs. Rows still inside their horizon are
+   now excluded.
+2. **Non-overlapping dates.** The buckets do not span the same days, and a
+   week of market direction dwarfs any gate effect. A same-date comparison was
+   added and is the only line worth reading.
+
+### Result, 10-bar horizon, same-date control
+
+| bucket | n | win rate | mean |
+|---|---:|---:|---:|
+| approved | 43 | 37% | +0.25% |
+| refused | 43 | 60% | **+2.64%** |
+
+The refused trades did better, by 2.39 points. **This is not a live finding.**
+Every one of the 43 refusals is `spread_too_wide`, on MSFT, AMZN, GOOGL, AAPL,
+META and TSLA — the most liquid instruments in the market, whose real spreads
+are a basis point or two.
+
+The last such rejection has `bar_date` **2026-09-11**. Commit `0053489`,
+"Stop trusting quotes from a market that is shut", landed **2026-09-14**.
+**Zero spread rejections in the fourteen signal-days since.**
+
+So the ledger is measuring a bug that was already fixed, and it is the first
+independent confirmation that the fix was right rather than merely plausible.
+It also prices what the bug cost while it ran: 43 signals that would have
+averaged +2.64% over ten bars at a 60% hit rate, refused on quotes taken from
+a closed market.
+
+The one live gate with data, `max_positions`, has n=6 at a 5-bar horizon.
+Too few to say anything, and that cap was itself miscounting until `83de5e3`.
+
+**Re-run this after thirty more signals.** It is the cheapest read available
+on whether the risk layer is discriminating or just reducing turnover.
