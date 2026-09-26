@@ -463,3 +463,71 @@ Too few to say anything, and that cap was itself miscounting until `83de5e3`.
 
 **Re-run this after thirty more signals.** It is the cheapest read available
 on whether the risk layer is discriminating or just reducing turnover.
+
+---
+
+## Variant 8 — does trading MORE make more money? 2026-09-26
+
+**Question:** the account closes roughly 3-4 trades a week and takes two months
+to reach the 30 the preflight wants. Can turnover be raised, and does raising
+it pay?
+
+Tightening the trailing stop is the only lever that raises turnover without
+changing instrument: a closer stop exits sooner and frees the slot. Swept
+`risk.trailing_stop.atr_multiple` on the shipped arm, everything else fixed.
+
+| atr_mult | min_trail | return | maxDD | Sharpe | trades | trades/wk |
+|---:|---:|---:|---:|---:|---:|---:|
+| **2.5** (shipped) | 1.5% | **69.9%** | -9.6% | **1.18** | 1391 | 3.7 |
+| 1.5 | 1.0% | 51.7% | -8.2% | 0.97 | 2337 | 6.2 |
+| 1.0 | 0.5% | 65.6% | -8.7% | **1.18** | 3278 | 8.7 |
+| 0.5 | 0.3% | **37.6%** | -6.5% | 0.86 | 5297 | 14.0 |
+
+**Trading 3.8x more than today nearly halves the return.** 14 trades a week
+returns 37.6% against 69.9% at 3.7. Drawdown improves, because a tight stop is
+a small stop, but the return it costs is not a trade worth making.
+
+Non-monotonic in the middle: 1.5 is worse than 1.0 on both return and Sharpe,
+which is a sign this is noise around a flat optimum rather than a curve with a
+peak to find. Four arms on a study already at 40+ trials; **no arm here is
+claimed as better than the shipped one.**
+
+### The one real option
+
+`atr_multiple: 1.0` reaches **8.7 trades a week at the same Sharpe (1.18)** and
+gives up about four points of return. That is 30 closed trades in ~3.5 weeks
+instead of ~8. **Not shipped**, because it is the user's call whether four
+points of return is worth halving the wait, and because changing it resets the
+count: the trades already closed measured a different exit rule.
+
+### Thirty in one week is not reachable here
+
+Thirty closed trades in five sessions needs ~8x current turnover, well past the
+bottom row, where returns are already collapsing. The only route to that trade
+count is intraday, and variant 8's companion measurement rules it out on cost:
+
+**15-minute bars, our universe, 30 days.** Median absolute 15-minute move
+**0.148%**. Round trip at the configured 5bp slippage, before any spread,
+**0.100%**. Costs eat **67% of a typical move**. SPY is worst at 2.24x cost to
+median move; only SMCI, the most volatile name held, has a median move three
+times its cost.
+
+And the scheduler cannot carry it regardless. Measured over the last twelve
+scheduled refreshes: **median delay 1.3h, max 4.2h** behind the requested cron.
+A scalp holds minutes.
+
+### Why more trades would not fix the record anyway
+
+Statistical power, two-sided, 95% confidence, 80% power:
+
+| true win rate | trades needed to prove it beats a coin |
+|---:|---:|
+| 52% | 4,893 |
+| 55% | 777 |
+| 60% | 189 |
+| 70% | 42 |
+
+**30 trades distinguishes nothing.** The gate is a smoke test for the plumbing,
+not a measurement of edge — and on that count it has already earned its keep,
+catching four execution bugs in two weeks that no backtest could model. The
+919-trade holdout is where statistical evidence comes from.
