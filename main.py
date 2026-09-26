@@ -2156,6 +2156,29 @@ class TradingEngine:
         ever tighten in practice: the wider stop is computed, rejected, and the
         existing tighter one stays. That asymmetry is intentional.
         """
+        # NOT WHILE THE MARKET IS SHUT. Learned the hard way, 2026-09-26.
+        #
+        # `modify_stop` is cancel-then-replace, because Alpaca cannot change a
+        # live stop's price in place. With the market closed the cancel is
+        # ACCEPTED BUT NOT PROCESSED: the order sits in `pending_cancel` still
+        # holding its shares, so the replacement is rejected for insufficient
+        # quantity (code 40310000) and the tighten silently fails.
+        #
+        # That much is merely useless. The danger is what happens next: the
+        # queued cancel DOES process at the following open, the replacement
+        # never happened, and the position is naked from the bell until an
+        # audit notices. Tightening nine stops on a Saturday left nine orders
+        # in that state at once.
+        #
+        # Nothing is lost by waiting. A stop cannot trigger outside regular
+        # hours anyway, so moving it while the market is shut protects nothing
+        # that the next session's first cycle does not protect just as well.
+        if not self.dry_run and not self._market_is_open():
+            logger.info("market closed: leaving %d stop(s) where they are until "
+                        "the open, cancel-replace cannot settle now",
+                        len(self.position_tracker.get_open_positions()))
+            return 0
+
         strategy = self.orchestrator.get_strategy(regime_state.state_id)
         updated = 0
 

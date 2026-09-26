@@ -555,7 +555,41 @@ class OrderExecutor:
             return None
 
         self.cancel_order(current.order_id)
+        self._await_cancel(current.order_id)
         return self.place_stop(symbol, current.quantity, new_stop)
+
+    def _await_cancel(self, order_id: str, timeout: float = 5.0) -> bool:
+        """Block until a cancelled order has actually left the book.
+
+        ALPACA'S CANCEL IS ASYNCHRONOUS. `cancel_order_by_id` returns as soon
+        as the request is accepted; the order then sits in `pending_cancel`
+        for a moment. Submitting the replacement during that window is
+        rejected with code 42210000, "order pending cancel", which is exactly
+        what happened when `atr_multiple` was tightened on 2026-09-26: AMD and
+        META both failed to ratchet, each sitting on 15%+ of unrealised profit
+        with a stop six points further away than it should have been.
+
+        The dangerous version of this is not the failed tighten. It is that
+        the cancel SUCCEEDS a moment later while the replacement never
+        happened, which leaves a filled position with no stop at all until the
+        next audit notices. Waiting closes that window instead of racing it.
+
+        Returns False on timeout rather than raising: the caller's
+        `place_stop` will then either succeed anyway or fail loudly, and
+        `audit_stops` is the backstop either way.
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                order = self.client.get_order(order_id)
+            except Exception:
+                return True          # gone from the book entirely, which is the goal
+            status = str(getattr(order.status, "value", order.status)).lower()
+            if "pending" not in status:
+                return True
+            time.sleep(0.25)
+        logger.warning("order %s still pending cancel after %.0fs", order_id[:8], timeout)
+        return False
 
     # -- cancellation and closing -------------------------------------------
 

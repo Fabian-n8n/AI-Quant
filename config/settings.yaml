@@ -278,11 +278,60 @@ risk:
   #   2. When triggered they become market orders, so the fill can be worse
   #      than the trail price.
   #   3. time_in_force must be day or gtc. This uses gtc.
+  # MEASURED 2026-09-26, variant 8. The account was closing 3-4 trades a week,
+  # which is ~8 weeks to reach the 30 the preflight wants. Tightening the trail
+  # is the only lever that raises turnover without changing instrument, so it
+  # was swept on the shipped arm with everything else fixed:
+  #
+  #   atr_mult  floor   return    maxDD  Sharpe  trades/wk
+  #   2.5        1.5%    69.9%    -9.6%    1.18        3.7   <- previous
+  #   1.5        1.0%    51.7%    -8.2%    0.97        6.2
+  #   1.0        0.5%    65.6%    -8.7%    1.18        8.7
+  #   0.5        0.3%    37.6%    -6.5%    0.86       14.0
+  #
+  # Trading 3.8x more nearly HALVES the return. More trades is not more money;
+  # it is more cost against whatever edge exists, and at the bottom row the
+  # cost wins outright. That row is the answer to "can we just trade more".
+  #
+  # THE FLOOR IS NOT COSMETIC, AND KEEPING IT AT 1.5 IS THE POINT.
+  # At atr_multiple 1.0 the raw ATR trail on a quiet index is under 1%: SPY
+  # priced out at 0.8% and BIL and IEF hit whatever floor is set. A 0.8% stop
+  # on SPY sits inside a normal day's range and gets taken out by noise, not by
+  # a trend ending. Sweeping the floor alone at atr_multiple 1.0:
+  #
+  #   floor   return    maxDD  Sharpe  trades/wk
+  #   0.5%     65.6%    -8.7%    1.18        8.7
+  #   1.0%     73.4%    -7.5%    1.29        8.3
+  #   1.5%     81.6%    -7.8%    1.40        7.8   <- shipped
+  #   2.0%     65.3%    -7.8%    1.22        7.2
+  #
+  # So only `atr_multiple` moves. The floor stays where it was.
+  #
+  # WHY THIS SHIPPED, AND IT IS NOT THE 1.40.
+  # The peak sits exactly on the value already in the file, with 2.0 falling
+  # back to 65.3%, which is the shape of noise around a flat optimum rather
+  # than a curve with a real peak.
+  #
+  # All 7 arms were logged to data/trials.db and the winner scored against the
+  # full count: Sharpe 1.40, hurdle 0.88 at 49 trials, **deflated Sharpe 0.926
+  # against a 0.95 bar. It does not clear.** Closest anything here has come --
+  # the previous best was 0.634 -- and still short. No edge is claimed.
+  #
+  # It shipped because the OPERATOR ASKED FOR MORE TRADES, for a faster read on
+  # whether the plumbing works, and this doubles the rate (3.7 -> 7.8 a week,
+  # 30 closed trades in ~4 weeks instead of ~8) without giving up return or
+  # drawdown on any measurement available. That is the justification; the
+  # return figure is a reason not to object, not a reason to act.
+  #
+  # NOTE THE COUNTER RESETS. Trades closed before this change measured a
+  # different exit rule and cannot be pooled with what follows.
   trailing_stop:
     enabled: true
-    atr_multiple: 2.5            # trail = 2.5 x ATR, expressed as a percentage
+    atr_multiple: 1.0            # trail = 1.0 x ATR, expressed as a percentage
     min_trail_pct: 1.5           # floor. A quiet tape can make ATR tiny, and a
-                                 # 0.3% trail is stopped out by normal noise.
+                                 # 0.8% trail is stopped out by normal noise.
+                                 # Do not lower this without re-reading the
+                                 # floor sweep above; 0.5% measured worse.
     max_trail_pct: 15.0          # ceiling. Past this the "stop" is not one.
   # Raised from the tutorial's 5. With small positions a five-name limit would
   # strand the portfolio at 15% invested against a 95% target, and would also

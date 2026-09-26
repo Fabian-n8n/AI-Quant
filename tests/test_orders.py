@@ -1282,3 +1282,61 @@ def test_the_price_guard_still_bites_during_a_session():
                                                     "usable": True}))
     with pytest.raises(OrderExecutionError, match="deviates"):
         executor._assert_price_sane("SPY", 130.0, OrderSide.BUY)
+
+
+# ===========================================================================
+# modify_stop must not race Alpaca's asynchronous cancel
+#
+# Measured 2026-09-26: tightening atr_multiple failed on AMD and META with
+# code 42210000 "order pending cancel". Both were sitting on 15%+ unrealised
+# profit with a stop six points further from price than it should have been.
+# The dangerous version is not the failed tighten, it is the cancel landing a
+# moment later while the replacement never happened, leaving the position
+# naked until the next audit.
+# ===========================================================================
+
+class _PendingCancelClient:
+    """Reports `pending_cancel` for a few polls, then `canceled`."""
+
+    def __init__(self, polls_before_settled=3):
+        self.polls = 0
+        self.polls_before_settled = polls_before_settled
+
+    def get_order(self, order_id):
+        self.polls += 1
+        status = ("pending_cancel" if self.polls < self.polls_before_settled
+                  else "canceled")
+        return SimpleNamespace(order_id=order_id, status=status)
+
+
+def test_modify_stop_waits_for_the_cancel_to_settle(monkeypatch):
+    executor = OrderExecutor(FakeAlpacaClient())
+    executor.client.get_order = _PendingCancelClient().get_order
+    monkeypatch.setattr("broker.order_executor.time.sleep", lambda _s: None)
+
+    assert executor._await_cancel("abc123", timeout=5.0) is True
+
+
+def test_await_cancel_returns_true_when_the_order_is_gone(monkeypatch):
+    """A 404 means it has left the book, which is the outcome we wanted."""
+    executor = OrderExecutor(FakeAlpacaClient())
+
+    def gone(order_id):
+        raise RuntimeError("order not found")
+
+    executor.client.get_order = gone
+    monkeypatch.setattr("broker.order_executor.time.sleep", lambda _s: None)
+    assert executor._await_cancel("abc123", timeout=5.0) is True
+
+
+def test_await_cancel_gives_up_rather_than_hanging(monkeypatch):
+    """It must not block a whole run on one stuck order. audit_stops is the
+    backstop, so returning False is the correct surrender."""
+    executor = OrderExecutor(FakeAlpacaClient())
+    executor.client.get_order = lambda order_id: SimpleNamespace(
+        order_id=order_id, status="pending_cancel")
+    monkeypatch.setattr("broker.order_executor.time.sleep", lambda _s: None)
+
+    ticks = iter([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+    monkeypatch.setattr("broker.order_executor.time.monotonic", lambda: next(ticks))
+    assert executor._await_cancel("abc123", timeout=5.0) is False

@@ -531,3 +531,41 @@ Statistical power, two-sided, 95% confidence, 80% power:
 not a measurement of edge — and on that count it has already earned its keep,
 catching four execution bugs in two weeks that no backtest could model. The
 919-trade holdout is where statistical evidence comes from.
+
+### Variant 8 addendum — the floor sweep, and what shipped
+
+The first table tightened `atr_multiple` and the floor together, which
+confounded them. At `atr_multiple: 1.0` the raw ATR trail on a quiet index is
+under 1%: priced against the live book, **SPY came out at 0.8% and BIL and IEF
+hit whatever floor was set.** A 0.8% stop on SPY sits inside a normal day's
+range; it gets taken out by noise, not by a trend ending.
+
+Sweeping the floor alone at `atr_multiple: 1.0`:
+
+| floor | return | maxDD | Sharpe | trades/wk |
+|---:|---:|---:|---:|---:|
+| 0.5% | 65.6% | -8.7% | 1.18 | 8.7 |
+| 1.0% | 73.4% | -7.5% | 1.29 | 8.3 |
+| **1.5%** | **81.6%** | **-7.8%** | **1.40** | 7.8 |
+| 2.0% | 65.3% | -7.8% | 1.22 | 7.2 |
+
+So the floor stays at 1.5 and only `atr_multiple` moves, 2.5 → 1.0.
+
+**Deflated Sharpe: 0.926 at 49 trials against a 0.95 bar. It does not clear.**
+Closest anything in this project has come — the previous best was 0.634 — and
+still short. The peak also sits exactly on the value already in the file with
+2.0 falling back to 65.3%, which is the shape of noise around a flat optimum.
+
+**What shipped and why:** the operator asked for a faster read on whether the
+plumbing works. This doubles the trade rate, 3.7 → 7.8 a week, which is 30
+closed trades in about four weeks instead of eight, without giving up return
+or drawdown on any measurement available. That is the justification. The 81.6%
+and the 1.40 are reasons not to object, not reasons to act.
+
+**The counter resets.** The 10 trades already closed measured a different exit
+rule and cannot be pooled with what follows.
+
+Live book after the change: 2 of 16 positions sit within 1.5% of price, both
+of them T-bill and Treasury sleeves where the floor is binding and the
+instrument barely moves. Under a 0.5% floor it would have been 3, including
+SPY at 0.8%.

@@ -64,7 +64,15 @@ on:
     # This is empirical compensation for someone else's scheduler, not a
     # guarantee. If the histogram above shifts, move these again. Reliable
     # intraday refresh needs a host that stays up; GitHub does not promise one.
-    - cron: "25 10,12,14,16,18 * * 1-5"
+    # 2026-09-26: added 11:25 and 13:25. A cancel-replace on a stop cannot
+    # settle while the market is shut, so a batch of stop changes made out of
+    # hours leaves orders in `pending_cancel` that process at the next open and
+    # leave positions briefly naked. `audit_stops(repair=True)` runs on every
+    # cycle of this loop and re-places them, so what matters is having a loop
+    # ALIVE at 13:30 UTC rather than one that still has to ignite. These two
+    # requests, with the measured 1.3h median delay, put a running loop across
+    # the bell instead of relying on one landing after it.
+    - cron: "25 10,11,12,13,14,16,18 * * 1-5"
   workflow_dispatch:
 
 permissions:
