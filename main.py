@@ -2337,18 +2337,83 @@ class TradingEngine:
                     holding_days=getattr(position, "holding_periods", None),
                 )
 
-        # Gone from the broker means closed. The exit reason is inferred: a
-        # position whose stop was at or above the last price most likely
-        # stopped out. Inferred rather than known because the fill happens
-        # between cycles and nothing tells us which leg took it.
+        # Gone from the broker means closed. ASK THE BROKER WHAT IT FILLED AT.
+        #
+        # This used to record `row["current_price"]`, the last mark taken
+        # before the position vanished, and infer the reason from where that
+        # mark sat relative to the stop. The old comment claimed "nothing tells
+        # us which leg took it". The filled order does, and it carries the
+        # price as well.
+        #
+        # The error was not random, it was one-directional. The last mark is
+        # from the previous cycle, BEFORE price fell through the stop, so every
+        # long exit was booked above its real fill. Measured across the first
+        # ten closed trades on the paper account: reported -$348.92, actual
+        # -$818.74, overstated by $469.82. Reported win rate 20%; the true win
+        # rate was ZERO. Two trades booked as winners were both losses.
+        #
+        # `scripts/preflight.py` gates live trading on closed-trade count and
+        # positive expectancy read from this table, so this was not only a
+        # cosmetic number on a dashboard. It was the number standing between
+        # paper and real money, biased in the direction that opens the gate.
+        closing = self._closing_fills(recorded, held)
         for symbol, row in recorded.items():
             if symbol in held:
                 continue
-            last = row["current_price"] or row["entry_price"]
-            stop = row["stop_price"]
-            reason = "stop" if stop and last and last <= stop * 1.01 else "closed"
+            fill = closing.get(symbol)
+            if fill is not None:
+                price, reason = fill
+            else:
+                # No fill found: the position may have gone through a corporate
+                # action, or the history window may not reach it. Fall back to
+                # the old estimate, and say so rather than passing it off.
+                price = row["current_price"] or row["entry_price"]
+                reason = "closed (no fill found, price estimated)"
+                logger.warning("%s: closed but no sell fill found; exit price is an "
+                               "estimate from the last mark.", symbol)
             self.material_change = True
-            self.repo.close_position(symbol, float(last), reason)
+            self.repo.close_position(symbol, float(price), reason)
+
+    def _closing_fills(self, recorded: dict, held) -> dict[str, tuple[float, str]]:
+        """The real fill price and exit reason for each position that vanished.
+
+        One history call for all of them, not one per symbol. Returns
+        `{symbol: (price, reason)}` for whatever could be matched.
+        """
+        gone = [s for s in recorded if s not in held]
+        if not gone:
+            return {}
+        try:
+            from broker.alpaca_client import OrderType
+            orders = self.client.get_order_history(status="closed", limit=200)
+        except Exception as exc:
+            logger.warning("Could not read order history to price exits: %s", exc)
+            return {}
+
+        reasons = {
+            OrderType.STOP: "stop",
+            OrderType.STOP_LIMIT: "stop",
+            OrderType.TRAILING_STOP: "trailing stop",
+            OrderType.LIMIT: "target",
+            OrderType.MARKET: "closed",
+        }
+        out: dict[str, tuple[float, str]] = {}
+        for order in orders:
+            symbol = order.symbol
+            if symbol not in gone or order.filled_at is None:
+                continue
+            if str(getattr(order.side, "value", order.side)).lower() != "sell":
+                continue
+            price = getattr(order, "average_fill_price", None)
+            if not price:
+                continue
+            # Most recent fill wins: a symbol can be traded more than once.
+            previous = out.get(symbol)
+            if previous is None or order.filled_at > previous[2]:
+                out[symbol] = (float(price),
+                               reasons.get(order.order_type, "closed"),
+                               order.filled_at)
+        return {s: (v[0], v[1]) for s, v in out.items()}
 
     def _append_history(self, outcome: BarOutcome) -> None:
         """One equity and regime point per bar, capped at `history_points`."""

@@ -64,6 +64,7 @@ class FakeBroker:
         self._positions = list(positions or [])
         self.market_open = market_open
         self._open_orders = list(open_orders or [])
+        self._order_history = []
         self.submitted = []
         self.closed_all = 0
         self.connect_calls = 0
@@ -96,6 +97,9 @@ class FakeBroker:
 
     def get_open_orders(self):
         return list(self._open_orders)
+
+    def get_order_history(self, status="all", limit=100, after=None):
+        return list(self._order_history)
 
     @property
     def trading_client(self):
@@ -1668,3 +1672,84 @@ def test_the_concurrency_cap_binds_within_a_single_run(built_engine):
     assert len(approved) <= 3, (
         f"approved {len(approved)} positions against a limit of 3: {approved}"
     )
+
+
+# ===========================================================================
+# Exits must be priced at the fill, not at the last mark
+#
+# Measured 2026-09-26 across the first ten closed paper trades: the database
+# said -$348.92, the broker's own fills said -$818.74. Every single exit was
+# booked ABOVE its real price, because the last mark is taken before price
+# falls through the stop. Reported win rate 20%; the true rate was ZERO.
+# scripts/preflight.py gates live trading on this table.
+# ===========================================================================
+
+def _closed_sell(symbol, price, order_type, filled_at):
+    return Order(
+        order_id=f"x-{symbol}", symbol=symbol, side=OrderSide.SELL, quantity=10,
+        filled_quantity=10, status=OrderStatus.FILLED, order_type=order_type,
+        limit_price=None, stop_price=None, average_fill_price=price,
+        submitted_at=filled_at, filled_at=filled_at,
+    )
+
+
+def test_the_exit_price_comes_from_the_fill_not_the_last_mark(built_engine):
+    engine = built_engine
+    when = datetime(2026, 9, 23, 13, 32, tzinfo=UTC)
+    engine.client._order_history = [
+        _closed_sell("GOOGL", 342.12, OrderType.STOP, when)
+    ]
+    recorded = {"GOOGL": {"symbol": "GOOGL", "current_price": 351.18,
+                          "entry_price": 347.65, "stop_price": 340.88}}
+
+    fills = engine._closing_fills(recorded, held=set())
+
+    assert "GOOGL" in fills, "the fill was not found at all"
+    price, reason = fills["GOOGL"]
+    assert price == 342.12, f"used {price}, the broker filled at 342.12"
+    assert reason == "stop"
+
+
+def test_the_exit_reason_is_read_from_the_order_type(built_engine):
+    """Seven of the first ten exits were booked 'closed' when every one of them
+    was a stop fill. The order type says which leg took it."""
+    engine = built_engine
+    when = datetime(2026, 9, 23, 14, 0, tzinfo=UTC)
+    engine.client._order_history = [
+        _closed_sell("AAA", 10.0, OrderType.STOP, when),
+        _closed_sell("BBB", 20.0, OrderType.LIMIT, when),
+        _closed_sell("CCC", 30.0, OrderType.TRAILING_STOP, when),
+    ]
+    recorded = {s: {"symbol": s, "current_price": 1.0, "entry_price": 1.0,
+                    "stop_price": None} for s in ("AAA", "BBB", "CCC")}
+
+    fills = engine._closing_fills(recorded, held=set())
+    assert fills["AAA"][1] == "stop"
+    assert fills["BBB"][1] == "target"
+    assert fills["CCC"][1] == "trailing stop"
+
+
+def test_a_position_still_held_is_not_priced_as_an_exit(built_engine):
+    engine = built_engine
+    when = datetime(2026, 9, 23, 14, 0, tzinfo=UTC)
+    engine.client._order_history = [_closed_sell("SPY", 700.0, OrderType.STOP, when)]
+    recorded = {"SPY": {"symbol": "SPY", "current_price": 760.0,
+                        "entry_price": 762.0, "stop_price": 758.0}}
+
+    assert engine._closing_fills(recorded, held={"SPY"}) == {}
+
+
+def test_the_most_recent_fill_wins_when_a_symbol_traded_twice(built_engine):
+    """AMZN appears twice in the closed table. The older fill must not price
+    the newer exit."""
+    engine = built_engine
+    old = datetime(2026, 9, 16, 19, 11, tzinfo=UTC)
+    new = datetime(2026, 9, 23, 13, 34, tzinfo=UTC)
+    engine.client._order_history = [
+        _closed_sell("AMZN", 245.32, OrderType.STOP, old),
+        _closed_sell("AMZN", 252.18, OrderType.STOP, new),
+    ]
+    recorded = {"AMZN": {"symbol": "AMZN", "current_price": 254.99,
+                         "entry_price": 252.31, "stop_price": 251.48}}
+
+    assert engine._closing_fills(recorded, held=set())["AMZN"][0] == 252.18
