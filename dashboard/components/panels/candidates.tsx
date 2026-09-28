@@ -13,7 +13,7 @@ import { Stat } from "@/components/ui/stat";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { humanise, money, pct, price, signedPct, toneText, type Tone } from "@/lib/format";
+import { humanise, money, pct, price, signedMoney, signedPct, toneText, type Tone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Candidate, Timing } from "@/lib/types";
 
@@ -255,6 +255,7 @@ export function CandidatesCard({ candidates }: { candidates: Candidate[] }) {
               <TableHead>Trend</TableHead>
               <TableHead>Entry</TableHead>
               <TableHead>Stop</TableHead>
+              <TableHead>Locked</TableHead>
               <TableHead>Shares</TableHead>
               <TableHead>Notional</TableHead>
               <TableHead>Risk</TableHead>
@@ -312,6 +313,17 @@ export function CandidatesCard({ candidates }: { candidates: Candidate[] }) {
                     <TableCell className="tnum">{price(c.entry_price)}</TableCell>
                     <TableCell className="tnum text-muted-foreground">
                       {c.stop_loss !== null ? price(c.stop_loss) : "—"}
+                    </TableCell>
+                    {/* Once the stop sits above entry the position cannot
+                        close at a loss in an orderly market. Shown here so the
+                        watchlist says it outright rather than leaving the
+                        reader to subtract entry from stop on every row. */}
+                    <TableCell className="tnum">
+                      {c.locked_pnl ? (
+                        <span className="text-positive">{signedMoney(c.locked_pnl, 0)}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="tnum">{c.shares || "—"}</TableCell>
                     <TableCell className="tnum">{c.notional ? money(c.notional) : "—"}</TableCell>

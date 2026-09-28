@@ -674,3 +674,81 @@ def test_a_run_in_flight_is_not_treated_as_a_failure():
     assert 'r.status !== "running"' in body, (
         "in-flight runs must be excluded before judging the last outcome"
     )
+
+
+# ===========================================================================
+# Locked-in profit
+#
+# Once a trailing stop ratchets above entry the position cannot close at a
+# loss in an orderly market. The dashboard showed `stop 700.41` beside
+# `entry 647.87` and left the reader to subtract, across sixteen rows.
+# ===========================================================================
+
+def test_locked_in_is_only_reported_once_the_stop_is_above_entry():
+    from monitoring.publish import with_locked_in
+
+    rows = with_locked_in([
+        {"symbol": "META", "entry_price": 647.87, "stop_price": 700.41,
+         "quantity": 4, "current_price": 751.26},
+        {"symbol": "AAPL", "entry_price": 329.78, "stop_price": 323.64,
+         "quantity": 8, "current_price": 341.02},
+    ])
+    meta, aapl = rows
+
+    assert meta["locked_pnl"] == pytest.approx((700.41 - 647.87) * 4, abs=0.01)
+    assert meta["locked_pct"] == pytest.approx(700.41 / 647.87 - 1, abs=1e-6)
+    # Below entry there is nothing locked, only risk. Reporting a negative
+    # "locked" number invites reading a loss as if it were secured.
+    assert aapl["locked_pnl"] is None
+    assert aapl["locked_pct"] is None
+
+
+def test_a_position_with_no_stop_locks_nothing_and_has_no_trail():
+    from monitoring.publish import with_locked_in
+
+    (row,) = with_locked_in([
+        {"symbol": "X", "entry_price": 100.0, "stop_price": None,
+         "quantity": 10, "current_price": 120.0},
+    ])
+    assert row["locked_pnl"] is None
+    assert row["trail_pct"] is None
+
+
+def test_the_trail_is_measured_from_the_last_price_not_the_entry():
+    """Trail is how far the stop sits below where price is NOW. Measuring it
+    from entry would make a winning position look like it had a loose stop."""
+    from monitoring.publish import with_locked_in
+
+    (row,) = with_locked_in([
+        {"symbol": "META", "entry_price": 647.87, "stop_price": 700.41,
+         "quantity": 4, "current_price": 751.26},
+    ])
+    assert row["trail_pct"] == pytest.approx((751.26 - 700.41) / 751.26, abs=1e-6)
+
+
+def test_the_summary_counts_only_positions_that_actually_locked_something():
+    from monitoring.publish import locked_summary, with_locked_in
+
+    rows = with_locked_in([
+        {"symbol": "A", "entry_price": 100.0, "stop_price": 110.0,
+         "quantity": 10, "current_price": 120.0},          # +100 locked
+        {"symbol": "B", "entry_price": 100.0, "stop_price": 105.0,
+         "quantity": 2, "current_price": 108.0},           # +10 locked
+        {"symbol": "C", "entry_price": 100.0, "stop_price": 90.0,
+         "quantity": 50, "current_price": 95.0},           # nothing locked
+    ])
+    summary = locked_summary(rows)
+
+    assert summary["locked_total"] == pytest.approx(110.0)
+    assert summary["locked_count"] == 2
+    assert summary["n_positions"] == 3, "every position counts in the denominator"
+
+
+def test_the_demo_payload_exercises_the_locked_column():
+    """A demo where nothing has locked in renders three empty cells and hides
+    the feature the page was changed to show."""
+    from monitoring.publish import demo_activity
+
+    activity = demo_activity()
+    assert activity["locked"]["locked_count"] >= 1
+    assert any(r["locked_pnl"] for r in activity["open_positions"])

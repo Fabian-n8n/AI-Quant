@@ -239,7 +239,66 @@ def empty_activity() -> dict[str, Any]:
     """
     return {"orders": [], "open_positions": [], "closed_positions": [],
             "runs": [], "expectancy": {"trades": 0, "expectancy": 0.0,
-                                       "win_rate": 0.0, "avg_win": 0.0, "avg_loss": 0.0}}
+                                       "win_rate": 0.0, "avg_win": 0.0, "avg_loss": 0.0},
+            "locked": {"locked_total": 0.0, "locked_count": 0, "n_positions": 0}}
+
+
+def with_locked_in(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Annotate each open position with what its stop has already secured.
+
+    Once a trailing stop ratchets above the entry price, the position has a
+    floor above cost: if it is taken out now, it is taken out in profit. That
+    is the whole point of trailing a stop and the dashboard was not showing it
+    anywhere -- `stop_loss: 700.41` beside `entry_price: 647.87` leaves the
+    reader to do the subtraction, and nobody does it for sixteen rows.
+
+    Three fields per position:
+
+      locked_pnl   (stop - entry) x quantity, only once the stop is ABOVE
+                   entry. Below entry there is nothing locked, only risk, and
+                   reporting a negative "locked" number invites reading a loss
+                   as if it were secured.
+      locked_pct   the same as a fraction of entry.
+      trail_pct    how far the stop currently sits below the last price. This
+                   is the trail itself, and watching it stay roughly constant
+                   while `stop` climbs is what shows the ratchet working.
+
+    NOT A GUARANTEE, AND THE UI MUST NOT CALL IT ONE. A stop becomes a market
+    order when it triggers, so a gap fills below it; and Alpaca's stops do not
+    trigger outside regular hours at all, so an overnight gap passes straight
+    through. This is what the stop secures in an orderly market, which is most
+    of the time and not all of it.
+    """
+    out = []
+    for row in rows:
+        row = dict(row)
+        entry = row.get("entry_price") or 0.0
+        stop = row.get("stop_price")
+        qty = row.get("quantity") or 0.0
+        last = row.get("current_price") or entry
+
+        row["locked_pnl"] = None
+        row["locked_pct"] = None
+        row["trail_pct"] = None
+
+        if stop and entry > 0:
+            if stop > entry:
+                row["locked_pnl"] = round((stop - entry) * qty, 2)
+                row["locked_pct"] = round(stop / entry - 1, 6)
+            if last and last > 0:
+                row["trail_pct"] = round((last - stop) / last, 6)
+        out.append(row)
+    return out
+
+
+def locked_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Book-level total of what the stops have secured."""
+    locked = [r for r in rows if r.get("locked_pnl")]
+    return {
+        "locked_total": round(sum(r["locked_pnl"] for r in locked), 2),
+        "locked_count": len(locked),
+        "n_positions": len(rows),
+    }
 
 
 def activity_from_repo(repo, limit: int = 100) -> dict[str, Any]:
@@ -253,12 +312,14 @@ def activity_from_repo(repo, limit: int = 100) -> dict[str, Any]:
         return [dict(r) for r in records]
 
     try:
+        open_positions = with_locked_in(rows(repo.open_positions()))
         return {
             "orders": rows(repo.recent_orders(limit=limit)),
-            "open_positions": rows(repo.open_positions()),
+            "open_positions": open_positions,
             "closed_positions": rows(repo.closed_positions(limit=limit)),
             "runs": rows(repo.recent_runs(limit=20)),
             "expectancy": repo.expectancy(),
+            "locked": locked_summary(open_positions),
         }
     except Exception as exc:
         logger.warning("could not read activity from state.db: %s", exc)
@@ -371,6 +432,13 @@ def _demo_candidate(symbol, rank, approved, action, conviction, shares, notional
         "return_20d": ret20, "strategy": strategy,
         "regime": "strong_bull", "regime_confidence": 0.72, "volatility_rank": "low",
         "held": held, "held_quantity": held_quantity,
+        # A held demo row whose stop sits above entry, so the watchlist's
+        # locked column renders the case it exists for. Fresh candidates have
+        # no stop yet, so nothing is locked and both stay None.
+        "locked_pnl": (round((stop - entry) * held_quantity, 2)
+                       if held and stop and stop > entry else None),
+        "locked_pct": (round(stop / entry - 1, 6)
+                       if held and stop and entry and stop > entry else None),
         "rejection_reason": rejection_reason, "reason": reason,
         "modifications": modifications or [],
         "reasoning": f"{strategy}: regime strong_bull at 72% confidence, "
@@ -551,7 +619,7 @@ def demo_activity(seed: int = 7) -> dict[str, Any]:
         ("MSFT", "sell", "limit", 5, 512.40, 512.66, 5, "filled", 5.2, None),
     ]
 
-    return {
+    activity = {
         "orders": [
             {
                 "symbol": symbol, "side": side, "order_type": kind, "quantity": qty,
@@ -571,6 +639,13 @@ def demo_activity(seed: int = 7) -> dict[str, Any]:
             {"symbol": "PLTR", "quantity": 17, "entry_price": 174.31,
              "entry_at": when(0.4), "current_price": 171.05, "stop_price": 157.20,
              "unrealised_pnl": round((171.05 - 174.31) * 17, 2), "holding_days": 0,
+             "regime_at_entry": "strong_bull"},
+            # Deliberately a position whose trailing stop has ratcheted ABOVE
+            # entry, so the demo renders the locked-in column doing its job
+            # rather than three empty cells.
+            {"symbol": "META", "quantity": 4, "entry_price": 647.87,
+             "entry_at": when(14), "current_price": 751.26, "stop_price": 700.41,
+             "unrealised_pnl": round((751.26 - 647.87) * 4, 2), "holding_days": 14,
              "regime_at_entry": "strong_bull"},
             {"symbol": "SPY", "quantity": 3, "entry_price": 770.05,
              "entry_at": when(1.4), "current_price": 774.90, "stop_price": 754.41,
@@ -606,6 +681,11 @@ def demo_activity(seed: int = 7) -> dict[str, Any]:
             "win_rate": 1 / 3, "avg_win": 132.80, "avg_loss": -209.60,
         },
     }
+    # Same annotation the live path gets, from the same function, so the demo
+    # cannot drift into satisfying a contract the real payload does not.
+    activity["open_positions"] = with_locked_in(activity["open_positions"])
+    activity["locked"] = locked_summary(activity["open_positions"])
+    return activity
 
 
 def demo_payload() -> dict[str, Any]:

@@ -230,6 +230,17 @@ class DashboardState:
                     if entry:
                         row["stop_distance_pct"] = (float(entry) - float(stop)) / float(entry)
                 row["quantity"] = getattr(position, "quantity", row.get("shares"))
+
+                # What the stop has already secured on a held name. Same rule
+                # as `publish.with_locked_in`: only once the stop is ABOVE
+                # entry, because below it there is nothing locked, only risk.
+                qty = getattr(position, "quantity", 0) or 0
+                if stop and entry and float(stop) > float(entry):
+                    row["locked_pnl"] = round((float(stop) - float(entry)) * float(qty), 2)
+                    row["locked_pct"] = round(float(stop) / float(entry) - 1, 6)
+                else:
+                    row["locked_pnl"] = None
+                    row["locked_pct"] = None
             rows.append(row)
         return rows
 

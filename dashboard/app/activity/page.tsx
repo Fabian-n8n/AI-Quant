@@ -10,7 +10,7 @@ import {
 import { money, price, relativeTime, signedMoney, signedPct } from "@/lib/format";
 import { isDemo, useSnapshot } from "@/lib/useSnapshot";
 import type {
-  ClosedPositionRow, OpenPositionRow, OrderRow, RunRow, Snapshot,
+  ClosedPositionRow, LockedSummary, OpenPositionRow, OrderRow, RunRow, Snapshot,
 } from "@/lib/types";
 
 const EMPTY = {
@@ -85,7 +85,7 @@ export default function ActivityPage() {
       <Expectancy snap={snap} />
 
       <section className="mt-6 space-y-5">
-        <OpenPositions rows={activity.open_positions} />
+        <OpenPositions rows={activity.open_positions} locked={activity.locked} />
         <Orders
           rows={orders} total={activity.orders.length} statuses={statuses}
           status={status} onStatus={setStatus} days={days} onDays={setDays}
@@ -155,9 +155,28 @@ function Panel({
   );
 }
 
-function OpenPositions({ rows }: { rows: OpenPositionRow[] }) {
+function OpenPositions({ rows, locked }: {
+  rows: OpenPositionRow[]; locked?: LockedSummary;
+}) {
+  // The banner answers the question the table used to leave as arithmetic:
+  // how much of this book is already safe. Only shown once something is.
+  const secured = locked && locked.locked_count > 0 ? locked : null;
+
   return (
-    <Panel title="Open positions" hint={`${rows.length} held`}>
+    <Panel
+      title="Open positions"
+      hint={`${rows.length} held`}
+      right={secured ? (
+        <div className="text-right">
+          <div className="font-mono text-base tabular-nums text-positive">
+            {signedMoney(secured.locked_total, 2)} secured
+          </div>
+          <div className="text-2xs text-muted-foreground">
+            {secured.locked_count} of {secured.n_positions} stops above entry
+          </div>
+        </div>
+      ) : undefined}
+    >
       {rows.length === 0 ? (
         <Blank>No open positions.</Blank>
       ) : (
@@ -167,7 +186,8 @@ function OpenPositions({ rows }: { rows: OpenPositionRow[] }) {
               <TableHead>Symbol</TableHead><TableHead>Qty</TableHead>
               <TableHead>Entry</TableHead><TableHead>Current</TableHead>
               <TableHead>Unrealised</TableHead><TableHead>Stop</TableHead>
-              <TableHead>To stop</TableHead><TableHead>Held</TableHead>
+              <TableHead>Locked in</TableHead>
+              <TableHead>Trail</TableHead><TableHead>Held</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -189,10 +209,29 @@ function OpenPositions({ rows }: { rows: OpenPositionRow[] }) {
                     {signedMoney(pnl, 2)}
                   </TableCell>
                   <TableCell className="font-mono tabular-nums">
-                    {p.stop_price ? price(p.stop_price)
-                      : <span className="text-negative">none</span>}
+                    {p.stop_price ? (
+                      <span className={p.locked_pnl ? "text-positive" : undefined}>
+                        {price(p.stop_price)}
+                      </span>
+                    ) : <span className="text-negative">none</span>}
                   </TableCell>
+                  {/* Once the stop is above entry this position cannot close
+                      at a loss in an orderly market. That is the payoff of a
+                      trailing stop and it was previously left as mental
+                      arithmetic across sixteen rows. */}
                   <TableCell className="font-mono tabular-nums">
+                    {p.locked_pnl ? (
+                      <span className="text-positive">
+                        {signedMoney(p.locked_pnl, 2)}
+                        <span className="ml-1.5 text-2xs text-muted-foreground">
+                          {signedPct(p.locked_pct ?? 0)}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">--</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-mono tabular-nums text-muted-foreground">
                     {toStop === null ? "--" : signedPct(-toStop)}
                   </TableCell>
                   <TableCell className="font-mono tabular-nums">

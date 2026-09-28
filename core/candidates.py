@@ -85,6 +85,11 @@ class Candidate:
     regime_confidence: float = 0.0
     volatility_rank: str = ""
     held: bool = False
+    # Profit the resting stop has already secured on a HELD name, filled in by
+    # `DashboardState.candidates_panel` from the real position. Stays None on
+    # a fresh candidate: there is no stop yet, so there is nothing locked.
+    locked_pnl: float | None = None
+    locked_pct: float | None = None
     held_quantity: float = 0.0
 
     rejection_reason: str | None = None

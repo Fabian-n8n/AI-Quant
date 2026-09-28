@@ -56,6 +56,10 @@ export interface Candidate {
   return_20d: number; strategy: string; regime: string; regime_confidence: number;
   volatility_rank: string; held: boolean; held_quantity: number;
   rejection_reason: string | null; reason: string; modifications: string[]; reasoning: string;
+  // Profit the stop has already secured on a HELD name. Null until the
+  // stop ratchets above entry. Mirrors publish.with_locked_in.
+  locked_pnl?: number | null;
+  locked_pct?: number | null;
 }
 
 export interface Freshness {
@@ -95,6 +99,17 @@ export interface OpenPositionRow {
   current_price: number | null; stop_price: number | null;
   unrealised_pnl: number | null; holding_days: number | null;
   regime_at_entry: string | null;
+  // What the trailing stop has already secured. Null until the stop ratchets
+  // above entry, because below entry there is nothing locked, only risk.
+  locked_pnl: number | null;
+  locked_pct: number | null;
+  // How far the stop sits below the last price. Watching this stay roughly
+  // constant while `stop_price` climbs is the ratchet working.
+  trail_pct: number | null;
+}
+
+export interface LockedSummary {
+  locked_total: number; locked_count: number; n_positions: number;
 }
 
 export interface ClosedPositionRow {
@@ -121,6 +136,7 @@ export interface Activity {
   closed_positions: ClosedPositionRow[];
   runs: RunRow[];
   expectancy: Expectancy;
+  locked: LockedSummary;
 }
 
 export interface Snapshot {
