@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { money, price, relativeTime, signedMoney, signedPct } from "@/lib/format";
+import { money, pct, price, relativeTime, signedMoney, signedPct } from "@/lib/format";
 import { isDemo, useSnapshot } from "@/lib/useSnapshot";
 import type {
   ClosedPositionRow, LockedSummary, OpenPositionRow, OrderRow, RunRow, Snapshot,
@@ -187,15 +187,24 @@ function OpenPositions({ rows, locked }: {
               <TableHead>Entry</TableHead><TableHead>Current</TableHead>
               <TableHead>Unrealised</TableHead><TableHead>Stop</TableHead>
               <TableHead>Locked in</TableHead>
-              <TableHead>Trail</TableHead><TableHead>Held</TableHead>
+              <TableHead title="How far the stop sits below the last price">
+                Trail
+              </TableHead>
+              <TableHead>Held</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((p) => {
               const last = p.current_price ?? p.entry_price;
-              // Distance to stop says how much room is left, which a bare
-              // "stop: 163.04" does not.
-              const toStop = p.stop_price && last ? (last - p.stop_price) / last : null;
+              // Straight from the payload, not recomputed here. `trail_pct`
+              // is defined and tested in publish.with_locked_in, and a second
+              // definition in the UI is a second thing to get wrong -- which
+              // is exactly what happened: this used to recompute the distance
+              // and then NEGATE it, a leftover from when the column was
+              // called "To stop" and meant "price must fall this far". Under
+              // the name "Trail" a minus sign reads as a loss. It is a
+              // distance below the last price and it is positive.
+              const trail = p.trail_pct;
               const pnl = p.unrealised_pnl ?? 0;
               return (
                 <TableRow key={`${p.symbol}-${p.entry_at}`}>
@@ -231,8 +240,31 @@ function OpenPositions({ rows, locked }: {
                       <span className="text-muted-foreground">--</span>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono tabular-nums text-muted-foreground">
-                    {toStop === null ? "--" : signedPct(-toStop)}
+                  {/* A NEGATIVE trail is not a formatting accident, it means
+                      the stop now sits ABOVE the last price: the level has
+                      already been passed and the position exits on the next
+                      open. Alpaca's stops do not trigger outside regular
+                      hours, so an overnight gap lands exactly here, and the
+                      fill comes at the market rather than at the stop. Worth
+                      shouting about rather than rendering as a quiet minus
+                      sign next to fifteen normal rows. */}
+                  <TableCell
+                    className={`font-mono tabular-nums ${
+                      trail !== null && trail < 0 ? "text-negative" : "text-muted-foreground"
+                    }`}
+                    title={
+                      p.stop_price == null ? "No stop resting at the broker"
+                        : trail === null ? "No price to measure against"
+                        : trail < 0
+                          ? "Price is already through the stop. Alpaca does not trigger "
+                            + "stops outside regular hours, so this exits at the next open, "
+                            + "filled at the market rather than at the stop price."
+                          : `Stop rests ${pct(trail, 2)} below the last price`
+                    }
+                  >
+                    {trail === null ? "--"
+                      : trail < 0 ? `through · ${pct(Math.abs(trail), 2)}`
+                      : pct(trail, 2)}
                   </TableCell>
                   <TableCell className="font-mono tabular-nums">
                     {p.holding_days ?? 0}d

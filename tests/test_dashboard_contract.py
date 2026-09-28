@@ -752,3 +752,43 @@ def test_the_demo_payload_exercises_the_locked_column():
     activity = demo_activity()
     assert activity["locked"]["locked_count"] >= 1
     assert any(r["locked_pnl"] for r in activity["open_positions"])
+
+
+def test_the_trail_is_positive_when_the_stop_is_below_price():
+    """Sign convention, pinned.
+
+    The UI used to recompute this distance and then NEGATE it, a leftover from
+    when the column was called "To stop" and meant "price must fall this far".
+    Renamed to "Trail" the minus sign read as a loss, and every healthy
+    position showed a negative number. The trail is a distance BELOW the last
+    price and a healthy one is positive.
+    """
+    from monitoring.publish import with_locked_in
+
+    (row,) = with_locked_in([
+        {"symbol": "AMZN", "entry_price": 246.61, "stop_price": 247.62,
+         "quantity": 12, "current_price": 249.63},
+    ])
+    assert row["trail_pct"] > 0
+    assert row["trail_pct"] == pytest.approx((249.63 - 247.62) / 249.63, abs=1e-6)
+
+
+def test_the_trail_goes_negative_when_price_falls_through_the_stop():
+    """Not a formatting accident and not a bug: a negative trail means the
+    stop sits ABOVE the last price, so the level has already been passed.
+
+    This happens for real. Alpaca does not trigger stops outside regular
+    hours, so an overnight gap lands exactly here and the position exits at
+    the next open, filled at the market rather than at the stop. Observed live
+    on GLD on 2026-09-28: stop 390.19, price 380.94.
+    """
+    from monitoring.publish import with_locked_in
+
+    (row,) = with_locked_in([
+        {"symbol": "GLD", "entry_price": 392.02, "stop_price": 390.19,
+         "quantity": 7, "current_price": 380.94},
+    ])
+    assert row["trail_pct"] < 0, "a stop above price must report a negative trail"
+    assert row["trail_pct"] == pytest.approx((380.94 - 390.19) / 380.94, abs=1e-6)
+    # And nothing is locked: the stop never got above entry.
+    assert row["locked_pnl"] is None

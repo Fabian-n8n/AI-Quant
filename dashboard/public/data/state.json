@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-09-28T10:54:07.372417+00:00",
-  "timestamp": "2026-09-28T10:54:07.371182+00:00",
+  "published_at": "2026-09-28T11:33:31.680838+00:00",
+  "timestamp": "2026-09-28T11:33:31.679068+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 775.3692499827594,
-    "model_age_days": 6.019488374699074,
+    "api_latency_ms": 748.650458001066,
+    "model_age_days": 6.046853049386574,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 17,
     "consecutive_errors": 0,
-    "started_at": "2026-09-28T10:53:55.284692+00:00",
+    "started_at": "2026-09-28T11:33:19.550978+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -40,7 +40,7 @@
   "regime": {
     "n_regimes": 6,
     "model_trained": "2026-09-22T10:26:03.575616+00:00",
-    "model_age_days": 6.019488375011575,
+    "model_age_days": 6.0468530497800925,
     "regime": "strong_bear",
     "confidence": 0.9999311685466854,
     "confirmed": true,
@@ -57,7 +57,7 @@
   "portfolio": {
     "equity": 101019.10500000001,
     "cash": 54494.54,
-    "buying_power": 344494.04,
+    "buying_power": 344729.13,
     "daily_pnl": 0.0,
     "daily_pnl_pct": 0.0,
     "allocation": 0.4605521401125064,
@@ -1058,14 +1058,14 @@
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 775.3692499827594,
-    "model_age_days": 6.019488379212963,
+    "api_latency_ms": 748.650458001066,
+    "model_age_days": 6.046853055787038,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 17,
     "consecutive_errors": 0,
-    "started_at": "2026-09-28T10:53:55.284692+00:00",
+    "started_at": "2026-09-28T11:33:19.550978+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -1276,7 +1276,7 @@
   ],
   "freshness": {
     "bar_timestamp": "2026-09-25T00:00:00",
-    "bar_age_hours": 82.9,
+    "bar_age_hours": 83.56,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -1290,8 +1290,8 @@
     "session_state": {
       "state": "closed",
       "label": "Market closed",
-      "detail": "Opens in 2.6 hours. Orders rest until then.",
-      "hours_until_change": 2.6
+      "detail": "Opens in 1.9 hours. Orders rest until then.",
+      "hours_until_change": 1.94
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -2481,8 +2481,8 @@
     ],
     "runs": [
       {
-        "id": 112,
-        "started_at": "2026-09-28T10:53:55+00:00",
+        "id": 111,
+        "started_at": "2026-09-28T11:33:19+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
@@ -2494,25 +2494,12 @@
         "error": null
       },
       {
-        "id": 111,
-        "started_at": "2026-09-28T10:52:40+00:00",
-        "finished_at": "2026-09-28T10:52:45+00:00",
+        "id": 110,
+        "started_at": "2026-09-28T11:32:03+00:00",
+        "finished_at": "2026-09-28T11:32:09+00:00",
         "status": "ok",
         "mode": "dry-run",
         "trigger": "manual",
-        "bars_processed": 17,
-        "orders_submitted": 0,
-        "regime": "weak_bear",
-        "equity": 101019.10500000001,
-        "error": null
-      },
-      {
-        "id": 110,
-        "started_at": "2026-09-28T09:31:03+00:00",
-        "finished_at": "2026-09-28T09:31:21+00:00",
-        "status": "ok",
-        "mode": "paper",
-        "trigger": "loop",
         "bars_processed": 17,
         "orders_submitted": 0,
         "regime": "weak_bear",
@@ -2738,6 +2725,19 @@
         "orders_submitted": 0,
         "regime": "neutral",
         "equity": 99474.3,
+        "error": null
+      },
+      {
+        "id": 92,
+        "started_at": "2026-09-16T23:39:11+00:00",
+        "finished_at": "2026-09-16T23:39:23+00:00",
+        "status": "ok",
+        "mode": "paper",
+        "trigger": "manual",
+        "bars_processed": 10,
+        "orders_submitted": 6,
+        "regime": "neutral",
+        "equity": 99149.555,
         "error": null
       }
     ],
