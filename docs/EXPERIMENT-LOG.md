@@ -569,3 +569,92 @@ Live book after the change: 2 of 16 positions sit within 1.5% of price, both
 of them T-bill and Treasury sleeves where the floor is binding and the
 instrument barely moves. Under a 0.5% floor it would have been 3, including
 SPY at 0.8%.
+
+---
+
+## Variant 9 — a wider AI, semis and rare-earth universe, 2026-09-28
+
+**Question:** the operator asked whether names outside the current book — AI
+infrastructure, semicap, rare-earth magnets — are worth holding.
+
+Screened 21 candidates on what the system actually needs: at least 1,000 bars
+of real history (the walk-forward wants ~954 to fit), $50M median daily dollar
+volume, and annualised volatility under 80%. Thirteen passed. Rejected: GEV,
+ARM, ALAB and USAR on history (624-803 bars), CRML on liquidity ($41M/day and
+a 7.8% daily range), CRDO, UUUU and MU flagged on volatility. All 21 are
+tradable at Alpaca, so the broker was never the constraint.
+
+### The harness was wrong first, and it inverted the answer
+
+`scripts/search.py` read `reward_risk_ratio` from `settings["risk"]`, a block
+with no such key, so the `.get` default handed the backtester a **2:1
+take-profit** while `strategy.reward_risk_ratio` is null and the live account
+places no target at all. Every arm through that harness was scoring a system
+nobody trades.
+
+Run both ways, same four arms:
+
+| arm | buggy harness | corrected |
+|---|---:|---:|
+| current-19 | 38.6% | **81.6%** |
+| plus-ai-infra-31 | **62.5%** | 62.2% |
+
+Under the bug, adding AI infrastructure looked like it *added 24 points*.
+Corrected, it *costs 19*. The conclusion flipped sign. Fixed in `52558c9`.
+
+### Result, corrected harness, full span
+
+| arm | symbols | return | maxDD | Sharpe | trades |
+|---|---:|---:|---:|---:|---:|
+| **current-19** | 19 | **81.6%** | -7.8% | **1.40** | 2956 |
+| plus-ai-infra-31 | 31 | 62.2% | -10.4% | 1.04 | 3036 |
+| plus-rare-earth-20 | 20 | 80.0% | **-7.0%** | 1.35 | 2949 |
+| plus-both-32 | 32 | 53.0% | -10.6% | 0.93 | 3053 |
+
+**Adding the AI and semis names makes the system worse on every axis**: 19
+points of return, a third more drawdown, and Sharpe from 1.40 to 1.04.
+
+### Why, measured independently of the backtest
+
+Correlation of each candidate against the current book, 2022-2026 daily:
+
+| candidate | vs NVDA | vs QQQ | max vs book |
+|---|---:|---:|---:|
+| LRCX | 0.63 | 0.76 | 0.76 |
+| KLAC | 0.64 | 0.75 | 0.75 |
+| ASML | 0.65 | 0.75 | 0.75 |
+| AMAT | 0.63 | 0.74 | 0.74 |
+| TSM | 0.69 | 0.70 | 0.70 |
+| MRVL | 0.61 | 0.70 | 0.70 |
+| **MP** | **0.28** | **0.39** | **0.39** |
+| UUUU | 0.34 | 0.42 | 0.42 |
+| CEG | 0.37 | 0.42 | 0.43 |
+| VST | 0.42 | 0.44 | 0.45 |
+
+The semicap names sit at 0.74-0.76 against QQQ, inside the `correlation_reduce`
+band (0.70) that halves their size. **They are not new exposure, they are more
+of what is already held.** The book already carries NVDA, AMD, AVGO and QQQ; a
+top-12 ranker given six more semis swaps a diversified pick for another tech
+name and concentrates. That is variant 5 in reverse — the defensive sleeves
+helped *because* they were uncorrelated.
+
+### What the ranker would actually buy today
+
+Scored on the ranker's own inputs, 5 of the top 12 would be new: MU, MRVL,
+TSM, ANET, ETN. So this is not a hypothetical reshuffle; it would materially
+change the book — for the worse, on the measurement above.
+
+**MP and UUUU do not appear in the top 22 at all.** The rare-earth trade is a
+narrative the system cannot express: it buys what is trending, and they are
+not. Adding MP does not buy MP, it makes MP *eligible* if it starts trending.
+
+### Verdict
+
+**Not adopted, for the AI and semis group.** Measured worse, with an
+independently measured mechanism.
+
+**MP is the only defensible addition and it is marginal:** 80.0% vs 81.6%,
+Sharpe 1.35 vs 1.40, and the one axis it wins is drawdown, -7.0% vs -7.8%. At
+0.39 correlation it is the only genuinely uncorrelated candidate found. That
+is the same structural argument variant 5 shipped the defensive sleeves on, on
+a smaller effect. Left to the operator; not shipped unilaterally.
