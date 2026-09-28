@@ -118,7 +118,19 @@ def build(settings, bars, universe, regime_source, trend="off"):
         slippage_pct=settings["backtest"]["slippage_pct"],
         hmm_config=dict(settings["hmm"]), strategy_config=cfg,
         risk_config=dict(settings["risk"]),
-        reward_risk_ratio=settings["risk"].get("reward_risk_ratio", 2.0),
+        # From the STRATEGY block, which is where the live system reads it.
+        #
+        # This used to be `settings["risk"].get("reward_risk_ratio", 2.0)`.
+        # There is no `reward_risk_ratio` under `risk`, so the .get default
+        # fired every time and handed the backtester a 2:1 take-profit while
+        # `strategy.reward_risk_ratio` was null and the live account placed no
+        # target at all. Every arm run through here was scoring a system nobody
+        # was trading -- the same class of mistake as the backtester holding a
+        # fixed stop while the engine ratcheted one, found on 2026-09-24.
+        #
+        # `or 0.0` because the backtester treats a falsy ratio as "no target",
+        # matching `compute_take_profit`.
+        reward_risk_ratio=cfg.get("reward_risk_ratio") or 0.0,
         entry_fill="limit",
     )
 

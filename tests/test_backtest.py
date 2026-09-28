@@ -458,3 +458,44 @@ def test_load_bars_refuses_to_invent_data_when_told_not_to(monkeypatch):
 
     with pytest.raises(RuntimeError, match="No real bars"):
         market_data.load_bars("SPY", allow_synthetic=False)
+
+
+def test_search_passes_the_strategy_reward_ratio_not_the_risk_one():
+    """`search.py` must read reward_risk_ratio from the same block the live
+    strategy reads it from.
+
+    It used to read `settings["risk"]["reward_risk_ratio"]`, a key that does
+    not exist, so the .get default handed the backtester a 2:1 take-profit
+    while `strategy.reward_risk_ratio` was null and the live account placed no
+    target. Every arm scored a system nobody was trading.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location("search_mod", root / "scripts" / "search.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    from config import load_settings, strategy_config
+
+    settings = load_settings()
+    expected = strategy_config(settings).get("reward_risk_ratio") or 0.0
+
+    bars = {"SPY": None}
+    captured = {}
+
+    class _Spy:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    original = mod.PortfolioBacktester
+    mod.PortfolioBacktester = _Spy
+    try:
+        mod.build(settings, bars, "equity", "hmm")
+    finally:
+        mod.PortfolioBacktester = original
+
+    assert captured["reward_risk_ratio"] == expected, (
+        f"search.py passed {captured['reward_risk_ratio']}, the strategy uses {expected}"
+    )
