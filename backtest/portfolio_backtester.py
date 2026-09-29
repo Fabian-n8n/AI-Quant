@@ -89,6 +89,7 @@ class Holding:
     take_profit: float | None = None
     regime_at_entry: str = "unknown"
     bars_held: int = 0
+    scaled_out: bool = False
 
     def value_at(self, price: float) -> float:
         return self.shares * price
@@ -184,6 +185,10 @@ class PortfolioBacktester:
         # fixed-stop behaviour so earlier trials stay comparable.
         self.trailing_stop = dict(self.risk_config.get("trailing_stop") or {})
         self._atr_cache: dict[str, pd.Series] = {}
+
+        # Partial profit taking. Mirrors `risk.scale_out` in settings.yaml.
+        # Disabled by default so existing trials stay comparable.
+        self.scale_out = dict(self.risk_config.get("scale_out") or {})
 
         # See "HOW ORDERS FILL" at the top of the module. The default stays
         # "open" so existing trials remain comparable; "limit" is the honest one.
@@ -370,6 +375,24 @@ class PortfolioBacktester:
                 if holding.bars_held < 1:
                     continue
                 self._ratchet_stop(bars, symbol, timestamp, holding)
+                partial = self._scale_out(bars, symbol, timestamp, holding)
+                if partial is not None:
+                    sold, fill = partial
+                    cash += sold * fill - self.commission_per_share * sold
+                    trades.append({
+                        "symbol": symbol, "entry_time": holding.entry_time,
+                        "exit_time": timestamp, "entry_price": holding.entry_price,
+                        "exit_price": fill, "shares": sold,
+                        "pnl": (fill - holding.entry_price) * sold,
+                        "return_pct": fill / holding.entry_price - 1,
+                        "bars_held": holding.bars_held, "reason": "scale-out",
+                        "regime_at_entry": holding.regime_at_entry,
+                    })
+                    holding.shares -= sold
+                    holding.scaled_out = True
+                    if holding.shares <= 0:
+                        del holdings[symbol]
+                        continue
                 exit_price, reason = self._exit_price(bars, symbol, timestamp, holding)
                 if exit_price is None:
                     continue
@@ -674,6 +697,44 @@ class PortfolioBacktester:
         floor = close * (1 - trail / 100)
         if holding.stop_loss is None or floor > holding.stop_loss:
             holding.stop_loss = floor
+
+    def _scale_out(self, bars, symbol: str, timestamp, holding: Holding):
+        """Sell part of a winner at a fixed gain, once, and let the rest run.
+
+        The whole argument against a take-profit target is that it truncates
+        the one winner paying for the losers (variants 7 and 10). A partial
+        exit is the obvious middle: bank a fraction at a level that is
+        actually reached, leave the remainder to the trailing stop, and keep
+        the right tail attached to something.
+
+        Fires at most once per position, on the bar whose HIGH first reaches
+        the trigger. Fill is `max(open, trigger)`: a gap through the level
+        fills better, never worse, which is the same convention `_exit_price`
+        uses for targets.
+
+        Returns `(shares_sold, fill_price)` or None.
+        """
+        config = self.scale_out
+        if not config.get("enabled", False) or holding.scaled_out:
+            return None
+        gain = float(config.get("at_gain_pct", 0.0))
+        fraction = float(config.get("fraction", 0.0))
+        if gain <= 0 or not 0 < fraction < 1:
+            return None
+
+        frame = bars.get(symbol)
+        if frame is None or timestamp not in frame.index:
+            return None
+        bar = frame.loc[timestamp]
+        trigger = holding.entry_price * (1 + gain)
+        if float(bar["high"]) < trigger:
+            return None
+
+        fill = max(float(bar["open"]), trigger) * (1 - self.slippage_pct)
+        sold = holding.shares * fraction
+        if sold <= 0:
+            return None
+        return sold, fill
 
     def _sell(self, holding: Holding, price: float) -> float:
         return holding.shares * price - self.commission_per_share * holding.shares

@@ -792,3 +792,61 @@ the new setting was **GOOGL, entry 337.03, exit 340.82, +$30.32 on a stop** --
 the first profitable close in the account's history. Peak gain was +$80, so it
 still handed back $50, but it kept $30 where the old trail would have kept
 nothing.
+
+---
+
+## Variant 12 — partial profit taking, 2026-09-29
+
+**The one profit-taking mechanism not yet tested**, and the one a professional
+would reach for first: bank a fraction of a winner at a fixed gain, leave the
+rest to the trailing stop. It answers the objection that killed the fixed
+targets in variant 10 — it does not truncate the winner, it only trims it.
+
+Required real work: `PortfolioBacktester` exited whole positions only.
+`_scale_out` fires at most once per position, on the bar whose HIGH first
+reaches the trigger, filling at `max(open, trigger)` so a gap fills better and
+never worse. Six tests cover the trigger, the gap convention, the fire-once
+rule and the disabled cases.
+
+| rule | return | maxDD | Sharpe | trades |
+|---|---:|---:|---:|---:|
+| **off** | **81.6%** | -7.8% | **1.40** | 2956 |
+| half at +10% | 61.6% | -7.7% | 1.27 | 3340 |
+| third at +15% | 69.6% | -7.9% | 1.31 | 3141 |
+| half at +20% | 69.7% | -7.9% | 1.32 | 3069 |
+| half at +30% | 72.0% | **-7.4%** | 1.33 | 3008 |
+
+**Worse than none, and the ordering repeats the pattern from variant 10:** the
+further out the trigger, the closer the result creeps back to "off". +10%
+costs 20 points; +30%, which fires rarely, costs 9.6.
+
+### Five levers, one answer
+
+| lever | variant | best setting | cost of taking profit earlier |
+|---|---|---|---|
+| fixed R target | 10 | none | -19 pts at ~56%, -43 at ~14% |
+| `atr_multiple` | 8 | 1.0 | -44 pts at 0.5 |
+| `max_trail_pct` | 11 | 15% | -12 pts at 5% |
+| partial scale-out | 12 | off | -9.6 pts at +30%, -20 at +10% |
+| no trail at all | 7 | — | +244 pts, at a -34.6% drawdown |
+
+Five independent mechanisms, five times the same result. This is no longer a
+question about parameter choice; it is the shape of the return distribution.
+Most trades lose a little and a few win a lot, so anything that truncates a
+winner removes more than it protects.
+
+### The one arm worth offering
+
+`half at +30%` costs 9.6 points of return and buys 0.4 points of drawdown, and
+it realises profit on winners that later round-trip. **That is a preference,
+not an improvement** — it is worth taking only if realised profit matters more
+than total return. Not shipped; it is the operator's call and the price is
+stated.
+
+### Shipped disabled, with a guard
+
+The backtester keeps the capability; `risk.scale_out` stays off. `main.py`
+has no partial-exit path, so enabling the config would change every backtest
+while the account traded the old way. `test_scale_out_stays_disabled_until_the_live_engine_implements_it`
+fails if anyone turns it on without building the live side first. That is the
+same drift that produced the fixed-stop and take-profit mismatches.

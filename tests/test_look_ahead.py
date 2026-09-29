@@ -470,3 +470,108 @@ def test_a_falsy_reward_ratio_means_no_target_not_a_target_at_the_entry():
     assert not bt.reward_risk_ratio
     bt2 = _backtester(reward_risk_ratio=2.0)
     assert bt2.reward_risk_ratio == 2.0
+
+
+# ===========================================================================
+# Partial profit taking
+#
+# The argument against a take-profit target is that it truncates the one
+# winner paying for the losers. A partial exit is the middle: bank a fraction
+# at a level actually reached, leave the rest to the trail. These pin the ways
+# that simulation could invent money.
+# ===========================================================================
+
+def _one_bar(open_, high, low, close):
+    import pandas as pd
+    return pd.DataFrame(
+        [(open_, high, low, close)], columns=["open", "high", "low", "close"],
+        index=pd.date_range("2020-06-01", periods=1, freq="B", tz="UTC"),
+    )
+
+
+def _holding(**kw):
+    import pandas as pd
+
+    from backtest.portfolio_backtester import Holding
+    base = dict(symbol="SPY", shares=100.0, entry_price=100.0,
+                entry_time=pd.Timestamp("2020-01-01", tz="UTC"),
+                stop_loss=90.0, take_profit=None, regime_at_entry="bull")
+    base.update(kw)
+    return Holding(**base)
+
+
+def _bt(**scale):
+    from backtest.portfolio_backtester import PortfolioBacktester
+    return PortfolioBacktester(
+        symbols=["SPY"], primary="SPY", slippage_pct=0.0,
+        risk_config={"scale_out": {"enabled": True, "at_gain_pct": 0.10,
+                                   "fraction": 0.5, **scale}})
+
+
+def test_a_scale_out_fires_when_the_high_reaches_the_trigger():
+    bars = {"SPY": _one_bar(105, 112, 104, 110)}          # trigger is 110
+    bt, holding = _bt(), _holding()
+    got = bt._scale_out(bars, "SPY", bars["SPY"].index[0], holding)
+
+    assert got is not None, "the bar reached +10% and nothing was sold"
+    sold, fill = got
+    assert sold == pytest.approx(50.0), "should sell half"
+    assert fill == pytest.approx(110.0), "fill at the trigger, not the high"
+
+
+def test_a_gap_above_the_trigger_fills_at_the_open_not_the_trigger():
+    """Opening above the level fills BETTER. Pretending otherwise understates
+    a good day, which is the mirror of the gap rule on stops."""
+    bars = {"SPY": _one_bar(118, 120, 117, 119)}
+    got = _bt()._scale_out(bars, "SPY", bars["SPY"].index[0], _holding())
+    assert got[1] == pytest.approx(118.0)
+
+
+def test_it_does_not_fire_when_the_high_falls_short():
+    bars = {"SPY": _one_bar(104, 109.99, 103, 108)}
+    assert _bt()._scale_out(bars, "SPY", bars["SPY"].index[0], _holding()) is None
+
+
+def test_it_fires_at_most_once_per_position():
+    """Otherwise a position that keeps making highs is sold repeatedly and the
+    backtest books the same gain again and again."""
+    bars = {"SPY": _one_bar(105, 130, 104, 128)}
+    assert _bt()._scale_out(bars, "SPY", bars["SPY"].index[0],
+                            _holding(scaled_out=True)) is None
+
+
+def test_it_is_off_unless_enabled_and_sanely_configured():
+    from backtest.portfolio_backtester import PortfolioBacktester
+    bars = {"SPY": _one_bar(105, 130, 104, 128)}
+    ts = bars["SPY"].index[0]
+
+    off = PortfolioBacktester(symbols=["SPY"], primary="SPY", risk_config={})
+    assert off._scale_out(bars, "SPY", ts, _holding()) is None
+
+    # A fraction of 1.0 is a full exit wearing a different name; refuse it.
+    whole = _bt(fraction=1.0)
+    assert whole._scale_out(bars, "SPY", ts, _holding()) is None
+    zero = _bt(at_gain_pct=0.0)
+    assert zero._scale_out(bars, "SPY", ts, _holding()) is None
+
+
+def test_scale_out_stays_disabled_until_the_live_engine_implements_it():
+    """A guard against the exact drift this project keeps finding.
+
+    `PortfolioBacktester` can scale out of a winner. `main.py` cannot: it
+    opens a position once and closes it once. Enabling `risk.scale_out` in
+    settings.yaml would therefore change every backtest while the account went
+    on trading the old way, and the numbers would describe a system nobody
+    runs -- which is how the fixed-stop and take-profit mismatches happened.
+
+    Measured in variant 12, every scale-out arm is worse than none, so there
+    is no reason to pay that cost. If the decision ever changes, implement the
+    live side FIRST and then delete this test.
+    """
+    from config import load_settings
+
+    configured = (load_settings()["risk"].get("scale_out") or {}).get("enabled", False)
+    assert not configured, (
+        "risk.scale_out is enabled but main.py has no partial-exit path, so "
+        "the backtest and the live account would diverge silently."
+    )
