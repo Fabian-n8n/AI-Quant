@@ -36,6 +36,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from core.instruments import INSTRUMENTS
+
 logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -223,6 +225,10 @@ def build_payload(snapshot: dict[str, Any], *, source: str = "live",
         # over real data because someone renamed a source label.
         "is_demo": source == "demo",
         "activity": _clean(activity or empty_activity()),
+        # Static reference data, published once per snapshot rather than
+        # repeated on every candidate and position row. ~2KB, and it means the
+        # UI never has to carry its own copy of the universe.
+        "instruments": INSTRUMENTS,
     }
     return payload
 

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { humanise, money, pct, price, signedMoney, signedPct, toneText, type Tone } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Candidate, Timing } from "@/lib/types";
+import type { Candidate, Timing, Instrument } from "@/lib/types";
 
 const convictionTone = (v: number): Tone =>
   v >= 0.7 ? "positive" : v >= 0.5 ? "warning" : "muted";
@@ -61,8 +61,11 @@ function reasons(c: Candidate): { good: string[]; against: string[] } {
  *  and showing the least-bad blocked name instead would invent a recommendation
  *  the system never made. */
 export function TopPickCard({
-  pick, equity, timing,
-}: { pick: Candidate | null; equity: number; timing: Timing }) {
+  pick, equity, timing, instruments,
+}: {
+  pick: Candidate | null; equity: number; timing: Timing;
+  instruments?: Record<string, Instrument>;
+}) {
   if (!pick) {
     return (
       <Card span="2">
@@ -96,6 +99,11 @@ export function TopPickCard({
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-semibold tracking-tight">{pick.symbol}</span>
+            {instruments?.[pick.symbol] && (
+              <span className="text-base font-normal text-muted-foreground">
+                {instruments[pick.symbol].name}
+              </span>
+            )}
               {pick.trend === "above" ? (
                 <TrendingUp className="h-5 w-5 text-positive" aria-hidden />
               ) : (
@@ -217,7 +225,9 @@ export function TopPickCard({
  *
  *  Rows expand rather than opening a dialog: on a monitoring surface you want to
  *  compare two names side by side, and a modal makes that impossible. */
-export function CandidatesCard({ candidates }: { candidates: Candidate[] }) {
+export function CandidatesCard({ candidates, instruments }: {
+  candidates: Candidate[]; instruments?: Record<string, Instrument>;
+}) {
   const [open, setOpen] = React.useState<string | null>(null);
   const approved = candidates.filter((c) => c.approved).length;
 
@@ -287,6 +297,13 @@ export function CandidatesCard({ candidates }: { candidates: Candidate[] }) {
                         <span className="font-semibold">{c.symbol}</span>
                         {c.held && <Badge variant="primary">held</Badge>}
                       </div>
+                      {/* Nineteen tickers is more than most people hold in
+                          their head. The name costs one muted line. */}
+                      {instruments?.[c.symbol] && (
+                        <div className="text-2xs text-muted-foreground">
+                          {instruments[c.symbol].name}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       {c.approved ? (
@@ -344,7 +361,7 @@ export function CandidatesCard({ candidates }: { candidates: Candidate[] }) {
                   {isOpen && (
                     <TableRow className="hover:bg-transparent">
                       <TableCell colSpan={11} className="bg-muted/25 p-0 text-left">
-                        <CandidateDetail candidate={c} />
+                        <CandidateDetail candidate={c} instrument={instruments?.[c.symbol]} />
                       </TableCell>
                     </TableRow>
                   )}
@@ -365,10 +382,23 @@ export function CandidatesCard({ candidates }: { candidates: Candidate[] }) {
 
 /* ------------------------------------------------------------ detail -- */
 
-function CandidateDetail({ candidate: c }: { candidate: Candidate }) {
+function CandidateDetail({ candidate: c, instrument }: {
+  candidate: Candidate; instrument?: Instrument;
+}) {
   return (
     <div className="grid gap-6 p-5 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-4">
+        {/* What the company actually does, before any of the numbers. The
+            strategy never reads this; it is here so the reader knows what
+            they are looking at. */}
+        {instrument?.what && (
+          <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+            <div className="text-sm font-medium">{instrument.name}</div>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {instrument.what}
+            </p>
+          </div>
+        )}
         <div>
           <h4 className="mb-3 text-2xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
             How the system reached this

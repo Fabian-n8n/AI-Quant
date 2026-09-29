@@ -139,8 +139,13 @@ export interface Activity {
   locked: LockedSummary;
 }
 
+/** Static reference data: what each ticker actually is. Published once per
+ *  snapshot from core/instruments.py, never computed with. */
+export interface Instrument { name: string; what: string; }
+
 export interface Snapshot {
   schema_version: number;
+  instruments?: Record<string, Instrument>;
   source: "live" | "demo";
   published_at: string;
   timestamp: string;

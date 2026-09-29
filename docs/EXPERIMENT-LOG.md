@@ -658,3 +658,67 @@ Sharpe 1.35 vs 1.40, and the one axis it wins is drawdown, -7.0% vs -7.8%. At
 0.39 correlation it is the only genuinely uncorrelated candidate found. That
 is the same structural argument variant 5 shipped the defensive sleeves on, on
 a smaller effect. Left to the operator; not shipped unilaterally.
+
+---
+
+## Variant 10 — should a winner be closed at a profit target? 2026-09-29
+
+**Question from the operator:** "it closed position based on stop loss which
+ain't good right? It should also close profits." Proposed a target around 60%.
+
+Fair question with a false premise inside it, and both halves are answerable.
+
+### The premise: a trailing stop above entry IS the profit-taking order
+
+Once the stop ratchets above entry, triggering it **realises a gain**. It is
+not a loss-cutting order any more; it is a sell order that moves up with the
+price and fires when the trend turns. The name is misleading, not the
+mechanism.
+
+Proven live the same day this was asked. **GOOGL: entry 337.03, stop ratcheted
+to 340.88, closed 2026-09-28 at 340.82 for +$30.32, `exit_reason: stop`.** The
+first profitable close in this account's history, and it came from the stop.
+
+### The proposal, measured: every target is worse than no target
+
+`reward_risk_ratio` is an R-multiple, `target = entry + R x (entry - stop)`.
+With the shipped stop ~7% below entry, R maps to a rough move, so sweeping R
+answers the "+60%" question in the engine's own units. Trailing stop on
+throughout, as shipped:
+
+| target | return | maxDD | Sharpe | trades |
+|---|---:|---:|---:|---:|
+| **none (trail only)** | **81.6%** | -7.8% | **1.40** | 2956 |
+| R=2 (~14% move) | 38.6% | -7.0% | 0.85 | 3817 |
+| R=4 (~28% move) | 69.4% | **-6.9%** | 1.29 | 3288 |
+| R=6 (~42% move) | 67.1% | -7.5% | 1.24 | 3130 |
+| R=8 (~56% move) | 62.9% | -8.4% | 1.17 | 3063 |
+
+**No target wins, and the ordering is the tell.** From R=4 upward the result
+climbs steadily toward the no-target row: a target you rarely reach behaves
+more and more like not having one. R=2 is the disaster case at 38.6%, less
+than half, because it cuts every winner at about +14%.
+
+A ~56% target, the closest arm to what was proposed, costs **19 points of
+return** for 0.6 points of drawdown.
+
+### Why capping winners is so expensive here
+
+The strategy loses on most trades. Variant 8's record is 1 winner in 15 closed
+so far. A book like that only works if the winners are allowed to be much
+larger than the losers, and a fixed target is a rule that guarantees they
+cannot be. It sells the one position that was going to pay for the other
+fourteen.
+
+Variant 7 measured the same effect from the other direction: removing the
+trail and the target together gave the largest return this project has
+recorded, 326%, at a -34.6% drawdown. Letting winners run is where the return
+lives. The trail is the compromise that keeps most of it while capping the
+drawdown at -7.8%.
+
+### Not adopted
+
+No profit target. The trailing stop is the profit-taking mechanism and it now
+works. The dashboard change shipped alongside this makes that visible: a
+"Locked in" column showing what the stop has already secured, which was the
+real gap. The behaviour was right and invisible.
