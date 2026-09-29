@@ -722,3 +722,73 @@ No profit target. The trailing stop is the profit-taking mechanism and it now
 works. The dashboard change shipped alongside this makes that visible: a
 "Locked in" column showing what the stop has already secured, which was the
 real gap. The behaviour was right and invisible.
+
+---
+
+## Variant 11 — capping the trail width, 2026-09-29
+
+**Prompted by a real measurement, not a hunch.** Operator's complaint: large
+unrealised gains keep turning into realised losses. Checked it properly by
+replaying every closed trade against its own high-water mark.
+
+| sym | entry | peak | exit | peak gain | realised | given back |
+|---|---:|---:|---:|---:|---:|---:|
+| COIN | 180.77 | 193.22 | 165.87 | +199.17 | **-238.38** | 437.55 |
+| SMCI | 37.92 | 40.45 | 35.54 | +189.48 | **-178.42** | 367.90 |
+| GOOGL | 347.65 | 364.17 | 342.12 | +132.16 | **-44.24** | 176.40 |
+| NVDA | 219.37 | 222.00 | 211.14 | +34.20 | -106.98 | 141.18 |
+
+Across 15 closed trades: **+$864 if every position had been sold at its own
+high, -$922 actually realised.** The complaint is grounded. Several positions
+ran 5-7% and round-tripped into a loss.
+
+### The lever the data pointed at, and it did not work either
+
+Those are the high-ATR names. `atr_multiple x ATR` gives COIN a 5.82% trail
+and SMCI 5.58%, which is wide enough for a 6% gain to round-trip entirely
+inside the stop. `max_trail_pct` is the ceiling on that and sits at 15%, so it
+never binds. Swept it:
+
+| max_trail | return | maxDD | Sharpe | trades/wk |
+|---:|---:|---:|---:|---:|
+| **15%** (shipped) | **81.6%** | -7.8% | **1.40** | 7.8 |
+| 8% | 80.7% | -7.8% | 1.39 | 7.8 |
+| 5% | 69.5% | **-7.3%** | 1.28 | 8.0 |
+| 3% | 61.3% | -7.2% | 1.21 | 8.8 |
+
+Capping at 5% would have saved those specific round trips and cost **12 points
+of return** elsewhere. Not adopted. 8% is indistinguishable from 15% and not
+worth a change.
+
+### Four levers, one answer
+
+Every independent way of taking profit earlier has now been measured, and
+every one costs more than it saves:
+
+| lever | best setting | tighter costs |
+|---|---|---|
+| fixed R target (v10) | none | -19 pts at ~56%, -43 at ~14% |
+| `atr_multiple` (v8) | 1.0 | -44 pts at 0.5 |
+| `max_trail_pct` (v11) | 15% | -12 pts at 5% |
+| no trail at all (v7) | — | +244 pts, at -34.6% drawdown |
+
+**The reason is the shape of the return distribution.** Most trades lose a
+little and a few win a lot; the account's own record is 1 winner in 15. A book
+like that only works if the winners are allowed to be much larger than the
+losers, so every rule that truncates a winner removes more than it protects.
+The give-back is the premium paid for the right tail, and the tail is where
+the return lives.
+
+**What the give-back table does NOT show is a missed opportunity.** Selling at
+the high is not a rule anybody can run, because the high is only knowable
+afterwards. It is the ceiling, not a target.
+
+### What actually changed the outcome
+
+Not a profit rule. The trail width itself: `atr_multiple` 2.5 to 1.0, shipped
+in variant 8 on 2026-09-26. Twelve of these fifteen closed trades ran under
+the old 5-9% trail, which is why so many round-tripped. The first close under
+the new setting was **GOOGL, entry 337.03, exit 340.82, +$30.32 on a stop** --
+the first profitable close in the account's history. Peak gain was +$80, so it
+still handed back $50, but it kept $30 where the old trail would have kept
+nothing.
