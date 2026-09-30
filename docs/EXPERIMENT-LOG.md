@@ -850,3 +850,96 @@ has no partial-exit path, so enabling the config would change every backtest
 while the account traded the old way. `test_scale_out_stays_disabled_until_the_live_engine_implements_it`
 fails if anyone turns it on without building the live side first. That is the
 same drift that produced the fixed-stop and take-profit mismatches.
+
+## Audit — the two closes of 2026-09-29, and what the fills reveal
+
+Triggered by a plain question: two positions closed at the open, were they
+handled correctly? They were. The audit that checked it found two things the
+strategy work had not looked at, both measured off broker fills rather than our
+own database.
+
+### The closes themselves reconcile exactly
+
+| symbol | entry | stop | broker fill | recorded | P&L |
+|---|---|---|---|---|---|
+| AAPL | 329.78 | 334.10 | 332.91 | 332.91 | +$25.04 |
+| TSLA | 360.07 | 356.41 | 354.25 | 354.25 | -$46.56 |
+
+Both filled 13:32 UTC on 2026-09-29, two minutes after the open. `exit_price`
+matches `filled_avg_price` to the cent, so `_closing_fills` is doing its job.
+AAPL is the second profitable close in the account's history and the second
+taken by a stop sitting above entry.
+
+### Finding 1 — the "locked in" figure is an upper bound, not a guarantee
+
+AAPL's stop was $4.32 above entry on 8 shares, so the dashboard showed $34.56
+locked in. It realised **$25.04**. The missing $9.52 went to the gap between the
+stop price and the fill, because a stop becomes a *market* order when it
+triggers and cannot trigger outside regular hours.
+
+Sorted by when the fill landed, across all 17 closed trades:
+
+| when the stop filled | exits | mean slippage | total |
+|---|---|---|---|
+| first 10 minutes of the session | 8 | **-0.58%** | **-$129.35** |
+| rest of the session | 9 | -0.02% | -$3.79 |
+
+**97% of all slippage paid to date happened in the first ten minutes.** Worst
+cases: GLD -2.70% (-$73.79), AMZN -0.82%, TSLA -0.60%, AAPL -0.36%. Mid-session
+fills are essentially free.
+
+This is the documented overnight-gap caveat, now with a price on it: $133 of the
+$944 realised loss. It is structural, not a bug — a stop-limit would avoid the
+slippage but would not fill at all on a gap, which is strictly worse. What it
+does mean is that the locked-in number overstates by roughly half a percent
+whenever the exit happens on a gap, and it should be read as a ceiling.
+
+### Finding 2 — the book churns the same names, and churn is where the losses are
+
+27 entries across 18 distinct symbols. **9 of the 17 closed trades are a
+re-entry into a name that was stopped out earlier**, usually the next session.
+
+| symbol | entries | realised |
+|---|---|---|
+| AMZN | 4 | -$91.21 |
+| COIN | 2 | -$238.38 |
+| SMCI | 2 | -$178.42 |
+| NVDA | 2 | -$106.98 |
+| AVGO | 2 | -$60.05 |
+| SPY | 2 | -$40.54 |
+| GOOGL | 2 | -$13.92 |
+
+Mean re-entry price is **+3.5% above the price it just sold at**. COIN is the
+extreme: stopped out at 165.87 on 09-16, bought back at 200.55 on 09-24, +20.9%
+higher, and currently -$157.80.
+
+The five names never re-entered — AMD, BIL, META, MSFT, PLTR — are the ones
+carrying the locked-in profit. Some of that is survivorship: they are still held
+because they rose. But the direction is consistent and the mechanism is plain.
+The trailing stop ejects on noise, the ranker re-scores the same name as still
+trending, and nothing prevents it buying back higher the next morning. There is
+**no re-entry cooldown anywhere in the codebase**.
+
+Confirmed live on 2026-09-30: after stopping AAPL out at 332.91 it placed a
+fresh AAPL buy at 332.78, and ranked TSLA a buy at 353.13 the morning after
+stopping it out at 354.25.
+
+### Why this matters more than the five profit-taking levers
+
+Variants 7 through 12 all failed for the same reason: they truncate winners, and
+the winners carry the return. A re-entry cooldown does the opposite — it removes
+*losing* round trips and cannot clip a winner that is still held, because a
+position that never stopped out never enters the rule. It is the first exit-side
+lever whose cost is not paid out of the right tail.
+
+Untested. Variant 13 is the obvious next run, and it should be run before any
+more work on profit taking.
+
+### One real defect, fixed
+
+`exit_at` was stamped with the time the run *noticed* the close, not the fill
+time. AAPL and TSLA filled at 13:32 and were recorded at 16:34 — three hours
+out, and it rounded `holding_days` down by one. `_closing_fills` already carried
+`filled_at` internally to pick the most recent fill, then discarded it on the
+way out; `close_position` already accepted an `exit_at` it was never passed.
+Fixed by returning it and passing it. Historical rows left alone.

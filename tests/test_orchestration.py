@@ -1705,9 +1705,24 @@ def test_the_exit_price_comes_from_the_fill_not_the_last_mark(built_engine):
     fills = engine._closing_fills(recorded, held=set())
 
     assert "GOOGL" in fills, "the fill was not found at all"
-    price, reason = fills["GOOGL"]
+    price, reason, filled_at = fills["GOOGL"]
     assert price == 342.12, f"used {price}, the broker filled at 342.12"
     assert reason == "stop"
+    assert filled_at == when, "the fill time must survive, exit_at is stamped from it"
+
+
+def test_exit_at_is_the_fill_time_not_the_time_the_run_noticed(built_engine):
+    """AAPL and TSLA stopped out at 13:32 UTC on 2026-09-29 and were recorded
+    at 16:34, the moment the run happened to look. Three hours of drift, and it
+    rounded holding_days down by one. The broker's filled_at is the only clock
+    that knows when the position actually ended."""
+    engine = built_engine
+    when = datetime(2026, 9, 29, 13, 32, 36, tzinfo=UTC)
+    engine.client._order_history = [_closed_sell("AAPL", 332.91, OrderType.STOP, when)]
+    recorded = {"AAPL": {"symbol": "AAPL", "current_price": 333.40,
+                         "entry_price": 329.78, "stop_price": 334.10}}
+
+    assert engine._closing_fills(recorded, held=set())["AAPL"][2] == when
 
 
 def test_the_exit_reason_is_read_from_the_order_type(built_engine):

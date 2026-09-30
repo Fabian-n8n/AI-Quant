@@ -349,10 +349,22 @@ class TestAlpacaPaperRoundTrip:
             assert order.is_open
 
             executor.cancel_order(trade.order_id)
-            time.sleep(1.5)
 
-            settled = client.get_order(trade.order_id)
-            assert settled.status.value in ("cancelled", "pending_cancel", "expired"), settled.status
+            # Poll, do not sleep a fixed 1.5s. Alpaca's cancel is asynchronous
+            # and the round trip from Singapore is not bounded by any constant
+            # someone picked once: measured 2026-09-30, the order was still
+            # plain `open` after 1.5s and this test failed on a working cancel.
+            # `_await_cancel` is not the helper for this -- it returns on any
+            # status without "pending" in it, which includes `open`, because its
+            # job is to clear the pending_cancel window before a replacement.
+            terminal = ("cancelled", "canceled", "pending_cancel", "expired")
+            deadline = time.monotonic() + 15.0
+            while time.monotonic() < deadline:
+                settled = client.get_order(trade.order_id)
+                if settled.status.value in terminal:
+                    break
+                time.sleep(0.5)
+            assert settled.status.value in terminal, settled.status
         finally:
             for order_id in created:
                 try:

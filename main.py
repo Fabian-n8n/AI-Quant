@@ -2385,23 +2385,31 @@ class TradingEngine:
                 continue
             fill = closing.get(symbol)
             if fill is not None:
-                price, reason = fill
+                price, reason, filled_at = fill
             else:
                 # No fill found: the position may have gone through a corporate
                 # action, or the history window may not reach it. Fall back to
                 # the old estimate, and say so rather than passing it off.
                 price = row["current_price"] or row["entry_price"]
                 reason = "closed (no fill found, price estimated)"
+                filled_at = None
                 logger.warning("%s: closed but no sell fill found; exit price is an "
                                "estimate from the last mark.", symbol)
             self.material_change = True
-            self.repo.close_position(symbol, float(price), reason)
+            self.repo.close_position(symbol, float(price), reason, exit_at=filled_at)
 
-    def _closing_fills(self, recorded: dict, held) -> dict[str, tuple[float, str]]:
+    def _closing_fills(self, recorded: dict, held) -> dict[str, tuple[float, str, Any]]:
         """The real fill price and exit reason for each position that vanished.
 
         One history call for all of them, not one per symbol. Returns
-        `{symbol: (price, reason)}` for whatever could be matched.
+        `{symbol: (price, reason, filled_at)}` for whatever could be matched.
+
+        `filled_at` is the broker's fill time, and it has to be carried out of
+        here rather than left to the caller's clock. A stop that triggers at the
+        open fills around 13:32 UTC; the run that notices can be hours later, so
+        stamping `exit_at` with `now` backdates nothing and post-dates
+        everything -- measured three hours out on AAPL and TSLA on 2026-09-29,
+        which also cost a day off `holding_days`.
         """
         gone = [s for s in recorded if s not in held]
         if not gone:
@@ -2436,7 +2444,7 @@ class TradingEngine:
                 out[symbol] = (float(price),
                                reasons.get(order.order_type, "closed"),
                                order.filled_at)
-        return {s: (v[0], v[1]) for s, v in out.items()}
+        return out
 
     def _append_history(self, outcome: BarOutcome) -> None:
         """One equity and regime point per bar, capped at `history_points`."""
