@@ -82,7 +82,10 @@ def build(settings, bars, risk_overrides=None, regime_mode="hmm", regime_seed=0,
         hmm_config=dict(settings["hmm"]),
         strategy_config=strategy_config(settings),
         risk_config=risk,
-        reward_risk_ratio=settings["risk"].get("reward_risk_ratio", 2.0),
+        # From the strategy block, where the live engine reads it. `risk` has no
+        # such key, so the old `.get(..., 2.0)` scored a 2:1 target nobody trades.
+        # Same bug search.py had; see the note there.
+        reward_risk_ratio=strategy_config(settings).get("reward_risk_ratio") or 0.0,
         regime_mode=regime_mode, regime_seed=regime_seed,
     )
 

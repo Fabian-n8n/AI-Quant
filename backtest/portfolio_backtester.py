@@ -567,8 +567,15 @@ class PortfolioBacktester:
         The slice is what prevents look-ahead: the scan cannot see a bar that
         has not happened because the frame it is handed ends at today.
         """
+        # Primary first, always. The orchestrator reads `symbols[0]` as the
+        # market reference for the sma200 filter and the volatility tier, the
+        # same convention the live engine relies on with SPY at the top of
+        # settings.yaml. Passing the caller's order through let the HMM train on
+        # SPY while the filter read AAPL: measured 2026-10-05, the identical
+        # config returned 57% alphabetically, 80% SPY-first, 88% with BIL first.
         out = {}
-        for symbol, frame in bars.items():
+        for symbol in sorted(bars, key=lambda s: s != self.primary):
+            frame = bars[symbol]
             part = frame.loc[:timestamp]
             if len(part) >= required_warmup() // 2:
                 out[symbol] = part

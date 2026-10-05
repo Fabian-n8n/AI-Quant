@@ -943,3 +943,83 @@ out, and it rounded `holding_days` down by one. `_closing_fills` already carried
 `filled_at` internally to pick the most recent fill, then discarded it on the
 way out; `close_position` already accepted an `exit_at` it was never passed.
 Fixed by returning it and passing it. Historical rows left alone.
+
+## Variant 13 — how much capital should be deployed? 2026-10-05
+
+The live book sits at ~26% invested: 12 positions at a 3% cap is a 36% ceiling,
+and risk sizing, correlation rejections and the trend filter pull it lower. The
+question was whether 50-80% would make it more profitable.
+
+### First, a harness bug that moved results by 31 points
+
+The first sweep returned 57.4% for the unchanged live config, against 81.6%
+logged by variant 12. Same code, same config, deterministic run to run. The
+difference was the order the symbols were passed in:
+
+| symbol order | return | Sharpe |
+|---|---:|---:|
+| alphabetical (AAPL first) | 57.4% | 1.07 |
+| SPY first | 80.1% | 1.38 |
+| shuffled | 88.0% | 1.53 |
+| reversed (BIL first) | 88.2% | 1.31 |
+
+`StrategyOrchestrator._downtrend` reads `symbols[0]` as the market for the
+sma200 filter; the HMM trains on `primary`. The backtester passed the caller's
+order straight through, so with AAPL first the filter read AAPL's trend while
+the regime came from SPY, and with BIL first the filter was effectively off.
+
+Live was never affected: it passes `settings.broker.symbols`, SPY first, and
+uses `symbols[0]` consistently. Variants 8-12 all ran SPY-first through
+`search.run_arm`, so their conclusions stand. Fixed in `_slice` (primary first,
+always); all four orders now return 80.08%. The five invalid arms are kept in
+the registry as `deployment-INVALID-aapl-reference` so the trial count stays
+honest.
+
+`study.py` also still had the `settings["risk"].get("reward_risk_ratio", 2.0)`
+bug fixed in `search.py` on 2026-09-28. Fixed.
+
+### Result
+
+Full span 2018-10 to 2026-04, walk-forward, diversified universe, HMM, sma200,
+trailing stop 1.0x ATR. Everything except the position cap as live.
+
+| arm | return | maxDD | vol | Sharpe | invested | P(year > 0) |
+|---|---:|---:|---:|---:|---:|---:|
+| **3% cap (live)** | 80.1% | **-7.8%** | 5.8% | **1.38** | 24% | 87% |
+| 5% cap | 145.1% | -12.2% | 9.5% | 1.31 | 39% | 86% |
+| **6.5% cap** | **184.7%** | -16.3% | 11.8% | 1.25 | 49% | 86% |
+| 8% cap | 154.8% | -21.8% | 13.7% | 0.98 | 57% | 78% |
+| 6.5%, sector cap 50% | identical to 6.5% — the sector cap never binds | | | | | |
+| 3% + idle cash in SPY | 319.1% | -35.2% | 19.8% | 1.06 | 100% | 84% |
+| SPY buy and hold | 185.7% | -33.8% | 19.4% | 0.82 | 100% | 83% |
+
+### What it says
+
+**Deploying more scales the bet, not the odds.** Return and drawdown rise
+together from 3% to 6.5%; Sharpe drifts down (1.38 → 1.25) and the chance of a
+profitable year does not move (87% → 86%). Deployment changes how much a good
+or bad year is worth, never whether a year is good.
+
+**Past 6.5% it gets worse on every measure.** 8% returns less than 6.5% with a
+deeper drawdown and Sharpe under 1. More capital is going into the same
+correlated tech names; the diversification runs out.
+
+**6.5% is the only arm that matches SPY.** 184.7% against 185.7%, at half the
+drawdown (-16.3% vs -33.8%), ~49% invested. It beat SPY in 2020, 2022, 2023 and
+2024 and lost in 2019, 2021, 2025 and 2026.
+
+**Idle cash in SPY returns most but is SPY's risk.** -35.2% drawdown is past the
+30% that real capital here must tolerate. Not recommended for this account.
+
+**2025-2026 is flat in every strategy arm** (+2.0%, -1.3% at 6.5%) while SPY made
++17.7% and +5.0%. More capital does not fix that.
+
+### What it does not say
+
+The best arm is still the 3% one, and its deflated Sharpe is **0.855 over 77
+trials — no arm clears 0.95**. Raising the cap levers whatever edge exists; it
+does not create one. If the true edge is zero, 6.5% loses about twice as much
+as 3% does.
+
+Not shipped. `max_single_position` is on the BRIEF's do-not-touch list; the
+operator asked for this measurement and decides.

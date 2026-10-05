@@ -575,3 +575,16 @@ def test_scale_out_stays_disabled_until_the_live_engine_implements_it():
         "risk.scale_out is enabled but main.py has no partial-exit path, so "
         "the backtest and the live account would diverge silently."
     )
+
+
+def test_the_market_reference_is_the_primary_whatever_order_symbols_arrive_in():
+    """The sma200 filter and the volatility tier read `symbols[0]` as the market.
+    The HMM trains on `primary`. If the scan is handed the caller's order those
+    two disagree, and the same config returned 57% with AAPL first and 80% with
+    SPY first. The slice has to put the primary at the front."""
+    frame = _trending(n=300)          # past the warmup the slice requires
+    bars = {"AAPL": frame, "BIL": frame, "SPY": frame}
+    bt = _backtester(symbols=list(bars), primary="SPY")
+    assert list(bt._slice(bars, frame.index[-1]))[0] == "SPY"
+    reversed_bars = dict(reversed(list(bars.items())))
+    assert list(bt._slice(reversed_bars, frame.index[-1]))[0] == "SPY"
