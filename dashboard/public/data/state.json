@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-10-08T20:28:30.052433+00:00",
-  "timestamp": "2026-10-08T20:28:30.051105+00:00",
+  "published_at": "2026-10-08T23:28:12.866140+00:00",
+  "timestamp": "2026-10-08T23:28:12.865106+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 23.103418001483078,
-    "model_age_days": 0.12553143039351852,
+    "api_latency_ms": 23.05760200000151,
+    "model_age_days": 7.043715277777778e-06,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 25,
     "consecutive_errors": 0,
-    "started_at": "2026-10-08T20:28:28.193333+00:00",
+    "started_at": "2026-10-08T23:28:04.799561+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -39,8 +39,8 @@
   },
   "regime": {
     "n_regimes": 6,
-    "model_trained": "2026-10-08T17:27:44.135528+00:00",
-    "model_age_days": 0.12553143064814815,
+    "model_trained": "2026-10-08T23:28:12.256536+00:00",
+    "model_age_days": 7.043923611111111e-06,
     "regime": "weak_bear",
     "confidence": 0.9817562321436359,
     "confirmed": true,
@@ -57,7 +57,7 @@
   "portfolio": {
     "equity": 100669.83,
     "cash": 83049.86,
-    "buying_power": 381546.96,
+    "buying_power": 381570.33,
     "daily_pnl": 0.0,
     "daily_pnl_pct": 0.0,
     "allocation": 0.17502731453902326,
@@ -864,14 +864,14 @@
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 23.103418001483078,
-    "model_age_days": 0.12553143400462963,
+    "api_latency_ms": 23.05760200000151,
+    "model_age_days": 7.0470023148148145e-06,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 25,
     "consecutive_errors": 0,
-    "started_at": "2026-10-08T20:28:28.193333+00:00",
+    "started_at": "2026-10-08T23:28:04.799561+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -1154,7 +1154,7 @@
   ],
   "freshness": {
     "bar_timestamp": "2026-10-08T00:00:00",
-    "bar_age_hours": 20.48,
+    "bar_age_hours": 23.47,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -1168,8 +1168,8 @@
     "session_state": {
       "state": "closed",
       "label": "Market closed",
-      "detail": "Opens in 17.0 hours. Orders rest until then.",
-      "hours_until_change": 17.02
+      "detail": "Opens in 14.0 hours. Orders rest until then.",
+      "hours_until_change": 14.03
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -2597,7 +2597,7 @@
     "runs": [
       {
         "id": 128,
-        "started_at": "2026-10-08T20:28:28+00:00",
+        "started_at": "2026-10-08T23:28:04+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
