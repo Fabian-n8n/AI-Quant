@@ -109,6 +109,12 @@ function Expectancy({ snap }: { snap: Snapshot }) {
   const cells: { label: string; value: string; tone?: string; hint?: string }[] = [
     { label: "Closed trades", value: String(e.trades),
       hint: "30 needed before live is considered" },
+    // Banked total. Without it a stop that sells at a profit makes "secured"
+    // shrink and the money looks lost, when it has only moved from open to
+    // closed: 2026-10-08, six stops banked $1,352 and secured fell 1.6k to 297.
+    { label: "Realised P&L", value: e.trades ? signedMoney(e.expectancy * e.trades, 2) : "--",
+      tone: !e.trades ? "" : e.expectancy > 0 ? "text-positive" : "text-negative",
+      hint: "banked by closed trades" },
     { label: "Expectancy / trade", value: e.trades ? signedMoney(e.expectancy, 2) : "--",
       tone: !e.trades ? "" : e.expectancy > 0 ? "text-positive" : "text-negative" },
     { label: "Win rate", value: e.trades ? `${(e.win_rate * 100).toFixed(0)}%` : "--" },
@@ -117,7 +123,7 @@ function Expectancy({ snap }: { snap: Snapshot }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {cells.map((c) => (
         <div key={c.label}
              className="rounded-lg border border-border/70 bg-card/80 px-4 py-3 backdrop-blur-sm">
