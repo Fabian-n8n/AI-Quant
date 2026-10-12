@@ -2,7 +2,7 @@
 
 Everything another tool needs to rebuild this, plus what the evidence says so
 it does not get rebuilt blindly. Source: `~/Desktop/AI Quant Trading`,
-`github.com/Fabian-n8n/AI-Quant`, dashboard `ai-quant-kohl.vercel.app`.
+`github.com/Fabian-n8n/AI-Quant`, dashboard `qvant-trading.vercel.app` (the old `ai-quant-kohl.vercel.app` redirects there).
 
 ---
 
