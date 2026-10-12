@@ -1,5 +1,5 @@
 """
-regime-trader entry point. The complete trading engine.
+Qvant entry point. The complete trading engine.
 
     python main.py                                          # live/paper trading
     python main.py --dry-run                                # full pipeline, no orders
@@ -61,7 +61,7 @@ PHASES = [
     ("9", "Integration testing and documentation", True),
 ]
 
-logger = logging.getLogger("regime-trader.engine")
+logger = logging.getLogger("qvant.engine")
 
 # UUIDs and long hex handles in broker errors. They identify an order in an
 # account and belong in neither a public snapshot nor a dashboard string.
@@ -2932,7 +2932,7 @@ def run_dashboard(args) -> int:
                       "Nothing has run yet, or it ran from another directory.")
         return 1
 
-    console.print(f"\n[bold]regime-trader[/bold]  session {state.session_id}")
+    console.print(f"\n[bold]Qvant[/bold]  session {state.session_id}")
     console.print(f"  saved             {state.saved_at}")
     console.print(f"  bars processed    {state.bars_processed}")
     console.print(f"  last bar          {state.last_bar_timestamp}")
@@ -2966,7 +2966,7 @@ def run_dashboard(args) -> int:
 def run_status(args) -> int:
     """Build status. Touches no network and no broker."""
     done = sum(1 for *_, complete in PHASES if complete)
-    print(f"regime-trader: phase {done} of {len(PHASES)} complete.\n")
+    print(f"Qvant: phase {done} of {len(PHASES)} complete.\n")
     for number, name, complete in PHASES:
         print(f"  [{'x' if complete else ' '}] Phase {number}  {name}")
     print("\nAll phases built. The strategy still has no demonstrated edge:")
@@ -3052,7 +3052,7 @@ def run_portfolio_backtest(args) -> int:
     table = Table(title="Portfolio walk-forward (live risk layer, out-of-sample)")
     for column in ("", "Return", "Max DD", "Sharpe", "Avg exposure", "Trades"):
         table.add_column(column, justify="right" if column else "left")
-    table.add_row("regime-trader", f"{total:+.2%}", f"{drawdown:+.2%}", f"{sharpe:.2f}",
+    table.add_row("Qvant", f"{total:+.2%}", f"{drawdown:+.2%}", f"{sharpe:.2f}",
                   f"{result.avg_exposure:.1%}", str(result.n_trades))
     table.add_row(f"{symbols[0]} buy and hold", f"{bench_return:+.2%}", f"{bench_dd:+.2%}",
                   "-", "100.0%", "1")
@@ -3248,7 +3248,7 @@ def run_demo(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="main.py",
-        description="regime-trader: HMM regime detection with volatility-based allocation",
+        description="Qvant: regime-aware quant trading. HMM regime detection with volatility-based allocation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "examples:\n"

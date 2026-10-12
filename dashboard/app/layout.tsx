@@ -3,9 +3,9 @@ import { Nav } from "@/components/nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "regime-trader",
+  title: "Qvant",
   description:
-    "HMM regime detection with volatility-based allocation. Read-only monitoring dashboard.",
+    "Qvant: regime-aware quant trading. Read-only monitoring dashboard.",
 };
 
 export const viewport: Viewport = {

@@ -107,9 +107,9 @@ function Masthead({ snap, demo }: { snap: Snapshot; demo: boolean }) {
           <TrendingUp className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
         </span>
         <div>
-          <h1 className="text-base font-semibold leading-tight tracking-tight">regime-trader</h1>
+          <h1 className="text-base font-semibold leading-tight tracking-tight">Qvant</h1>
           <p className="text-xs text-muted-foreground">
-            HMM regime detection · volatility-based allocation
+            Regime-aware quant trading
           </p>
         </div>
       </div>

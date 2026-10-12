@@ -206,7 +206,7 @@ class AlertManager:
             return
         try:
             message = EmailMessage()
-            message["Subject"] = f"[regime-trader] {subject}"
+            message["Subject"] = f"[Qvant] {subject}"
             message["From"] = os.getenv("SMTP_FROM", self.email_to)
             message["To"] = self.email_to
             message.set_content(body)

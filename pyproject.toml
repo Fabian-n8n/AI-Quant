@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "regime-trader"
+name = "qvant"
 version = "1.0.0"
-description = "HMM regime detection with volatility-based allocation and an independent risk layer"
+description = "Qvant: regime-aware quant trading. HMM regime detection, volatility-based allocation and an independent risk layer"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -26,7 +26,7 @@ dependencies = [
 dev = ["pytest>=8.0", "pytest-timeout>=2.3", "ruff>=0.6"]
 
 [project.scripts]
-regime-trader = "main:main"
+qvant = "main:main"
 
 [tool.setuptools]
 # Explicit rather than auto-discovered: `dashboard` is a Node project and

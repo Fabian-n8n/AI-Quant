@@ -14,7 +14,7 @@ Where this departs from the tutorial, it is noted and the reason is given.
 ## File structure (Phase 1, done)
 
 ```
-AI Quant Trading/                  # repo root, project name "regime-trader"
+AI Quant Trading/                  # repo root, project name "Qvant"
 ├── config/
 │   ├── settings.yaml              # ALL configurable parameters
 │   ├── credentials.yaml.example

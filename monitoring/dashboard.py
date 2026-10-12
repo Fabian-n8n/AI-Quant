@@ -499,7 +499,7 @@ class TerminalDashboard:
 
         system = state.get("system", {})
         stamp = str(state.get("timestamp", ""))[11:19]
-        title = (f"regime-trader  [{system.get('mode', '?')}]  "
+        title = (f"Qvant  [{system.get('mode', '?')}]  "
                  f"{', '.join(system.get('symbols', [])[:6]) or 'no symbols'}  "
                  f"{system.get('timeframe', '')}")
         return Panel(

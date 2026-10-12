@@ -256,7 +256,7 @@ class TradingLogger:
 
     STREAMS = ("main", "trades", "alerts", "regime")
 
-    def __init__(self, name: str = "regime-trader", log_dir: Path = LOG_DIR) -> None:
+    def __init__(self, name: str = "qvant", log_dir: Path = LOG_DIR) -> None:
         self.name = name
         self.log_dir = Path(log_dir)
         self._logger: logging.Logger | None = None

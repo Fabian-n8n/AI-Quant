@@ -1,4 +1,4 @@
-# regime-trader: handoff spec
+# Qvant: handoff spec
 
 Everything another tool needs to rebuild this, plus what the evidence says so
 it does not get rebuilt blindly. Source: `~/Desktop/AI Quant Trading`,

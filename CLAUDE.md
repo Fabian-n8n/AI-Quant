@@ -1,10 +1,11 @@
-# Regime Trader - Project Brief
+# Qvant - Project Brief
 
 Context carried over from a research session. This file is the source of truth for
 project decisions. Read it fully before starting any phase.
 
-Repo root lives at `~/Desktop/AI Quant Trading`. The project is called
-**regime-trader** in code and docs.
+Repo root lives at `~/Desktop/AI Quant Trading`. The product is called
+**Qvant** (slug `qvant`). It was `regime-trader` until 2026-10-12; dated
+results tables keep the old name. "Regime" elsewhere means market regimes.
 
 ---
 

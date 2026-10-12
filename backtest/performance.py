@@ -952,7 +952,7 @@ def _render_benchmarks(report: PerformanceReport, console) -> None:
         table.add_column(col, justify="right" if col != "Strategy" else "left")
 
     table.add_row(
-        "[bold]regime-trader[/bold]", _fmt(report.core["total_return"], "pct"),
+        "[bold]Qvant[/bold]", _fmt(report.core["total_return"], "pct"),
         _fmt(report.core["cagr"], "pct"), _fmt(report.core["sharpe"], "num"),
         _fmt(report.core["max_drawdown"], "pct"), style="cyan",
     )
@@ -1030,7 +1030,7 @@ def export(report: PerformanceReport, output_dir: Path) -> dict[str, Path]:
 
     if report.benchmarks:
         rows = [{
-            "strategy": "regime-trader",
+            "strategy": "qvant",
             "total_return": report.core["total_return"],
             "cagr": report.core["cagr"],
             "sharpe": report.core["sharpe"],

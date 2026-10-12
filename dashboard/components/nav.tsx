@@ -35,7 +35,7 @@ export function Nav() {
                     fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
-          <span className="text-sm font-semibold tracking-tight">regime-trader</span>
+          <span className="text-sm font-semibold tracking-tight">Qvant</span>
         </div>
 
         {ROUTES.map(({ href, label, icon: Icon, hint }) => {

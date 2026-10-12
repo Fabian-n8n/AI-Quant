@@ -184,7 +184,10 @@ def check_beats_benchmarks() -> Check:
         except ValueError:
             return None
 
-    own = total("regime-trader")
+    # Renamed 2026-10-12; exports written before the rebrand carry the old key.
+    own = total("qvant")
+    if own is None:
+        own = total("regime-trader")
     if own is None:
         return Check(
             name="Beats buy-and-hold, SMA trend, and random entry",

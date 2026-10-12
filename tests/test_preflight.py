@@ -101,7 +101,7 @@ def _write_comparison(tmp_path, monkeypatch, rows):
 
 def test_losing_to_buy_and_hold_fails(tmp_path, monkeypatch):
     _write_comparison(tmp_path, monkeypatch, [
-        {"strategy": "regime-trader", "total_return": "0.55"},
+        {"strategy": "qvant", "total_return": "0.55"},
         {"strategy": "buy_and_hold", "total_return": "1.18"},
         {"strategy": "sma_200_trend", "total_return": "-0.01"},
         {"strategy": "random_allocation_100_seeds", "total_return": "0.30"},
@@ -116,7 +116,7 @@ def test_losing_to_random_entry_fails(tmp_path, monkeypatch):
     strategy that cannot beat coin flips at the same exposure has found
     nothing, it was just in the market during an up year."""
     _write_comparison(tmp_path, monkeypatch, [
-        {"strategy": "regime-trader", "total_return": "0.55"},
+        {"strategy": "qvant", "total_return": "0.55"},
         {"strategy": "buy_and_hold", "total_return": "0.20"},
         {"strategy": "sma_200_trend", "total_return": "-0.01"},
         {"strategy": "random_allocation_100_seeds", "total_return": "0.85"},
@@ -127,6 +127,18 @@ def test_losing_to_random_entry_fails(tmp_path, monkeypatch):
 
 
 def test_beating_all_three_passes(tmp_path, monkeypatch):
+    _write_comparison(tmp_path, monkeypatch, [
+        {"strategy": "qvant", "total_return": "1.50"},
+        {"strategy": "buy_and_hold", "total_return": "1.18"},
+        {"strategy": "sma_200_trend", "total_return": "-0.01"},
+        {"strategy": "random_allocation_100_seeds", "total_return": "0.85"},
+    ])
+    assert check_beats_benchmarks().passed
+
+
+def test_an_export_from_before_the_rebrand_still_counts(tmp_path, monkeypatch):
+    """The strategy row was keyed "regime-trader" until 2026-10-12. An export
+    written then must not read as "strategy row missing" and fail the gate."""
     _write_comparison(tmp_path, monkeypatch, [
         {"strategy": "regime-trader", "total_return": "1.50"},
         {"strategy": "buy_and_hold", "total_return": "1.18"},
@@ -139,7 +151,7 @@ def test_beating_all_three_passes(tmp_path, monkeypatch):
 def test_an_unmeasured_benchmark_is_not_a_pass(tmp_path, monkeypatch):
     """A benchmark that was not run is not a benchmark that was beaten."""
     _write_comparison(tmp_path, monkeypatch, [
-        {"strategy": "regime-trader", "total_return": "1.50"},
+        {"strategy": "qvant", "total_return": "1.50"},
         {"strategy": "buy_and_hold", "total_return": "1.18"},
         {"strategy": "sma_200_trend", "total_return": "-0.01"},
     ])

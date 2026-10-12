@@ -1,4 +1,4 @@
-# regime-trader dashboard
+# Qvant dashboard
 
 Static Next.js view of a published snapshot. It has **no credentials, no broker
 connection, and no order path** — it reads `public/data/state.json` and nothing

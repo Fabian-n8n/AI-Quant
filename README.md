@@ -1,4 +1,4 @@
-# regime-trader
+# Qvant
 
 A rules-based swing trading system. A hidden Markov model classifies the current
 market regime from price and volume, portfolio allocation is set by the
