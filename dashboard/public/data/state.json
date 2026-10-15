@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-10-15T17:24:46.600646+00:00",
-  "timestamp": "2026-10-15T17:24:46.598290+00:00",
+  "published_at": "2026-10-15T17:39:51.280263+00:00",
+  "timestamp": "2026-10-15T17:39:51.277874+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 30.795721999311354,
-    "model_age_days": 0.0943192614236111,
+    "api_latency_ms": 32.597927000097116,
+    "model_age_days": 0.10479008995370372,
     "paper": true,
     "mode": "live",
     "market_open": true,
     "bars_processed": 30,
     "consecutive_errors": 0,
-    "started_at": "2026-10-15T17:24:43.807529+00:00",
+    "started_at": "2026-10-15T17:39:48.508019+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -40,7 +40,7 @@
   "regime": {
     "n_regimes": 7,
     "model_trained": "2026-10-15T15:08:57.414111+00:00",
-    "model_age_days": 0.09431926172453704,
+    "model_age_days": 0.1047900904513889,
     "regime": "neutral",
     "confidence": 0.9997732156570702,
     "confirmed": true,
@@ -944,14 +944,14 @@
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 30.795721999311354,
-    "model_age_days": 0.09431926763888888,
+    "api_latency_ms": 32.597927000097116,
+    "model_age_days": 0.10479009619212962,
     "paper": true,
     "mode": "live",
     "market_open": true,
     "bars_processed": 30,
     "consecutive_errors": 0,
-    "started_at": "2026-10-15T17:24:43.807529+00:00",
+    "started_at": "2026-10-15T17:39:48.508019+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -1279,7 +1279,7 @@
   ],
   "freshness": {
     "bar_timestamp": "2026-10-15T00:00:00",
-    "bar_age_hours": 17.41,
+    "bar_age_hours": 17.66,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -1294,7 +1294,7 @@
       "state": "open",
       "label": "Market open",
       "detail": "Resting orders can fill now.",
-      "hours_until_change": 2.59
+      "hours_until_change": 2.34
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -3351,7 +3351,7 @@
     "runs": [
       {
         "id": 143,
-        "started_at": "2026-10-15T17:24:43+00:00",
+        "started_at": "2026-10-15T17:39:48+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
