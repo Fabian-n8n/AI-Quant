@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-10-15T20:57:08.698098+00:00",
-  "timestamp": "2026-10-15T20:57:08.696741+00:00",
+  "published_at": "2026-10-15T21:12:12.657219+00:00",
+  "timestamp": "2026-10-15T21:12:12.655648+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 89.68634800021391,
-    "model_age_days": 0.04187094994212963,
+    "api_latency_ms": 76.74019299975043,
+    "model_age_days": 0.052333437291666667,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 30,
     "consecutive_errors": 0,
-    "started_at": "2026-10-15T20:57:06.525020+00:00",
+    "started_at": "2026-10-15T21:12:10.469731+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -40,7 +40,7 @@
   "regime": {
     "n_regimes": 7,
     "model_trained": "2026-10-15T19:56:51.046674+00:00",
-    "model_age_days": 0.04187095019675926,
+    "model_age_days": 0.05233343766203703,
     "regime": "neutral",
     "confidence": 0.9997732156570702,
     "confirmed": true,
@@ -57,7 +57,7 @@
   "portfolio": {
     "equity": 100274.06,
     "cash": 73008.1,
-    "buying_power": 365940.25,
+    "buying_power": 365911.12,
     "daily_pnl": 0.0,
     "daily_pnl_pct": 0.0,
     "allocation": 0.2719143914188774,
@@ -106,7 +106,7 @@
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "5h",
+      "held_for": "6h",
       "adopted": true
     },
     {
@@ -125,7 +125,7 @@
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "5h",
+      "held_for": "6h",
       "adopted": true
     },
     {
@@ -201,7 +201,7 @@
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "5h",
+      "held_for": "6h",
       "adopted": true
     },
     {
@@ -220,7 +220,7 @@
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "5h",
+      "held_for": "6h",
       "adopted": true
     },
     {
@@ -239,7 +239,7 @@
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "5h",
+      "held_for": "6h",
       "adopted": true
     },
     {
@@ -258,7 +258,7 @@
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "5h",
+      "held_for": "6h",
       "adopted": true
     }
   ],
@@ -944,14 +944,14 @@
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 89.68634800021391,
-    "model_age_days": 0.04187095398148148,
+    "api_latency_ms": 76.74019299975043,
+    "model_age_days": 0.052333441678240736,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 30,
     "consecutive_errors": 0,
-    "started_at": "2026-10-15T20:57:06.525020+00:00",
+    "started_at": "2026-10-15T21:12:10.469731+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -1279,7 +1279,7 @@
   ],
   "freshness": {
     "bar_timestamp": "2026-10-15T00:00:00",
-    "bar_age_hours": 20.95,
+    "bar_age_hours": 21.2,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -1293,8 +1293,8 @@
     "session_state": {
       "state": "closed",
       "label": "Market closed",
-      "detail": "Opens in 16.6 hours. Orders rest until then.",
-      "hours_until_change": 16.55
+      "detail": "Opens in 16.3 hours. Orders rest until then.",
+      "hours_until_change": 16.3
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -3351,7 +3351,7 @@
     "runs": [
       {
         "id": 143,
-        "started_at": "2026-10-15T20:57:06+00:00",
+        "started_at": "2026-10-15T21:12:10+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
