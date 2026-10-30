@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-10-30T19:31:01.253640+00:00",
-  "timestamp": "2026-10-30T19:31:01.250308+00:00",
+  "published_at": "2026-10-30T19:46:05.837159+00:00",
+  "timestamp": "2026-10-30T19:46:05.833376+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 20.33719300015946,
-    "model_age_days": 0.11525862833333335,
+    "api_latency_ms": 13.511719000234734,
+    "model_age_days": 0.1257283397800926,
     "paper": true,
     "mode": "live",
     "market_open": true,
     "bars_processed": 41,
     "consecutive_errors": 0,
-    "started_at": "2026-10-30T19:30:58.567304+00:00",
+    "started_at": "2026-10-30T19:46:03.121745+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -40,7 +40,7 @@
   "regime": {
     "n_regimes": 7,
     "model_trained": "2026-10-30T16:45:02.904829+00:00",
-    "model_age_days": 0.11525862863425927,
+    "model_age_days": 0.12572834006944444,
     "regime": "neutral",
     "confidence": 0.999884556416342,
     "confirmed": true,
@@ -55,19 +55,19 @@
     "timestamp": "2026-10-30T00:00:00"
   },
   "portfolio": {
-    "equity": 98556.35,
+    "equity": 98602.25,
     "cash": 82039.0,
-    "buying_power": 374404.59,
-    "daily_pnl": -0.319999999992433,
-    "daily_pnl_pct": -3.246862946895761e-06,
-    "allocation": 0.16759400383638395,
+    "buying_power": 374533.09,
+    "daily_pnl": -0.13999999999941792,
+    "daily_pnl_pct": -1.4198438800460914e-06,
+    "allocation": 0.16798039598487863,
     "target_allocation": 1.1875,
-    "leverage": 0.16759400383638395,
-    "gross_exposure": 0.16759400383638395,
+    "leverage": 0.16798039598487863,
+    "gross_exposure": 0.16798039598487863,
     "n_positions": 6,
-    "unrealised_pnl": -47.946699999999964,
-    "peak_equity": 98570.27461574288,
-    "day_start_equity": 98556.67,
+    "unrealised_pnl": -2.1549999999997453,
+    "peak_equity": 98616.00092686349,
+    "day_start_equity": 98602.39,
     "daily_trades": 6
   },
   "positions": [
@@ -76,18 +76,18 @@
       "direction": "LONG",
       "quantity": 12.0,
       "entry_price": 232.1125,
-      "current_price": 239.15,
-      "market_value": 2869.8,
+      "current_price": 239.78,
+      "market_value": 2877.36,
       "stop_loss": 236.53244450661725,
       "has_stop": true,
-      "unrealised_pnl": 84.44999999999982,
-      "unrealised_pnl_pct": 0.03031934945338999,
-      "distance_to_stop_pct": 0.010945245634048726,
+      "unrealised_pnl": 92.00999999999976,
+      "unrealised_pnl_pct": 0.03303355054122453,
+      "distance_to_stop_pct": 0.013543896460850564,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "2h",
+      "held_for": "3h",
       "adopted": true
     },
     {
@@ -95,13 +95,13 @@
       "direction": "LONG",
       "quantity": 33.0,
       "entry_price": 91.6,
-      "current_price": 91.7001,
-      "market_value": 3026.1033,
+      "current_price": 91.705,
+      "market_value": 3026.265,
       "stop_loss": 91.2415,
       "has_stop": true,
-      "unrealised_pnl": 3.3033000000004904,
-      "unrealised_pnl_pct": 0.0010927947598254899,
-      "distance_to_stop_pct": 0.005001085058794964,
+      "unrealised_pnl": 3.4650000000001455,
+      "unrealised_pnl_pct": 0.0011462882096070352,
+      "distance_to_stop_pct": 0.00505425004089195,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
@@ -114,18 +114,18 @@
       "direction": "LONG",
       "quantity": 10.0,
       "entry_price": 279.743,
-      "current_price": 277.9,
-      "market_value": 2779.0,
+      "current_price": 279.045,
+      "market_value": 2790.4500000000003,
       "stop_loss": 275.50160663681015,
       "has_stop": true,
-      "unrealised_pnl": -18.429999999999836,
-      "unrealised_pnl_pct": -0.0065881898742774034,
-      "distance_to_stop_pct": 0.008630418723245143,
+      "unrealised_pnl": -6.979999999999563,
+      "unrealised_pnl_pct": -0.00249514733165783,
+      "distance_to_stop_pct": 0.012698286524359382,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "2h",
+      "held_for": "3h",
       "adopted": true
     },
     {
@@ -133,18 +133,18 @@
       "direction": "LONG",
       "quantity": 4.0,
       "entry_price": 616.36,
-      "current_price": 612.625,
-      "market_value": 2450.5,
-      "stop_loss": 610.2,
+      "current_price": 614.33,
+      "market_value": 2457.32,
+      "stop_loss": 610.203637920826,
       "has_stop": true,
-      "unrealised_pnl": -14.940000000000055,
-      "unrealised_pnl_pct": -0.006059770264131374,
-      "distance_to_stop_pct": 0.003958375841664892,
+      "unrealised_pnl": -8.11999999999989,
+      "unrealised_pnl_pct": -0.0032935297553377454,
+      "distance_to_stop_pct": 0.006716849379281472,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "2h",
+      "held_for": "3h",
       "adopted": true
     },
     {
@@ -152,18 +152,18 @@
       "direction": "LONG",
       "quantity": 5.0,
       "entry_price": 522.798,
-      "current_price": 522.285,
-      "market_value": 2611.4249999999997,
-      "stop_loss": 510.27,
+      "current_price": 523.92,
+      "market_value": 2619.6,
+      "stop_loss": 510.2717091496304,
       "has_stop": true,
-      "unrealised_pnl": -2.5650000000000546,
-      "unrealised_pnl_pct": -0.0009812585358016117,
-      "distance_to_stop_pct": 0.023004681352135303,
+      "unrealised_pnl": 5.610000000000127,
+      "unrealised_pnl_pct": 0.00214614439994037,
+      "distance_to_stop_pct": 0.02605033373486327,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "2h",
+      "held_for": "3h",
       "adopted": true
     },
     {
@@ -171,18 +171,18 @@
       "direction": "LONG",
       "quantity": 15.0,
       "entry_price": 192.026,
-      "current_price": 185.375,
-      "market_value": 2780.625,
-      "stop_loss": 181.37,
+      "current_price": 186.15,
+      "market_value": 2792.25,
+      "stop_loss": 181.37040869796166,
       "has_stop": true,
-      "unrealised_pnl": -99.76500000000033,
-      "unrealised_pnl_pct": -0.03463593471717383,
-      "distance_to_stop_pct": 0.021604855023600784,
+      "unrealised_pnl": -88.14000000000033,
+      "unrealised_pnl_pct": -0.0306000229135639,
+      "distance_to_stop_pct": 0.02567602096179608,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
       "holding_periods": 0,
-      "held_for": "2h",
+      "held_for": "3h",
       "adopted": true
     }
   ],
@@ -196,8 +196,8 @@
       "shares": 15.0,
       "notional": 2796.07,
       "entry_price": 192.026,
-      "stop_loss": 181.37,
-      "stop_distance_pct": 0.05549248539260311,
+      "stop_loss": 181.37040869796166,
+      "stop_distance_pct": 0.05549035704559979,
       "stop_atr_mult": 0.633,
       "risk_dollars": 75.51,
       "risk_pct_of_equity": 0.000766,
@@ -235,7 +235,7 @@
       "stop_distance_pct": 0.016151,
       "stop_atr_mult": 1.649,
       "risk_dollars": 47.37,
-      "risk_pct_of_equity": 0.000481,
+      "risk_pct_of_equity": 0.00048,
       "trend": "above",
       "price_vs_ema50": 0.011382,
       "atr_pct": 0.009794,
@@ -269,7 +269,7 @@
       "stop_distance_pct": 0.08525,
       "stop_atr_mult": 2.542,
       "risk_dollars": 239.19,
-      "risk_pct_of_equity": 0.002427,
+      "risk_pct_of_equity": 0.002426,
       "trend": "above",
       "price_vs_ema50": 0.073519,
       "atr_pct": 0.033532,
@@ -299,11 +299,11 @@
       "shares": 5.0,
       "notional": 2610.75,
       "entry_price": 522.798,
-      "stop_loss": 510.27,
-      "stop_distance_pct": 0.02396336634799678,
+      "stop_loss": 510.2717091496304,
+      "stop_distance_pct": 0.02396009711278468,
       "stop_atr_mult": 1.583,
       "risk_dollars": 93.99,
-      "risk_pct_of_equity": 0.000954,
+      "risk_pct_of_equity": 0.000953,
       "trend": "above",
       "price_vs_ema50": 0.025249,
       "atr_pct": 0.022749,
@@ -372,7 +372,7 @@
       "stop_distance_pct": 0.04703,
       "stop_atr_mult": 2.645,
       "risk_dollars": 130.76,
-      "risk_pct_of_equity": 0.001327,
+      "risk_pct_of_equity": 0.001326,
       "trend": "above",
       "price_vs_ema50": 0.03965,
       "atr_pct": 0.017784,
@@ -509,7 +509,7 @@
       "stop_distance_pct": -0.019042251092109393,
       "stop_atr_mult": 0.5,
       "risk_dollars": 43.53,
-      "risk_pct_of_equity": 0.000442,
+      "risk_pct_of_equity": 0.000441,
       "trend": "below",
       "price_vs_ema50": -0.052599,
       "atr_pct": 0.030209,
@@ -544,7 +544,7 @@
       "stop_distance_pct": 0.00851,
       "stop_atr_mult": 0.5,
       "risk_dollars": 24.31,
-      "risk_pct_of_equity": 0.000247,
+      "risk_pct_of_equity": 0.000246,
       "trend": "below",
       "price_vs_ema50": -0.069589,
       "atr_pct": 0.01702,
@@ -646,7 +646,7 @@
       "stop_distance_pct": 0.037113,
       "stop_atr_mult": 0.5,
       "risk_dollars": 109.39,
-      "risk_pct_of_equity": 0.00111,
+      "risk_pct_of_equity": 0.001109,
       "trend": "below",
       "price_vs_ema50": -0.190639,
       "atr_pct": 0.074227,
@@ -779,11 +779,11 @@
       "shares": 4.0,
       "notional": 2487.4,
       "entry_price": 616.36,
-      "stop_loss": 610.2,
-      "stop_distance_pct": 0.009994159257576688,
+      "stop_loss": 610.203637920826,
+      "stop_distance_pct": 0.009988256991326432,
       "stop_atr_mult": 0.5,
       "risk_dollars": 46.59,
-      "risk_pct_of_equity": 0.000473,
+      "risk_pct_of_equity": 0.000472,
       "trend": "below",
       "price_vs_ema50": -0.069426,
       "atr_pct": 0.037457,
@@ -858,23 +858,23 @@
       "max_risk_per_trade": 0.01
     },
     "drawdowns": {
-      "daily": -3.2468629469484256e-06,
-      "weekly": -3.2468629469484256e-06,
-      "from_peak": -0.0001412658714521342
+      "daily": -1.4198438800239188e-06,
+      "weekly": -1.4198438800239188e-06,
+      "from_peak": -0.00013943910454949915
     },
     "breaker_now": "none"
   },
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 20.33719300015946,
-    "model_age_days": 0.11525863305555556,
+    "api_latency_ms": 13.511719000234734,
+    "model_age_days": 0.12572834489583334,
     "paper": true,
     "mode": "live",
     "market_open": true,
     "bars_processed": 41,
     "consecutive_errors": 0,
-    "started_at": "2026-10-30T19:30:58.567304+00:00",
+    "started_at": "2026-10-30T19:46:03.121745+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -902,208 +902,208 @@
   "equity_history": [
     {
       "t": "2026-09-04",
-      "equity": 98570.26,
-      "peak": 98570.26
+      "equity": 98615.99,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-04",
-      "equity": 98570.26,
-      "peak": 98570.26
+      "equity": 98615.99,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-04",
-      "equity": 98570.26,
-      "peak": 98570.26
+      "equity": 98615.99,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-08",
-      "equity": 98570.02,
-      "peak": 98570.26
+      "equity": 98615.75,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-09",
-      "equity": 98570.02,
-      "peak": 98570.26
+      "equity": 98615.75,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-10",
-      "equity": 98556.53,
-      "peak": 98570.26
+      "equity": 98602.25,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-11",
-      "equity": 98556.27,
-      "peak": 98570.26
+      "equity": 98601.99,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-14",
-      "equity": 98556.27,
-      "peak": 98570.25
+      "equity": 98601.99,
+      "peak": 98615.98
     },
     {
       "t": "2026-09-15",
-      "equity": 98556.27,
-      "peak": 98570.26
+      "equity": 98601.99,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-16",
-      "equity": 98556.27,
-      "peak": 98570.25
+      "equity": 98601.99,
+      "peak": 98615.98
     },
     {
       "t": "2026-09-17",
-      "equity": 98556.27,
-      "peak": 98570.26
+      "equity": 98601.99,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-18",
-      "equity": 98556.28,
-      "peak": 98570.26
+      "equity": 98602.0,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-21",
-      "equity": 98556.28,
-      "peak": 98570.26
+      "equity": 98602.0,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-22",
-      "equity": 98556.66,
-      "peak": 98570.26
+      "equity": 98602.38,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-23",
-      "equity": 98556.66,
-      "peak": 98570.26
+      "equity": 98602.38,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-24",
-      "equity": 98556.66,
-      "peak": 98570.26
+      "equity": 98602.38,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-25",
-      "equity": 98556.66,
-      "peak": 98570.26
+      "equity": 98602.38,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-28",
-      "equity": 98556.66,
-      "peak": 98570.26
+      "equity": 98602.38,
+      "peak": 98615.99
     },
     {
       "t": "2026-09-29",
-      "equity": 98556.66,
-      "peak": 98570.27
+      "equity": 98602.38,
+      "peak": 98616.0
     },
     {
       "t": "2026-09-30",
-      "equity": 98556.68,
-      "peak": 98570.27
+      "equity": 98602.4,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-01",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-02",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-05",
-      "equity": 98556.67,
-      "peak": 98570.26
+      "equity": 98602.39,
+      "peak": 98615.99
     },
     {
       "t": "2026-10-06",
-      "equity": 98556.67,
-      "peak": 98570.26
+      "equity": 98602.39,
+      "peak": 98615.99
     },
     {
       "t": "2026-10-07",
-      "equity": 98556.67,
-      "peak": 98570.26
+      "equity": 98602.39,
+      "peak": 98615.99
     },
     {
       "t": "2026-10-08",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-09",
-      "equity": 98556.67,
-      "peak": 98570.26
+      "equity": 98602.39,
+      "peak": 98615.99
     },
     {
       "t": "2026-10-12",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-13",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-14",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-15",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-16",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-19",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-20",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-21",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-22",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-23",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-26",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-27",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     },
     {
       "t": "2026-10-28",
-      "equity": 98556.67,
-      "peak": 98570.28
+      "equity": 98602.39,
+      "peak": 98616.01
     },
     {
       "t": "2026-10-29",
-      "equity": 98556.67,
-      "peak": 98570.27
+      "equity": 98602.39,
+      "peak": 98616.0
     }
   ],
   "regime_history": [
@@ -1301,7 +1301,7 @@
   ],
   "freshness": {
     "bar_timestamp": "2026-10-30T00:00:00",
-    "bar_age_hours": 19.52,
+    "bar_age_hours": 19.77,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -1316,7 +1316,7 @@
       "state": "open",
       "label": "Market open",
       "detail": "Resting orders can fill now.",
-      "hours_until_change": 0.48
+      "hours_until_change": 0.23
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -3244,14 +3244,14 @@
         "exit_at": null,
         "exit_reason": null,
         "stop_price": 236.53244450661725,
-        "current_price": 239.15,
-        "unrealised_pnl": 84.44999999999982,
+        "current_price": 239.78,
+        "unrealised_pnl": 92.00999999999976,
         "realised_pnl": null,
         "holding_days": 0,
         "regime_at_entry": "unknown",
         "locked_pnl": 53.04,
         "locked_pct": 0.019042,
-        "trail_pct": 0.010945
+        "trail_pct": 0.013544
       },
       {
         "id": 82,
@@ -3263,14 +3263,14 @@
         "exit_at": null,
         "exit_reason": null,
         "stop_price": 275.50160663681015,
-        "current_price": 277.9,
-        "unrealised_pnl": -18.429999999999836,
+        "current_price": 279.045,
+        "unrealised_pnl": -6.979999999999563,
         "realised_pnl": null,
         "holding_days": 0,
         "regime_at_entry": "unknown",
         "locked_pnl": null,
         "locked_pct": null,
-        "trail_pct": 0.00863
+        "trail_pct": 0.012698
       },
       {
         "id": 83,
@@ -3281,15 +3281,15 @@
         "exit_price": null,
         "exit_at": null,
         "exit_reason": null,
-        "stop_price": 610.2,
-        "current_price": 612.625,
-        "unrealised_pnl": -14.940000000000055,
+        "stop_price": 610.203637920826,
+        "current_price": 614.33,
+        "unrealised_pnl": -8.11999999999989,
         "realised_pnl": null,
         "holding_days": 0,
         "regime_at_entry": "unknown",
         "locked_pnl": null,
         "locked_pct": null,
-        "trail_pct": 0.003958
+        "trail_pct": 0.006717
       },
       {
         "id": 84,
@@ -3300,15 +3300,15 @@
         "exit_price": null,
         "exit_at": null,
         "exit_reason": null,
-        "stop_price": 510.27,
-        "current_price": 522.285,
-        "unrealised_pnl": -2.5650000000000546,
+        "stop_price": 510.2717091496304,
+        "current_price": 523.92,
+        "unrealised_pnl": 5.610000000000127,
         "realised_pnl": null,
         "holding_days": 0,
         "regime_at_entry": "unknown",
         "locked_pnl": null,
         "locked_pct": null,
-        "trail_pct": 0.023005
+        "trail_pct": 0.02605
       },
       {
         "id": 85,
@@ -3319,15 +3319,15 @@
         "exit_price": null,
         "exit_at": null,
         "exit_reason": null,
-        "stop_price": 181.37,
-        "current_price": 185.375,
-        "unrealised_pnl": -99.76500000000033,
+        "stop_price": 181.37040869796166,
+        "current_price": 186.15,
+        "unrealised_pnl": -88.14000000000033,
         "realised_pnl": null,
         "holding_days": 0,
         "regime_at_entry": "unknown",
         "locked_pnl": null,
         "locked_pct": null,
-        "trail_pct": 0.021605
+        "trail_pct": 0.025676
       },
       {
         "id": 21,
@@ -3339,14 +3339,14 @@
         "exit_at": null,
         "exit_reason": null,
         "stop_price": 91.2415,
-        "current_price": 91.7001,
-        "unrealised_pnl": 3.3033000000004904,
+        "current_price": 91.705,
+        "unrealised_pnl": 3.4650000000001455,
         "realised_pnl": null,
         "holding_days": 36,
         "regime_at_entry": "unknown",
         "locked_pnl": null,
         "locked_pct": null,
-        "trail_pct": 0.005001
+        "trail_pct": 0.005054
       }
     ],
     "closed_positions": [
@@ -4618,7 +4618,7 @@
     "runs": [
       {
         "id": 180,
-        "started_at": "2026-10-30T19:30:58+00:00",
+        "started_at": "2026-10-30T19:46:03+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
