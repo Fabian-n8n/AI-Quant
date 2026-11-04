@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-11-04T18:52:26.473719+00:00",
-  "timestamp": "2026-11-04T18:52:26.471155+00:00",
+  "published_at": "2026-11-04T19:07:32.127219+00:00",
+  "timestamp": "2026-11-04T19:07:32.125092+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 51.49985399975776,
-    "model_age_days": 0.0315461235300926,
+    "api_latency_ms": 56.754038000235596,
+    "model_age_days": 0.04202822930555555,
     "paper": true,
     "mode": "live",
     "market_open": true,
     "bars_processed": 44,
     "consecutive_errors": 0,
-    "started_at": "2026-11-04T18:52:23.109870+00:00",
+    "started_at": "2026-11-04T19:07:28.584573+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -40,7 +40,7 @@
   "regime": {
     "n_regimes": 7,
     "model_trained": "2026-11-04T18:07:00.886092+00:00",
-    "model_age_days": 0.03154612383101852,
+    "model_age_days": 0.042028229629629626,
     "regime": "neutral",
     "confidence": 0.7585155152607329,
     "confirmed": true,
@@ -55,19 +55,19 @@
     "timestamp": "2026-11-04T00:00:00"
   },
   "portfolio": {
-    "equity": 98848.17,
-    "cash": 79781.07,
-    "buying_power": 369693.94,
-    "daily_pnl": -0.25,
-    "daily_pnl_pct": -2.529124896482918e-06,
-    "allocation": 0.19288961039946415,
+    "equity": 98865.87,
+    "cash": 82295.7,
+    "buying_power": 372761.08,
+    "daily_pnl": 0.8499999999912689,
+    "daily_pnl_pct": 8.597580822734561e-06,
+    "allocation": 0.16759821968895838,
     "target_allocation": 1.1875,
-    "leverage": 0.19288961039946415,
-    "gross_exposure": 0.19288961039946415,
-    "n_positions": 7,
-    "unrealised_pnl": 705.5450009999995,
-    "peak_equity": 98862.06488847778,
-    "day_start_equity": 98848.42,
+    "leverage": 0.16759821968895838,
+    "gross_exposure": 0.16759821968895838,
+    "n_positions": 6,
+    "unrealised_pnl": 661.5838010000002,
+    "peak_equity": 98878.66717991703,
+    "day_start_equity": 98865.02,
     "daily_trades": 1
   },
   "positions": [
@@ -76,13 +76,13 @@
       "direction": "LONG",
       "quantity": 8.0,
       "entry_price": 343.46,
-      "current_price": 352.96,
-      "market_value": 2823.68,
+      "current_price": 352.27,
+      "market_value": 2818.16,
       "stop_loss": 345.6634409725934,
       "has_stop": true,
-      "unrealised_pnl": 76.0,
-      "unrealised_pnl_pct": 0.02765969836371048,
-      "distance_to_stop_pct": 0.020672481378645177,
+      "unrealised_pnl": 70.48000000000002,
+      "unrealised_pnl_pct": 0.02565073079834625,
+      "distance_to_stop_pct": 0.018754248239721247,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
@@ -95,13 +95,13 @@
       "direction": "LONG",
       "quantity": 5.0,
       "entry_price": 505.138,
-      "current_price": 482.615,
-      "market_value": 2413.075,
+      "current_price": 484.52,
+      "market_value": 2422.6,
       "stop_loss": 475.14,
       "has_stop": true,
-      "unrealised_pnl": -112.61500000000024,
-      "unrealised_pnl_pct": -0.044587815606824364,
-      "distance_to_stop_pct": 0.015488536411010894,
+      "unrealised_pnl": -103.09000000000015,
+      "unrealised_pnl_pct": -0.04081656893759731,
+      "distance_to_stop_pct": 0.019359365970444967,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
@@ -114,13 +114,13 @@
       "direction": "LONG",
       "quantity": 12.0,
       "entry_price": 232.1125,
-      "current_price": 267.82,
-      "market_value": 3213.84,
+      "current_price": 268.9399,
+      "market_value": 3227.2788,
       "stop_loss": 261.0941039220395,
       "has_stop": true,
-      "unrealised_pnl": 428.4899999999998,
-      "unrealised_pnl_pct": 0.15383704022833744,
-      "distance_to_stop_pct": 0.025113494428946677,
+      "unrealised_pnl": 441.9287999999997,
+      "unrealised_pnl_pct": 0.15866185578114048,
+      "distance_to_stop_pct": 0.029173046014966644,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
@@ -148,36 +148,17 @@
       "adopted": true
     },
     {
-      "symbol": "META",
-      "direction": "LONG",
-      "quantity": 4.0,
-      "entry_price": 613.27,
-      "current_price": 630.0,
-      "market_value": 2520.0,
-      "stop_loss": 628.88,
-      "has_stop": true,
-      "unrealised_pnl": 66.92000000000007,
-      "unrealised_pnl_pct": 0.027279990868622334,
-      "distance_to_stop_pct": 0.001777777777777785,
-      "regime_at_entry": "unknown",
-      "regime_current": "unknown",
-      "regime_changed": false,
-      "holding_periods": 1,
-      "held_for": "1d",
-      "adopted": true
-    },
-    {
       "symbol": "MSFT",
       "direction": "LONG",
       "quantity": 5.0,
       "entry_price": 509.68,
-      "current_price": 555.12,
-      "market_value": 2775.6,
+      "current_price": 555.815,
+      "market_value": 2779.0750000000003,
       "stop_loss": 539.1435849131699,
       "has_stop": true,
-      "unrealised_pnl": 227.19999999999982,
-      "unrealised_pnl_pct": 0.08915397896719503,
-      "distance_to_stop_pct": 0.028780110763132503,
+      "unrealised_pnl": 230.67500000000018,
+      "unrealised_pnl_pct": 0.09051757965782459,
+      "distance_to_stop_pct": 0.029994539706251475,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
@@ -190,13 +171,13 @@
       "direction": "LONG",
       "quantity": 3.0,
       "entry_price": 759.413333,
-      "current_price": 767.8,
-      "market_value": 2303.3999999999996,
+      "current_price": 768.48,
+      "market_value": 2305.44,
       "stop_loss": 760.66,
       "has_stop": true,
-      "unrealised_pnl": 25.16000099999974,
-      "unrealised_pnl_pct": 0.011043613057027947,
-      "distance_to_stop_pct": 0.009299296691846818,
+      "unrealised_pnl": 27.200001000000157,
+      "unrealised_pnl_pct": 0.01193904110714376,
+      "distance_to_stop_pct": 0.010175931709348388,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
@@ -233,10 +214,10 @@
       "locked_pct": 0.001642,
       "held_quantity": 3.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up.",
       "quantity": 3.0
@@ -254,7 +235,7 @@
       "stop_distance_pct": 0.054448,
       "stop_atr_mult": 1.508,
       "risk_dollars": 148.74,
-      "risk_pct_of_equity": 0.001505,
+      "risk_pct_of_equity": 0.001504,
       "trend": "above",
       "price_vs_ema50": 0.037772,
       "atr_pct": 0.036102,
@@ -268,10 +249,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -302,10 +283,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -336,10 +317,10 @@
       "locked_pct": 0.12486,
       "held_quantity": 12.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up.",
       "quantity": 12.0
@@ -371,10 +352,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -391,7 +372,7 @@
       "stop_distance_pct": -0.006415422385702552,
       "stop_atr_mult": 2.747,
       "risk_dollars": 187.39,
-      "risk_pct_of_equity": 0.001896,
+      "risk_pct_of_equity": 0.001895,
       "trend": "above",
       "price_vs_ema50": 0.057191,
       "atr_pct": 0.024073,
@@ -405,10 +386,10 @@
       "locked_pct": 0.006415,
       "held_quantity": 8.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up.",
       "quantity": 8.0
@@ -426,7 +407,7 @@
       "stop_distance_pct": -0.057808006814412734,
       "stop_atr_mult": 3.0,
       "risk_dollars": 221.39,
-      "risk_pct_of_equity": 0.00224,
+      "risk_pct_of_equity": 0.002239,
       "trend": "above",
       "price_vs_ema50": 0.083123,
       "atr_pct": 0.026646,
@@ -440,10 +421,10 @@
       "locked_pct": 0.057808,
       "held_quantity": 5.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up.",
       "quantity": 5.0
@@ -475,10 +456,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -509,10 +490,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -543,10 +524,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -577,10 +558,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -611,10 +592,10 @@
       "locked_pct": null,
       "held_quantity": 5.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up.",
       "quantity": 5.0
@@ -632,7 +613,7 @@
       "stop_distance_pct": 0.026338,
       "stop_atr_mult": 0.5,
       "risk_dollars": 76.47,
-      "risk_pct_of_equity": 0.000774,
+      "risk_pct_of_equity": 0.000773,
       "trend": "below",
       "price_vs_ema50": -0.072187,
       "atr_pct": 0.052675,
@@ -646,10 +627,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -666,7 +647,7 @@
       "stop_distance_pct": 0.019103,
       "stop_atr_mult": 0.5,
       "risk_dollars": 56.6,
-      "risk_pct_of_equity": 0.000573,
+      "risk_pct_of_equity": 0.000572,
       "trend": "below",
       "price_vs_ema50": -0.062017,
       "atr_pct": 0.038206,
@@ -680,10 +661,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -714,10 +695,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -748,10 +729,10 @@
       "locked_pct": null,
       "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
@@ -759,16 +740,16 @@
       "symbol": "META",
       "rank": 17,
       "approved": true,
-      "action": "hold",
+      "action": "buy",
       "conviction": 0.3091,
       "shares": 4.0,
       "notional": 2560.24,
-      "entry_price": 613.27,
-      "stop_loss": 628.88,
-      "stop_distance_pct": -0.025453715329300332,
+      "entry_price": 640.06,
+      "stop_loss": 628.8763,
+      "stop_distance_pct": 0.017473,
       "stop_atr_mult": 0.5,
       "risk_dollars": 44.73,
-      "risk_pct_of_equity": 0.000453,
+      "risk_pct_of_equity": 0.000452,
       "trend": "below",
       "price_vs_ema50": -0.034446,
       "atr_pct": 0.034946,
@@ -777,18 +758,17 @@
       "regime": "neutral",
       "regime_confidence": 0.7585,
       "volatility_rank": "low",
-      "held": true,
-      "locked_pnl": 62.44,
-      "locked_pct": 0.025454,
-      "held_quantity": 4.0,
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
-      "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up.",
-      "quantity": 4.0
+      "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up."
     },
     {
       "symbol": "BIL",
@@ -817,10 +797,10 @@
       "locked_pct": null,
       "held_quantity": 33.0,
       "rejection_reason": null,
-      "reason": "capped at 3% single position; leverage forced to 1.0x (7 positions open)",
+      "reason": "capped at 3% single position; leverage forced to 1.0x (6 positions open)",
       "modifications": [
         "capped at 3% single position",
-        "leverage forced to 1.0x (7 positions open)"
+        "leverage forced to 1.0x (6 positions open)"
       ],
       "reasoning": "Low volatility regime: fully invested at 95% with 1.25x leverage. Calm markets trend up.",
       "quantity": 33.0
@@ -875,23 +855,23 @@
       "max_risk_per_trade": 0.01
     },
     "drawdowns": {
-      "daily": -2.5291248965109148e-06,
-      "weekly": -2.5291248965109148e-06,
-      "from_peak": -0.00014054823246356651
+      "daily": 0.0,
+      "weekly": 0.0,
+      "from_peak": -0.00012942306244634327
     },
     "breaker_now": "none"
   },
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 51.49985399975776,
-    "model_age_days": 0.03154612783564815,
+    "api_latency_ms": 56.754038000235596,
+    "model_age_days": 0.042028233344907406,
     "paper": true,
     "mode": "live",
     "market_open": true,
     "bars_processed": 44,
     "consecutive_errors": 0,
-    "started_at": "2026-11-04T18:52:23.109870+00:00",
+    "started_at": "2026-11-04T19:07:28.584573+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -919,223 +899,223 @@
   "equity_history": [
     {
       "t": "2026-09-04",
-      "equity": 98862.05,
-      "peak": 98862.05
+      "equity": 98878.65,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-04",
-      "equity": 98862.05,
-      "peak": 98862.05
+      "equity": 98878.65,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-04",
-      "equity": 98862.05,
-      "peak": 98862.05
+      "equity": 98878.65,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-08",
-      "equity": 98861.81,
-      "peak": 98862.05
+      "equity": 98878.41,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-09",
-      "equity": 98861.81,
-      "peak": 98862.05
+      "equity": 98878.41,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-10",
-      "equity": 98848.29,
-      "peak": 98862.05
+      "equity": 98864.89,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-11",
-      "equity": 98848.03,
-      "peak": 98862.05
+      "equity": 98864.63,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-14",
-      "equity": 98848.03,
-      "peak": 98862.04
+      "equity": 98864.63,
+      "peak": 98878.64
     },
     {
       "t": "2026-09-15",
-      "equity": 98848.03,
-      "peak": 98862.05
+      "equity": 98864.63,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-16",
-      "equity": 98848.03,
-      "peak": 98862.04
+      "equity": 98864.63,
+      "peak": 98878.64
     },
     {
       "t": "2026-09-17",
-      "equity": 98848.03,
-      "peak": 98862.05
+      "equity": 98864.63,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-18",
-      "equity": 98848.04,
-      "peak": 98862.05
+      "equity": 98864.64,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-21",
-      "equity": 98848.04,
-      "peak": 98862.05
+      "equity": 98864.64,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-22",
-      "equity": 98848.42,
-      "peak": 98862.05
+      "equity": 98865.02,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-23",
-      "equity": 98848.42,
-      "peak": 98862.05
+      "equity": 98865.02,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-24",
-      "equity": 98848.42,
-      "peak": 98862.05
+      "equity": 98865.02,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-25",
-      "equity": 98848.42,
-      "peak": 98862.05
+      "equity": 98865.02,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-28",
-      "equity": 98848.42,
-      "peak": 98862.05
+      "equity": 98865.02,
+      "peak": 98878.65
     },
     {
       "t": "2026-09-29",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-09-30",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-01",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-02",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-05",
-      "equity": 98848.42,
-      "peak": 98862.05
+      "equity": 98865.02,
+      "peak": 98878.65
     },
     {
       "t": "2026-10-06",
-      "equity": 98848.42,
-      "peak": 98862.05
+      "equity": 98865.02,
+      "peak": 98878.65
     },
     {
       "t": "2026-10-07",
-      "equity": 98848.42,
-      "peak": 98862.05
+      "equity": 98865.02,
+      "peak": 98878.65
     },
     {
       "t": "2026-10-08",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-09",
-      "equity": 98848.42,
-      "peak": 98862.05
+      "equity": 98865.02,
+      "peak": 98878.65
     },
     {
       "t": "2026-10-12",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-13",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-14",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-15",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-16",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-19",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-20",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-21",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-22",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-23",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-26",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-27",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-28",
-      "equity": 98848.42,
-      "peak": 98862.07
+      "equity": 98865.02,
+      "peak": 98878.67
     },
     {
       "t": "2026-10-29",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-10-30",
-      "equity": 98848.42,
-      "peak": 98862.06
+      "equity": 98865.02,
+      "peak": 98878.66
     },
     {
       "t": "2026-11-02",
-      "equity": 98848.42,
-      "peak": 98862.07
+      "equity": 98865.02,
+      "peak": 98878.67
     },
     {
       "t": "2026-11-03",
-      "equity": 98848.42,
-      "peak": 98862.07
+      "equity": 98865.02,
+      "peak": 98878.67
     }
   ],
   "regime_history": [
@@ -1345,7 +1325,7 @@
   ],
   "freshness": {
     "bar_timestamp": "2026-11-04T00:00:00",
-    "bar_age_hours": 18.87,
+    "bar_age_hours": 19.13,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -1360,7 +1340,7 @@
       "state": "open",
       "label": "Market open",
       "detail": "Resting orders can fill now.",
-      "hours_until_change": 2.13
+      "hours_until_change": 1.87
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -3279,25 +3259,6 @@
     ],
     "open_positions": [
       {
-        "id": 92,
-        "symbol": "META",
-        "quantity": 4.0,
-        "entry_price": 613.27,
-        "entry_at": "2026-11-03T17:55:57+00:00",
-        "exit_price": null,
-        "exit_at": null,
-        "exit_reason": null,
-        "stop_price": 628.88,
-        "current_price": 630.0,
-        "unrealised_pnl": 66.92000000000007,
-        "realised_pnl": null,
-        "holding_days": 1,
-        "regime_at_entry": "unknown",
-        "locked_pnl": 62.44,
-        "locked_pct": 0.025454,
-        "trail_pct": 0.001778
-      },
-      {
         "id": 93,
         "symbol": "MSFT",
         "quantity": 5.0,
@@ -3307,14 +3268,14 @@
         "exit_at": null,
         "exit_reason": null,
         "stop_price": 539.1435849131699,
-        "current_price": 555.12,
-        "unrealised_pnl": 227.19999999999982,
+        "current_price": 555.815,
+        "unrealised_pnl": 230.67500000000018,
         "realised_pnl": null,
         "holding_days": 1,
         "regime_at_entry": "unknown",
         "locked_pnl": 147.32,
         "locked_pct": 0.057808,
-        "trail_pct": 0.02878
+        "trail_pct": 0.029995
       },
       {
         "id": 86,
@@ -3326,14 +3287,14 @@
         "exit_at": null,
         "exit_reason": null,
         "stop_price": 345.6634409725934,
-        "current_price": 352.96,
-        "unrealised_pnl": 76.0,
+        "current_price": 352.27,
+        "unrealised_pnl": 70.48000000000002,
         "realised_pnl": null,
         "holding_days": 1,
         "regime_at_entry": "unknown",
         "locked_pnl": 17.63,
         "locked_pct": 0.006415,
-        "trail_pct": 0.020672
+        "trail_pct": 0.018754
       },
       {
         "id": 87,
@@ -3345,14 +3306,14 @@
         "exit_at": null,
         "exit_reason": null,
         "stop_price": 475.14,
-        "current_price": 482.615,
-        "unrealised_pnl": -112.61500000000024,
+        "current_price": 484.52,
+        "unrealised_pnl": -103.09000000000015,
         "realised_pnl": null,
         "holding_days": 1,
         "regime_at_entry": "unknown",
         "locked_pnl": null,
         "locked_pct": null,
-        "trail_pct": 0.015489
+        "trail_pct": 0.019359
       },
       {
         "id": 90,
@@ -3364,14 +3325,14 @@
         "exit_at": null,
         "exit_reason": null,
         "stop_price": 760.66,
-        "current_price": 767.8,
-        "unrealised_pnl": 25.16000099999974,
+        "current_price": 768.48,
+        "unrealised_pnl": 27.200001000000157,
         "realised_pnl": null,
         "holding_days": 1,
         "regime_at_entry": "unknown",
         "locked_pnl": 3.74,
         "locked_pct": 0.001642,
-        "trail_pct": 0.009299
+        "trail_pct": 0.010176
       },
       {
         "id": 80,
@@ -3383,14 +3344,14 @@
         "exit_at": null,
         "exit_reason": null,
         "stop_price": 261.0941039220395,
-        "current_price": 267.82,
-        "unrealised_pnl": 428.4899999999998,
+        "current_price": 268.9399,
+        "unrealised_pnl": 441.9287999999997,
         "realised_pnl": null,
         "holding_days": 5,
         "regime_at_entry": "unknown",
         "locked_pnl": 347.78,
         "locked_pct": 0.12486,
-        "trail_pct": 0.025113
+        "trail_pct": 0.029173
       },
       {
         "id": 21,
@@ -3413,6 +3374,22 @@
       }
     ],
     "closed_positions": [
+      {
+        "id": 92,
+        "symbol": "META",
+        "quantity": 4.0,
+        "entry_price": 613.27,
+        "entry_at": "2026-11-03T17:55:57+00:00",
+        "exit_price": 628.6575,
+        "exit_at": "2026-11-04T18:55:04+00:00",
+        "exit_reason": "stop",
+        "stop_price": 628.8762873586205,
+        "current_price": 640.07,
+        "unrealised_pnl": 0.0,
+        "realised_pnl": 61.55000000000018,
+        "holding_days": 1,
+        "regime_at_entry": "unknown"
+      },
       {
         "id": 88,
         "symbol": "AVGO",
@@ -4809,7 +4786,7 @@
     "runs": [
       {
         "id": 187,
-        "started_at": "2026-11-04T18:52:23+00:00",
+        "started_at": "2026-11-04T19:07:28+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
@@ -5069,16 +5046,16 @@
       }
     ],
     "expectancy": {
-      "trades": 87,
-      "expectancy": -21.130574597701145,
-      "win_rate": 0.27586206896551724,
-      "avg_win": 106.43083458333338,
+      "trades": 88,
+      "expectancy": -20.19102261363636,
+      "win_rate": 0.2840909090909091,
+      "avg_win": 104.63560120000005,
       "avg_loss": -69.72539714285716
     },
     "locked": {
-      "locked_total": 578.91,
-      "locked_count": 5,
-      "n_positions": 7
+      "locked_total": 516.47,
+      "locked_count": 4,
+      "n_positions": 6
     }
   },
   "instruments": {
