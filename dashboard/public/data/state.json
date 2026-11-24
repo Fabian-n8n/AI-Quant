@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-11-23T22:06:53.930370+00:00",
-  "timestamp": "2026-11-23T22:06:53.927972+00:00",
+  "published_at": "2026-11-24T05:18:14.468253+00:00",
+  "timestamp": "2026-11-24T05:18:14.466580+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 173.44628099999682,
-    "model_age_days": 2.6346122685185183e-05,
+    "api_latency_ms": 62.002129999996214,
+    "model_age_days": 1.4817962962962964e-05,
     "paper": true,
     "mode": "live",
     "market_open": false,
-    "bars_processed": 57,
+    "bars_processed": 58,
     "consecutive_errors": 0,
-    "started_at": "2026-11-23T22:06:43.397488+00:00",
+    "started_at": "2026-11-24T05:18:04.321266+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -39,9 +39,9 @@
   },
   "regime": {
     "n_regimes": 7,
-    "model_trained": "2026-11-23T22:06:51.651676+00:00",
-    "model_age_days": 2.634667824074074e-05,
-    "regime": "weak_bear",
+    "model_trained": "2026-11-24T05:18:13.186315+00:00",
+    "model_age_days": 1.4818148148148149e-05,
+    "regime": "neutral",
     "confidence": 1.0,
     "confirmed": true,
     "consecutive_bars": 1,
@@ -51,13 +51,13 @@
     "is_flickering": false,
     "size_multiplier": 1.0,
     "volatility_rank": "high",
-    "raw_regime": "weak_bear",
+    "raw_regime": "neutral",
     "timestamp": "2026-11-23T00:00:00"
   },
   "portfolio": {
     "equity": 96568.15000000001,
     "cash": 93545.02,
-    "buying_power": 382644.83,
+    "buying_power": 382643.92,
     "daily_pnl": 0.0,
     "daily_pnl_pct": 0.0,
     "allocation": 0.0313056634097267,
@@ -84,9 +84,9 @@
       "unrealised_pnl_pct": 0.00010917030567698227,
       "distance_to_stop_pct": 0.004038860386420746,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "neutral",
       "regime_changed": false,
-      "holding_periods": 60,
+      "holding_periods": 61,
       "held_for": "60d",
       "adopted": true
     }
@@ -111,7 +111,7 @@
       "atr_pct": 0.021245,
       "return_20d": -0.056287,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -142,7 +142,7 @@
       "atr_pct": 0.032161,
       "return_20d": -0.085889,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -173,7 +173,7 @@
       "atr_pct": 0.023784,
       "return_20d": 0.015033,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -204,7 +204,7 @@
       "atr_pct": 0.034505,
       "return_20d": -0.075291,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -235,7 +235,7 @@
       "atr_pct": 0.08012,
       "return_20d": -0.23588,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -266,7 +266,7 @@
       "atr_pct": 0.041137,
       "return_20d": -0.052271,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -297,7 +297,7 @@
       "atr_pct": 0.040625,
       "return_20d": 0.025292,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -328,7 +328,7 @@
       "atr_pct": 0.042268,
       "return_20d": -0.109533,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -359,7 +359,7 @@
       "atr_pct": 0.101387,
       "return_20d": -0.146476,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -390,7 +390,7 @@
       "atr_pct": 0.050188,
       "return_20d": -0.01573,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -421,7 +421,7 @@
       "atr_pct": 0.063847,
       "return_20d": -0.047453,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -452,7 +452,7 @@
       "atr_pct": 0.061139,
       "return_20d": -0.198552,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -483,7 +483,7 @@
       "atr_pct": 0.083387,
       "return_20d": -0.318421,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -514,7 +514,7 @@
       "atr_pct": 0.105321,
       "return_20d": -0.249618,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -545,7 +545,7 @@
       "atr_pct": 0.009574,
       "return_20d": 0.000122,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -576,7 +576,7 @@
       "atr_pct": 0.005318,
       "return_20d": 0.005707,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -607,7 +607,7 @@
       "atr_pct": 0.02394,
       "return_20d": -0.094611,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -638,7 +638,7 @@
       "atr_pct": 0.016973,
       "return_20d": -0.138247,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": false,
@@ -669,7 +669,7 @@
       "atr_pct": 0.000273,
       "return_20d": -0.000436,
       "strategy": "",
-      "regime": "weak_bear",
+      "regime": "neutral",
       "regime_confidence": 1.0,
       "volatility_rank": "high",
       "held": true,
@@ -710,14 +710,14 @@
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 173.44628099999682,
-    "model_age_days": 2.6349814814814814e-05,
+    "api_latency_ms": 62.002129999996214,
+    "model_age_days": 1.4820625e-05,
     "paper": true,
     "mode": "live",
     "market_open": false,
-    "bars_processed": 57,
+    "bars_processed": 58,
     "consecutive_errors": 0,
-    "started_at": "2026-11-23T22:06:43.397488+00:00",
+    "started_at": "2026-11-24T05:18:04.321266+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -1027,6 +1027,11 @@
       "t": "2026-11-20",
       "equity": 96568.15,
       "peak": 96581.48
+    },
+    {
+      "t": "2026-11-23",
+      "equity": 96568.15,
+      "peak": 96581.48
     }
   ],
   "regime_history": [
@@ -1257,53 +1262,57 @@
     {
       "t": "2026-11-20",
       "regime": "neutral"
+    },
+    {
+      "t": "2026-11-23",
+      "regime": "neutral"
     }
   ],
   "regime_mix": [
     {
       "regime": "weak_bear",
       "bars": 18,
-      "pct": 0.3157894736842105
+      "pct": 0.3103448275862069
     },
     {
       "regime": "neutral",
-      "bars": 14,
-      "pct": 0.24561403508771928
+      "bars": 15,
+      "pct": 0.25862068965517243
     },
     {
       "regime": "strong_bull",
       "bars": 10,
-      "pct": 0.17543859649122806
+      "pct": 0.1724137931034483
     },
     {
       "regime": "weak_bull",
       "bars": 10,
-      "pct": 0.17543859649122806
+      "pct": 0.1724137931034483
     },
     {
       "regime": "strong_bear",
       "bars": 2,
-      "pct": 0.03508771929824561
+      "pct": 0.034482758620689655
     },
     {
       "regime": "crash",
       "bars": 1,
-      "pct": 0.017543859649122806
+      "pct": 0.017241379310344827
     },
     {
       "regime": "bull",
       "bars": 1,
-      "pct": 0.017543859649122806
+      "pct": 0.017241379310344827
     },
     {
       "regime": "bear",
       "bars": 1,
-      "pct": 0.017543859649122806
+      "pct": 0.017241379310344827
     }
   ],
   "freshness": {
     "bar_timestamp": "2026-11-23T00:00:00",
-    "bar_age_hours": 22.11,
+    "bar_age_hours": 29.3,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -1317,8 +1326,8 @@
     "session_state": {
       "state": "closed",
       "label": "Market closed",
-      "detail": "Opens in 16.4 hours. Orders rest until then.",
-      "hours_until_change": 16.39
+      "detail": "Opens in 9.2 hours. Orders rest until then.",
+      "hours_until_change": 9.2
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -3249,7 +3258,7 @@
         "current_price": 91.61,
         "unrealised_pnl": 0.330000000000382,
         "realised_pnl": null,
-        "holding_days": 60,
+        "holding_days": 61,
         "regime_at_entry": "unknown",
         "locked_pnl": null,
         "locked_pct": null,
@@ -4861,11 +4870,11 @@
     "runs": [
       {
         "id": 222,
-        "started_at": "2026-11-23T22:06:43+00:00",
+        "started_at": "2026-11-24T05:18:04+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
-        "trigger": "loop",
+        "trigger": "manual",
         "bars_processed": 0,
         "orders_submitted": 0,
         "regime": null,
