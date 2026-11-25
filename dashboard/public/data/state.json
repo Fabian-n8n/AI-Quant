@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-11-24T21:14:13.324807+00:00",
-  "timestamp": "2026-11-24T21:14:13.322566+00:00",
+  "published_at": "2026-11-25T04:09:46.848181+00:00",
+  "timestamp": "2026-11-25T04:09:46.846370+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 61.39369000015904,
-    "model_age_days": 0.02097219222222222,
+    "api_latency_ms": 170.483202000014,
+    "model_age_days": 2.8893865740740743e-05,
     "paper": true,
     "mode": "live",
     "market_open": false,
-    "bars_processed": 58,
+    "bars_processed": 59,
     "consecutive_errors": 0,
-    "started_at": "2026-11-24T21:14:10.370764+00:00",
+    "started_at": "2026-11-25T04:09:33.909666+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -38,11 +38,11 @@
     "timeframe": "1Day"
   },
   "regime": {
-    "n_regimes": 7,
-    "model_trained": "2026-11-24T20:44:01.325168+00:00",
-    "model_age_days": 0.020972192569444447,
+    "n_regimes": 6,
+    "model_trained": "2026-11-25T04:09:44.349947+00:00",
+    "model_age_days": 2.8894085648148148e-05,
     "regime": "weak_bear",
-    "confidence": 1.0,
+    "confidence": 0.9999172388593622,
     "confirmed": true,
     "consecutive_bars": 1,
     "flicker_rate": 0,
@@ -57,7 +57,7 @@
   "portfolio": {
     "equity": 96568.48000000001,
     "cash": 93545.02,
-    "buying_power": 382644.85,
+    "buying_power": 382647.62,
     "daily_pnl": 0.0,
     "daily_pnl_pct": 0.0,
     "allocation": 0.03130897369410805,
@@ -84,9 +84,9 @@
       "unrealised_pnl_pct": 0.00021834061135381412,
       "distance_to_stop_pct": 0.004147566033617219,
       "regime_at_entry": "unknown",
-      "regime_current": "unknown",
+      "regime_current": "weak_bear",
       "regime_changed": false,
-      "holding_periods": 61,
+      "holding_periods": 62,
       "held_for": "61d",
       "adopted": true
     }
@@ -112,7 +112,7 @@
       "return_20d": -0.066107,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -143,7 +143,7 @@
       "return_20d": -0.115286,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -174,7 +174,7 @@
       "return_20d": 0.020081,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -205,7 +205,7 @@
       "return_20d": -0.066249,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -236,7 +236,7 @@
       "return_20d": -0.287051,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -267,7 +267,7 @@
       "return_20d": -0.048969,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -298,7 +298,7 @@
       "return_20d": -0.0032,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -329,7 +329,7 @@
       "return_20d": -0.129546,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -360,7 +360,7 @@
       "return_20d": -0.26236,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -391,7 +391,7 @@
       "return_20d": -0.055907,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -422,7 +422,7 @@
       "return_20d": -0.120498,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -453,7 +453,7 @@
       "return_20d": -0.18895,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -484,7 +484,7 @@
       "return_20d": -0.364672,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -515,7 +515,7 @@
       "return_20d": -0.355372,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -541,12 +541,12 @@
       "risk_dollars": 0.0,
       "risk_pct_of_equity": 0.0,
       "trend": "above",
-      "price_vs_ema50": 0.009478,
-      "atr_pct": 0.009392,
-      "return_20d": -0.00196,
+      "price_vs_ema50": 0.009716,
+      "atr_pct": 0.00939,
+      "return_20d": -0.001715,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -577,7 +577,7 @@
       "return_20d": 0.005928,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -608,7 +608,7 @@
       "return_20d": -0.125792,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -639,7 +639,7 @@
       "return_20d": -0.136012,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": false,
       "locked_pnl": null,
@@ -670,7 +670,7 @@
       "return_20d": -0.000545,
       "strategy": "",
       "regime": "weak_bear",
-      "regime_confidence": 1.0,
+      "regime_confidence": 0.9999,
       "volatility_rank": "high",
       "held": true,
       "locked_pnl": null,
@@ -710,14 +710,14 @@
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 61.39369000015904,
-    "model_age_days": 0.02097219615740741,
+    "api_latency_ms": 170.483202000014,
+    "model_age_days": 2.8898368055555553e-05,
     "paper": true,
     "mode": "live",
     "market_open": false,
-    "bars_processed": 58,
+    "bars_processed": 59,
     "consecutive_errors": 0,
-    "started_at": "2026-11-24T21:14:10.370764+00:00",
+    "started_at": "2026-11-25T04:09:33.909666+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -1032,6 +1032,11 @@
       "t": "2026-11-23",
       "equity": 96568.48,
       "peak": 96581.81
+    },
+    {
+      "t": "2026-11-24",
+      "equity": 96568.48,
+      "peak": 96581.81
     }
   ],
   "regime_history": [
@@ -1266,53 +1271,57 @@
     {
       "t": "2026-11-23",
       "regime": "neutral"
+    },
+    {
+      "t": "2026-11-24",
+      "regime": "weak_bear"
     }
   ],
   "regime_mix": [
     {
       "regime": "weak_bear",
-      "bars": 18,
-      "pct": 0.3103448275862069
+      "bars": 19,
+      "pct": 0.3220338983050847
     },
     {
       "regime": "neutral",
       "bars": 15,
-      "pct": 0.25862068965517243
+      "pct": 0.2542372881355932
     },
     {
       "regime": "strong_bull",
       "bars": 10,
-      "pct": 0.1724137931034483
+      "pct": 0.1694915254237288
     },
     {
       "regime": "weak_bull",
       "bars": 10,
-      "pct": 0.1724137931034483
+      "pct": 0.1694915254237288
     },
     {
       "regime": "strong_bear",
       "bars": 2,
-      "pct": 0.034482758620689655
+      "pct": 0.03389830508474576
     },
     {
       "regime": "crash",
       "bars": 1,
-      "pct": 0.017241379310344827
+      "pct": 0.01694915254237288
     },
     {
       "regime": "bull",
       "bars": 1,
-      "pct": 0.017241379310344827
+      "pct": 0.01694915254237288
     },
     {
       "regime": "bear",
       "bars": 1,
-      "pct": 0.017241379310344827
+      "pct": 0.01694915254237288
     }
   ],
   "freshness": {
     "bar_timestamp": "2026-11-24T00:00:00",
-    "bar_age_hours": 21.24,
+    "bar_age_hours": 28.16,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -1326,8 +1335,8 @@
     "session_state": {
       "state": "closed",
       "label": "Market closed",
-      "detail": "Opens in 17.3 hours. Orders rest until then.",
-      "hours_until_change": 17.26
+      "detail": "Opens in 10.3 hours. Orders rest until then.",
+      "hours_until_change": 10.34
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -3258,7 +3267,7 @@
         "current_price": 91.62,
         "unrealised_pnl": 0.6600000000003092,
         "realised_pnl": null,
-        "holding_days": 61,
+        "holding_days": 62,
         "regime_at_entry": "unknown",
         "locked_pnl": null,
         "locked_pct": null,
@@ -4870,11 +4879,11 @@
     "runs": [
       {
         "id": 223,
-        "started_at": "2026-11-24T21:14:10+00:00",
+        "started_at": "2026-11-25T04:09:33+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
-        "trigger": "loop",
+        "trigger": "manual",
         "bars_processed": 0,
         "orders_submitted": 0,
         "regime": null,
