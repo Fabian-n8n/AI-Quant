@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-11-26T20:43:51.763656+00:00",
-  "timestamp": "2026-11-26T20:43:51.761276+00:00",
+  "published_at": "2026-11-26T20:58:57.421162+00:00",
+  "timestamp": "2026-11-26T20:58:57.418967+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 106.11136800025633,
-    "model_age_days": 0.04193056417824074,
+    "api_latency_ms": 113.87834800007113,
+    "model_age_days": 0.05241271333333334,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 60,
     "consecutive_errors": 0,
-    "started_at": "2026-11-26T20:43:48.175013+00:00",
+    "started_at": "2026-11-26T20:58:53.584386+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -40,7 +40,7 @@
   "regime": {
     "n_regimes": 6,
     "model_trained": "2026-11-26T19:43:28.960543+00:00",
-    "model_age_days": 0.041930564513888886,
+    "model_age_days": 0.05241271363425926,
     "regime": "weak_bear",
     "confidence": 1.0,
     "confirmed": true,
@@ -710,14 +710,14 @@
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 106.11136800025633,
-    "model_age_days": 0.04193056792824074,
+    "api_latency_ms": 113.87834800007113,
+    "model_age_days": 0.052412716666666664,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 60,
     "consecutive_errors": 0,
-    "started_at": "2026-11-26T20:43:48.175013+00:00",
+    "started_at": "2026-11-26T20:58:53.584386+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -1330,7 +1330,7 @@
   ],
   "freshness": {
     "bar_timestamp": "2026-11-25T00:00:00",
-    "bar_age_hours": 44.73,
+    "bar_age_hours": 44.98,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -1344,8 +1344,8 @@
     "session_state": {
       "state": "closed",
       "label": "Market closed",
-      "detail": "Opens in 17.8 hours. Orders rest until then.",
-      "hours_until_change": 17.77
+      "detail": "Opens in 17.5 hours. Orders rest until then.",
+      "hours_until_change": 17.52
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -4888,7 +4888,7 @@
     "runs": [
       {
         "id": 225,
-        "started_at": "2026-11-26T20:43:48+00:00",
+        "started_at": "2026-11-26T20:58:53+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
