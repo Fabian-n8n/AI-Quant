@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "source": "live",
-  "published_at": "2026-11-27T03:38:07.176174+00:00",
-  "timestamp": "2026-11-27T03:38:07.174314+00:00",
+  "published_at": "2026-11-27T19:31:50.647190+00:00",
+  "timestamp": "2026-11-27T19:31:50.645874+00:00",
   "session": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 200.85492199999067,
-    "model_age_days": 2.4758576388888887e-05,
+    "api_latency_ms": 100.94531599997936,
+    "model_age_days": 1.3936261574074075e-05,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 60,
     "consecutive_errors": 0,
-    "started_at": "2026-11-27T03:37:52.831527+00:00",
+    "started_at": "2026-11-27T19:31:43.271240+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -38,36 +38,36 @@
     "timeframe": "1Day"
   },
   "regime": {
-    "n_regimes": 6,
-    "model_trained": "2026-11-27T03:38:05.035183+00:00",
-    "model_age_days": 2.475869212962963e-05,
-    "regime": "unknown",
-    "confidence": 0.0,
-    "confirmed": false,
-    "consecutive_bars": 0,
+    "n_regimes": 7,
+    "model_trained": "2026-11-27T19:31:49.441787+00:00",
+    "model_age_days": 1.393644675925926e-05,
+    "regime": "weak_bear",
+    "confidence": 1.0,
+    "confirmed": true,
+    "consecutive_bars": 1,
     "flicker_rate": 0,
     "flicker_window": 20,
     "flicker_threshold": 4,
     "is_flickering": false,
     "size_multiplier": 1.0,
-    "volatility_rank": null,
-    "raw_regime": null,
-    "timestamp": null
+    "volatility_rank": "mid",
+    "raw_regime": "weak_bear",
+    "timestamp": "2026-11-27T00:00:00"
   },
   "portfolio": {
-    "equity": 96569.14,
+    "equity": 96569.96500000001,
     "cash": 93545.02,
-    "buying_power": 382648.54,
+    "buying_power": 382649.46,
     "daily_pnl": 0.0,
     "daily_pnl_pct": 0.0,
-    "allocation": 0.031315594194998526,
-    "target_allocation": null,
-    "leverage": 0.031315594194998526,
-    "gross_exposure": 0.031315594194998526,
+    "allocation": 0.03132386969385357,
+    "target_allocation": 0.6,
+    "leverage": 0.03132386969385357,
+    "gross_exposure": 0.03132386969385357,
     "n_positions": 1,
-    "unrealised_pnl": 1.3200000000001637,
-    "peak_equity": 96582.47026006576,
-    "day_start_equity": 96569.14,
+    "unrealised_pnl": 2.1450000000004366,
+    "peak_equity": 96583.29537394755,
+    "day_start_equity": 96569.96500000001,
     "daily_trades": 0
   },
   "positions": [
@@ -76,22 +76,613 @@
       "direction": "LONG",
       "quantity": 33.0,
       "entry_price": 91.6,
-      "current_price": 91.64,
-      "market_value": 3024.12,
+      "current_price": 91.665,
+      "market_value": 3024.945,
       "stop_loss": 91.24,
       "has_stop": true,
-      "unrealised_pnl": 1.3200000000001637,
-      "unrealised_pnl_pct": 0.0004366812227074778,
-      "distance_to_stop_pct": 0.00436490615451774,
+      "unrealised_pnl": 2.1450000000004366,
+      "unrealised_pnl_pct": 0.0007096069868997078,
+      "distance_to_stop_pct": 0.004636447935417131,
       "regime_at_entry": "unknown",
       "regime_current": "unknown",
       "regime_changed": false,
-      "holding_periods": 63,
-      "held_for": "63d",
+      "holding_periods": 64,
+      "held_for": "64d",
       "adopted": true
     }
   ],
-  "candidates": [],
+  "candidates": [
+    {
+      "symbol": "SPY",
+      "rank": 1,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.027717,
+      "atr_pct": 0.021073,
+      "return_20d": -0.053343,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "QQQ",
+      "rank": 2,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.054927,
+      "atr_pct": 0.032636,
+      "return_20d": -0.089957,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "AAPL",
+      "rank": 3,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "above",
+      "price_vs_ema50": 0.04614,
+      "atr_pct": 0.022935,
+      "return_20d": 0.0276,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "MSFT",
+      "rank": 4,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.03447,
+      "atr_pct": 0.033489,
+      "return_20d": -0.07034,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "NVDA",
+      "rank": 5,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.206993,
+      "atr_pct": 0.085701,
+      "return_20d": -0.295657,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "META",
+      "rank": 6,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.016003,
+      "atr_pct": 0.040469,
+      "return_20d": 0.007109,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "AMZN",
+      "rank": 7,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.006974,
+      "atr_pct": 0.041219,
+      "return_20d": 0.042373,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "GOOGL",
+      "rank": 8,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.105787,
+      "atr_pct": 0.042498,
+      "return_20d": -0.031217,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "AMD",
+      "rank": 9,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.169188,
+      "atr_pct": 0.106498,
+      "return_20d": -0.250486,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "TSLA",
+      "rank": 10,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "above",
+      "price_vs_ema50": 0.059769,
+      "atr_pct": 0.04921,
+      "return_20d": -0.008182,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "AVGO",
+      "rank": 11,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.076843,
+      "atr_pct": 0.06217,
+      "return_20d": -0.094667,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "PLTR",
+      "rank": 12,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.008001,
+      "atr_pct": 0.056337,
+      "return_20d": -0.12346,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "COIN",
+      "rank": 13,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.263015,
+      "atr_pct": 0.081105,
+      "return_20d": -0.333458,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "SMCI",
+      "rank": 14,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.231025,
+      "atr_pct": 0.10358,
+      "return_20d": -0.309904,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "TLT",
+      "rank": 15,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "above",
+      "price_vs_ema50": 0.005994,
+      "atr_pct": 0.010083,
+      "return_20d": -0.0027,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "IEF",
+      "rank": 16,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "above",
+      "price_vs_ema50": 0.006713,
+      "atr_pct": 0.00539,
+      "return_20d": 0.004493,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "GLD",
+      "rank": 17,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.083942,
+      "atr_pct": 0.024997,
+      "return_20d": -0.09271,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "DBC",
+      "rank": 18,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 0.0,
+      "stop_loss": null,
+      "stop_distance_pct": 0.0,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "below",
+      "price_vs_ema50": -0.057269,
+      "atr_pct": 0.016235,
+      "return_20d": -0.123665,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": false,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 0.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": ""
+    },
+    {
+      "symbol": "BIL",
+      "rank": 19,
+      "approved": false,
+      "action": "blocked",
+      "conviction": 0.0,
+      "shares": 0.0,
+      "notional": 0.0,
+      "entry_price": 91.6,
+      "stop_loss": 91.24,
+      "stop_distance_pct": 0.003930131004366806,
+      "stop_atr_mult": 0.0,
+      "risk_dollars": 0.0,
+      "risk_pct_of_equity": 0.0,
+      "trend": "above",
+      "price_vs_ema50": 0.001822,
+      "atr_pct": 0.000277,
+      "return_20d": 0.0,
+      "strategy": "",
+      "regime": "weak_bear",
+      "regime_confidence": 1.0,
+      "volatility_rank": "mid",
+      "held": true,
+      "locked_pnl": null,
+      "locked_pct": null,
+      "held_quantity": 33.0,
+      "rejection_reason": null,
+      "reason": "no signal: not enough history for this symbol",
+      "modifications": [],
+      "reasoning": "",
+      "quantity": 33.0
+    }
+  ],
   "risk": {
     "halted": false,
     "daily_tripped": "none",
@@ -119,14 +710,14 @@
   "system": {
     "data_feed_healthy": true,
     "broker_connected": true,
-    "api_latency_ms": 200.85492199999067,
-    "model_age_days": 2.475980324074074e-05,
+    "api_latency_ms": 100.94531599997936,
+    "model_age_days": 1.3938449074074076e-05,
     "paper": true,
     "mode": "live",
     "market_open": false,
     "bars_processed": 60,
     "consecutive_errors": 0,
-    "started_at": "2026-11-27T03:37:52.831527+00:00",
+    "started_at": "2026-11-27T19:31:43.271240+00:00",
     "symbols": [
       "SPY",
       "QQQ",
@@ -154,303 +745,303 @@
   "equity_history": [
     {
       "t": "2026-09-04",
-      "equity": 96582.45,
-      "peak": 96582.45
+      "equity": 96583.28,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-04",
-      "equity": 96582.45,
-      "peak": 96582.45
+      "equity": 96583.28,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-04",
-      "equity": 96582.45,
-      "peak": 96582.45
+      "equity": 96583.28,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-08",
-      "equity": 96582.21,
-      "peak": 96582.45
+      "equity": 96583.04,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-09",
-      "equity": 96582.21,
-      "peak": 96582.45
+      "equity": 96583.04,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-10",
-      "equity": 96569.03,
-      "peak": 96582.45
+      "equity": 96569.85,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-11",
-      "equity": 96568.78,
-      "peak": 96582.45
+      "equity": 96569.6,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-14",
-      "equity": 96568.78,
-      "peak": 96582.44
+      "equity": 96569.6,
+      "peak": 96583.27
     },
     {
       "t": "2026-09-15",
-      "equity": 96568.78,
-      "peak": 96582.45
+      "equity": 96569.6,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-16",
-      "equity": 96568.78,
-      "peak": 96582.44
+      "equity": 96569.6,
+      "peak": 96583.27
     },
     {
       "t": "2026-09-17",
-      "equity": 96568.78,
-      "peak": 96582.45
+      "equity": 96569.6,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-18",
-      "equity": 96568.79,
-      "peak": 96582.45
+      "equity": 96569.61,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-21",
-      "equity": 96568.79,
-      "peak": 96582.45
+      "equity": 96569.61,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-22",
-      "equity": 96569.14,
-      "peak": 96582.45
+      "equity": 96569.97,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-23",
-      "equity": 96569.14,
-      "peak": 96582.45
+      "equity": 96569.97,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-24",
-      "equity": 96569.14,
-      "peak": 96582.45
+      "equity": 96569.97,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-25",
-      "equity": 96569.14,
-      "peak": 96582.45
+      "equity": 96569.97,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-28",
-      "equity": 96569.14,
-      "peak": 96582.45
+      "equity": 96569.97,
+      "peak": 96583.28
     },
     {
       "t": "2026-09-29",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-09-30",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-01",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-02",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-05",
-      "equity": 96569.14,
-      "peak": 96582.45
+      "equity": 96569.97,
+      "peak": 96583.28
     },
     {
       "t": "2026-10-06",
-      "equity": 96569.14,
-      "peak": 96582.45
+      "equity": 96569.97,
+      "peak": 96583.28
     },
     {
       "t": "2026-10-07",
-      "equity": 96569.14,
-      "peak": 96582.45
+      "equity": 96569.97,
+      "peak": 96583.28
     },
     {
       "t": "2026-10-08",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-09",
-      "equity": 96569.14,
-      "peak": 96582.45
+      "equity": 96569.97,
+      "peak": 96583.28
     },
     {
       "t": "2026-10-12",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-13",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-14",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-15",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-16",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-19",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-20",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-21",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-22",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-23",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-26",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-27",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-28",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-10-29",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-10-30",
-      "equity": 96569.14,
-      "peak": 96582.46
+      "equity": 96569.97,
+      "peak": 96583.29
     },
     {
       "t": "2026-11-02",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-11-03",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-11-04",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-11-05",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-11-06",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-11-09",
-      "equity": 96569.14,
-      "peak": 96582.48
+      "equity": 96569.97,
+      "peak": 96583.31
     },
     {
       "t": "2026-11-10",
-      "equity": 96569.14,
-      "peak": 96582.48
+      "equity": 96569.97,
+      "peak": 96583.31
     },
     {
       "t": "2026-11-11",
-      "equity": 96569.14,
-      "peak": 96582.48
+      "equity": 96569.97,
+      "peak": 96583.31
     },
     {
       "t": "2026-11-12",
-      "equity": 96569.14,
-      "peak": 96582.48
+      "equity": 96569.97,
+      "peak": 96583.31
     },
     {
       "t": "2026-11-13",
-      "equity": 96569.14,
-      "peak": 96582.48
+      "equity": 96569.97,
+      "peak": 96583.31
     },
     {
       "t": "2026-11-16",
-      "equity": 96569.14,
-      "peak": 96582.48
+      "equity": 96569.97,
+      "peak": 96583.31
     },
     {
       "t": "2026-11-17",
-      "equity": 96569.14,
-      "peak": 96582.48
+      "equity": 96569.97,
+      "peak": 96583.31
     },
     {
       "t": "2026-11-18",
-      "equity": 96569.14,
-      "peak": 96582.48
+      "equity": 96569.97,
+      "peak": 96583.31
     },
     {
       "t": "2026-11-19",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-11-20",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-11-23",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-11-24",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     },
     {
       "t": "2026-11-25",
-      "equity": 96569.14,
-      "peak": 96582.47
+      "equity": 96569.97,
+      "peak": 96583.3
     }
   ],
   "regime_history": [
@@ -738,8 +1329,8 @@
     }
   ],
   "freshness": {
-    "bar_timestamp": null,
-    "bar_age_hours": null,
+    "bar_timestamp": "2026-11-27T00:00:00",
+    "bar_age_hours": 19.53,
     "timeframe": "1Day",
     "sip_delay_minutes": 16,
     "publish_cadence": "once per processed bar",
@@ -748,13 +1339,13 @@
   },
   "timing": {
     "market_open": false,
-    "next_open": "2026-11-27T09:30:00-05:00",
-    "next_close": "2026-11-27T13:00:00-05:00",
+    "next_open": "2026-11-30T09:30:00-05:00",
+    "next_close": "2026-11-30T16:00:00-05:00",
     "session_state": {
       "state": "closed",
       "label": "Market closed",
-      "detail": "Opens in 10.9 hours. Orders rest until then.",
-      "hours_until_change": 10.86
+      "detail": "Opens in 2.8 days. Orders rest until then.",
+      "hours_until_change": 66.97
     },
     "timeframe": "1Day",
     "acts_on": "the next session open",
@@ -2682,14 +3273,14 @@
         "exit_at": null,
         "exit_reason": null,
         "stop_price": 91.24,
-        "current_price": 91.64,
-        "unrealised_pnl": 1.3200000000001637,
+        "current_price": 91.665,
+        "unrealised_pnl": 2.1450000000004366,
         "realised_pnl": null,
-        "holding_days": 63,
+        "holding_days": 64,
         "regime_at_entry": "unknown",
         "locked_pnl": null,
         "locked_pct": null,
-        "trail_pct": 0.004365
+        "trail_pct": 0.004636
       }
     ],
     "closed_positions": [
@@ -4296,16 +4887,29 @@
     ],
     "runs": [
       {
-        "id": 225,
-        "started_at": "2026-11-27T03:37:52+00:00",
+        "id": 226,
+        "started_at": "2026-11-27T19:31:43+00:00",
         "finished_at": null,
         "status": "running",
         "mode": "paper",
-        "trigger": "manual",
+        "trigger": "loop",
         "bars_processed": 0,
         "orders_submitted": 0,
         "regime": null,
         "equity": null,
+        "error": null
+      },
+      {
+        "id": 225,
+        "started_at": "2026-11-27T03:37:52+00:00",
+        "finished_at": "2026-11-27T03:38:07+00:00",
+        "status": "ok",
+        "mode": "paper",
+        "trigger": "manual",
+        "bars_processed": 60,
+        "orders_submitted": 0,
+        "regime": "strong_bear",
+        "equity": 96569.14,
         "error": null
       },
       {
@@ -4540,19 +5144,6 @@
         "orders_submitted": 1,
         "regime": "strong_bull",
         "equity": 98593.42,
-        "error": null
-      },
-      {
-        "id": 206,
-        "started_at": "2026-11-12T18:27:09+00:00",
-        "finished_at": "2026-11-12T18:27:24+00:00",
-        "status": "ok",
-        "mode": "paper",
-        "trigger": "loop",
-        "bars_processed": 50,
-        "orders_submitted": 0,
-        "regime": "weak_bear",
-        "equity": 98614.26,
         "error": null
       }
     ],
